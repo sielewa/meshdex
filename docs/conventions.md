@@ -102,6 +102,12 @@ apps/<service>/src/
 - Enum-like columns (status, type) are text kept consistent by TS enums in code (no native PG `ENUM`: adding a value then needs a migration).
 - Unique violations: catch Postgres code `23505` in the repository and turn it into a domain result/exception.
 - Transactions: `db.transaction(async (tx) => ...)` inside one service. The outbox row is always written in the same transaction as the state change it describes.
+- Values read from the database are narrowed with checks, not `as` casts (e.g. `parseAssetVersionStatus`): unknown values mean corrupted data and fail loudly.
+
+## Dependencies (pnpm)
+
+- **Every NestJS app installs the same set of `@nestjs/*` packages at the same versions** (including `@nestjs/platform-express`). pnpm creates a separate copy of the same version of `@nestjs/core` for each set of its optional peers; when a shared dependency such as `nestjs-pino` ends up linked to another copy than the app, DI fails with `Nest can't resolve dependencies of the LoggerModule (…, ApplicationConfig, …)` because the two `ApplicationConfig` classes are different objects.
+- Shared packages declare frameworks as `peerDependencies` (ranges) so they use the app's copy.
 
 ## Tests
 

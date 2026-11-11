@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, type ConfigType } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { buildLoggerParams } from '@meshdex/shared';
+import { AssetsModule } from './assets/assets.module';
 import { allConfigNamespaces, loggerConfig } from './config/config.namespaces';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -21,6 +22,7 @@ import { HealthModule } from './health/health.module';
     }),
     DatabaseModule,
     HealthModule,
+    AssetsModule,
   ],
 })
 export class AppModule {}
