@@ -1,6 +1,18 @@
 # Roadmap
 
-Stages are done in order. A stage is finished when its "Done when" holds and `README.md`/`docs/` describe what exists.
+A stage is finished when its "Done when" holds and `README.md`/`docs/` describe what exists.
+
+## Current focus: end-to-end slice first
+
+Before the processing pipeline, the system gets a thin but complete slice across every layer, so it is usable and measurable early. Order:
+
+1. `asset-service` (gRPC) + `gateway` (GraphQL) — Stage 1
+2. `web`: upload with parallel parts and progress, asset grid, 3D viewer (R3F) — from Stage 5
+3. `ingest` with streaming/backpressure + **Experiments**: benchmark runs are recorded in the system and compared in the web UI (charts per configuration) — from Stage 4
+4. Minimal `ml-service`: CLIP embeddings of source preview images, text search, batch-size experiment — from Stage 5
+5. Docker images + kind + Helm for the services that exist — from Stage 3
+
+Then the remaining stages continue in order (processing worker with Kafka/outbox, KEDA, auth, cloud).
 
 ## Stage 1 — Skeleton & contracts
 
