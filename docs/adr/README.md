@@ -10,16 +10,14 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 002 | [SeaweedFS as the local S3 implementation](002-seaweedfs-as-local-s3.md)                            | accepted |
 | 003 | [Identifiers and time across service boundaries](003-identifiers-and-time-across-services.md)       | accepted |
 | 004 | [CommonJS for NestJS apps and shared packages](004-commonjs-for-nestjs-apps-and-shared-packages.md) | accepted |
+| 005 | [Database schema conventions](005-database-schema-conventions.md)                                   | accepted |
+| 006 | [Structured logging with pino](006-structured-logging-with-pino.md)                                 | accepted |
+| 007 | [Validation library per technology](007-validation-library-per-technology.md)                       | accepted |
 
 ## Pending decisions
 
 To be decided when first needed, then recorded as an ADR and removed from this list.
 
-- Drizzle column casing: camelCase columns (quoted in raw SQL) vs. snake_case columns with Drizzle's `casing: 'snake_case'` mapping.
-- Foreign keys inside one service's DB: yes vs. no (integrity in code only).
-- Where Drizzle table definitions live: next to the repository (`infrastructure/<table>.table.ts`) vs. one `src/database/schema.ts` per service.
-- Logger in `packages/shared`: pino (via nestjs-pino) vs. Nest `Logger` with a JSON formatter.
-- Config validation: zod vs. class-validator.
 - Kafka message payload: protobuf (same buf contracts, `buf breaking` covers events) vs. JSON with a schema.
 - Broker in the cloud (Stage 7): Redpanda on k3s (same as local, fits one EC2) vs. Apache Kafka via Strimzi on k3s (JVM, more memory) vs. Amazon MSK (managed, hourly broker cost).
 - CI and primary remote: GitHub + GitHub Actions vs. GitLab CI as primary with a mirror to GitHub (repo is hosted on GitHub; `architecture.md` currently says GitLab CI).

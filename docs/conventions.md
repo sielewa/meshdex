@@ -14,14 +14,17 @@ apps/<service>/src/
   config/             this service's config namespaces (`database.config.ts`, `kafka.config.ts`…),
                       validated at startup — see "Configuration"
   health/             liveness/readiness (gRPC health protocol / HTTP for web-facing apps)
+  database/
+    schema/           one file per table (`assets.table.ts`) + `index.ts`; shared by the
+                      service's modules (ADR 005)
   <feature>/
     <feature>.module.ts / .service.ts / .constants.ts
     <feature>.controller.ts   transport entry — gRPC `@GrpcMethod` (asset-service),
                               `<feature>.resolver.ts` (gateway), `<feature>.consumer.ts` (worker, Kafka)
     domain/          interfaces, enums, ports (`asset.interface.ts`, `asset-status.enum.ts`,
                      `object-storage-port.interface.ts`)
-    infrastructure/  Drizzle repositories named after their table (`assets.repository.ts`),
-                     adapters implementing ports (S3, gRPC clients)
+    infrastructure/  this module's Drizzle repositories, named after the table they query
+                     (`assets.repository.ts`), adapters implementing ports (S3, gRPC clients)
     exceptions/      `export class AssetNotFoundException extends Error {}`
     listeners/       in-process `@OnEvent('asset.status-changed')` handlers
     jobs/            `@Cron(...)` / interval loops (e.g. outbox relay)
@@ -34,6 +37,7 @@ apps/<service>/src/
 - **Thin transport layer:** controller/resolver/consumer maps input → calls the service → maps output and errors. No business logic there.
 - **Services never throw transport errors** (no `RpcException`, `GraphQLError`, HTTP exceptions). They throw domain exceptions (`extends Error`, message = text safe for the client). The transport layer maps them with `instanceof` checks, usually through a shared `private toRpcException(error)`: asset-service → gRPC status (`NOT_FOUND`, `INVALID_ARGUMENT`, `FAILED_PRECONDITION`, …); gateway → maps gRPC status to a GraphQL error with `extensions.code`. Unknown errors are rethrown as they are.
 - **External systems behind ports:** an injection token + interface in `domain/`, adapter in `infrastructure/`, picked by a `useFactory` from config and exported by the module (e.g. `OBJECT_STORAGE_PORT` → S3 adapter; AWS vs. local emulator is only a different endpoint). Unit tests use fakes of the port.
+- **Reads anywhere, aggregate writes in one place** (ADR 005): any module may read a table through its own repository, but writes that change an aggregate's state (e.g. asset version status transitions) go through the module responsible for that lifecycle.
 - **Repositories** only touch the DB and return domain interfaces; "not found" is `null` (`?? null`), never an exception. Method names: `findById`, `findAllByX`, `existsX`, `create`, `updateX`, `markX`, `deleteByX`. Writes that are part of a transaction take the transaction as the last parameter (`tx`).
 - **Background handlers** (listeners, jobs) never crash the process: `try/catch` + structured log with the relevant ids. **Kafka consumers are the exception:** they must not swallow errors — a failure goes through retry/backoff and then the DLQ, otherwise the offset is committed and the event is lost.
 - Event classes document their delivery guarantee in JSDoc (at-least-once ⇒ handlers are idempotent).
@@ -42,14 +46,15 @@ apps/<service>/src/
 
 - Each service has its own config and receives **only its own** env vars (separate ConfigMap/Secret per Deployment). No repo-wide config, no service reads another service's variables.
 - Config is split into namespaces (`database`, `kafka`, `s3`, `grpc`, `otel`…) registered with `@nestjs/config` `registerAs` and injected per module, so a module (and its test) only sees its own slice.
-- **Validated at startup, fail fast:** a missing or malformed variable crashes the boot with a clear message, so Kubernetes never routes traffic to a misconfigured pod. No `<string>process.env.X` casts.
+- **Validated at startup, fail fast:** a missing or malformed variable crashes the boot with a clear message, so Kubernetes never routes traffic to a misconfigured pod. No `<string>process.env.X` casts. Validation uses class-validator through `ConfigModule`'s `validate` hook (ADR 007).
 - `packages/shared` may hold config helpers and schemas for blocks every service repeats (Kafka, OTel), never values.
 - Every service has a `.env.example` listing all its variables.
 
 ## Logging
 
-- Structured JSON logs through the shared logger, never `console.*`. Every line carries the service name and the current `traceId`/`spanId`, so logs in Loki join traces in Tempo.
-- Log ids and states, never secrets, presigned URLs or tokens.
+- pino through nestjs-pino, configured once in `packages/shared` (ADR 006); never `console.*`. Every line is JSON with the service name and the current `traceId`/`spanId`, so logs in Loki join traces in Tempo.
+- Bind context once with `logger.child({ assetId })` instead of repeating it in messages.
+- Log ids and states, never secrets, presigned URLs or tokens; sensitive paths are also masked by pino's `redact`.
 
 ## Events: in-process vs. integration
 
@@ -90,8 +95,10 @@ apps/<service>/src/
 
 ## Database (Drizzle + PostgreSQL)
 
-- Schema and migrations live in the owning service; migrations are generated by drizzle-kit and reviewed by hand.
-- Table names snake_case, singular or plural by meaning: plural when there are many rows per context (`assets`, `asset_versions`), singular when one per context.
+- Schema and migrations live in the owning service; migrations are generated by drizzle-kit (`apps/<service>/drizzle/`) and reviewed by hand.
+- **snake_case in the database, camelCase in code** (ADR 005): Drizzle client and drizzle-kit both use `casing: 'snake_case'`, so `createdAt` in TypeScript is `created_at` in SQL.
+- **Foreign keys inside the service's database, never between services** (ADR 005); every foreign-key column has its own index.
+- Table names are plural or singular by meaning: plural when there are many rows per context (`assets`, `asset_versions`), singular when one per context.
 - Enum-like columns (status, type) are text kept consistent by TS enums in code (no native PG `ENUM`: adding a value then needs a migration).
 - Unique violations: catch Postgres code `23505` in the repository and turn it into a domain result/exception.
 - Transactions: `db.transaction(async (tx) => ...)` inside one service. The outbox row is always written in the same transaction as the state change it describes.
@@ -104,4 +111,4 @@ apps/<service>/src/
 
 ## ml-service (Python)
 
-Same layering: gRPC servicer (transport, maps domain exceptions to gRPC status) → service → repository; config read once from env in one module and validated at startup; structured logs with trace ids; type hints everywhere; pytest.
+Same layering: gRPC servicer (transport, maps domain exceptions to gRPC status) → service → repository; config read once from env with pydantic-settings and validated at startup (ADR 007); structured JSON logs with trace ids; type hints everywhere; pytest.
