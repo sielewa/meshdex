@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+  - tools/*
+
+# install a specific version ("1.4.0") instead of a range ("^1.4.0")
+saveExact: true
+
+# fail instead of warn when the Node version doesn't match "engines"
+engineStrict: true
+
+# only install versions published at least 7 days ago (value in minutes)
+minimumReleaseAge: 10080

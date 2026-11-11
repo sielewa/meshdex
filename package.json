@@ -1,0 +1,18 @@
+{
+  "name": "meshdex",
+  "private": true,
+  "description": "3D asset library with AI search",
+  "type": "module",
+  "author": "sielewa",
+  "engines": { 
+    "node": ">=24" 
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.18.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.18.0"
+}
