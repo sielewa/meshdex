@@ -59,4 +59,16 @@ export default defineConfig(
     files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    // JS config files inside apps/packages are CommonJS ("type": "commonjs", ADR 004);
+    // the repo root is ESM.
+    files: ['apps/**/*.js', 'packages/**/*.js', '**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { module: 'writable', require: 'readonly', __dirname: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 );
