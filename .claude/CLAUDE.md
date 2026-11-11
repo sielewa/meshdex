@@ -62,7 +62,10 @@ _(fill in as they are created)_
 ```
 pnpm install                                        # user only
 pnpm dev                                            # all services via turbo
-docker compose -f infra/docker/compose.yml up -d    # ask first
+pnpm lint / pnpm typecheck / pnpm format
+cp infra/docker/.env.example infra/docker/.env      # once, user
+docker compose -f infra/docker/compose.yml up -d    # ask first; Redpanda Console on :8088
+docker compose -f infra/docker/compose.yml down -v  # also wipes volumes (re-runs DB init), ask first
 pnpm --filter proto generate
 pnpm test
 ```
