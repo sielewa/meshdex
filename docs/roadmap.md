@@ -4,7 +4,7 @@ Stages are done in order. A stage is finished when its "Done when" holds and `RE
 
 ## Stage 1 — Skeleton & contracts
 
-- [ ] Monorepo, lint/format, `docker compose up` with Postgres, Redpanda, S3 emulator
+- [x] Monorepo, lint/format, `docker compose up` with Postgres, Redpanda, S3 emulator (SeaweedFS)
 - [ ] `packages/proto`: `asset/v1/asset.proto`, `ml/v1/ml.proto`; buf lint + generate
 - [ ] `asset-service`: CreateAsset, GetAsset(s), ListAssets, UpdateStatus; Drizzle schema + migrations
 - [ ] `gateway`: GraphQL schema (code-first) for assets; calls asset-service over gRPC
