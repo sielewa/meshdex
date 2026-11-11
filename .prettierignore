@@ -9,6 +9,7 @@ coverage/
 
 # generated code
 packages/proto/gen/
+apps/*/drizzle/meta/
 
 # user-owned Claude Code permissions (edited by hand only)
 .claude/settings.json
