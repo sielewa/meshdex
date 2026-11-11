@@ -30,18 +30,19 @@ Meshdex is a 3D asset library with AI search. Users upload 3D models (glTF/GLB).
 
 ## Services and data ownership
 
-| Service | Tech | Owns | Talks via |
-|---|---|---|---|
-| `web` | Next.js, React, R3F, TanStack Query, Tailwind | — | GraphQL → gateway |
-| `gateway` | NestJS, GraphQL code-first | Redis cache only | gRPC → asset, ml |
-| `asset-service` | NestJS, Drizzle, PostgreSQL | `assets`, `asset_versions`, `tags`, `outbox` | gRPC server; publishes events via outbox → Kafka |
-| `processing-worker` | Node.js (NestJS standalone or plain TS), glTF-Transform, Puppeteer | `processed_events` (idempotency) | consumes Kafka; S3; gRPC → asset, ml |
-| `ml-service` | Python, grpcio, open_clip, pgvector | `embeddings` | gRPC server |
-| `ingest` | Node.js CLI | — | S3 + gRPC → asset |
+| Service             | Tech                                                               | Owns                                         | Talks via                                        |
+| ------------------- | ------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------ |
+| `web`               | Next.js, React, R3F, TanStack Query, Tailwind                      | —                                            | GraphQL → gateway                                |
+| `gateway`           | NestJS, GraphQL code-first                                         | Redis cache only                             | gRPC → asset, ml                                 |
+| `asset-service`     | NestJS, Drizzle, PostgreSQL                                        | `assets`, `asset_versions`, `tags`, `outbox` | gRPC server; publishes events via outbox → Kafka |
+| `processing-worker` | Node.js (NestJS standalone or plain TS), glTF-Transform, Puppeteer | `processed_events` (idempotency)             | consumes Kafka; S3; gRPC → asset, ml             |
+| `ml-service`        | Python, grpcio, open_clip, pgvector                                | `embeddings`                                 | gRPC server                                      |
+| `ingest`            | Node.js CLI                                                        | —                                            | S3 + gRPC → asset                                |
 
 **Rule:** each service owns its database (separate logical DBs; one Postgres instance is fine locally). No cross-service table access. Consistency between services is eventual and event-driven.
 
 ## Event flow (happy path)
+
 1. `web` requests a presigned multipart upload URL from `gateway` → `asset-service`.
 2. Browser uploads the GLB directly to S3.
 3. `web` confirms upload → `asset-service` writes asset row **and** `asset.uploaded` event to `outbox` in **one transaction**.
@@ -51,7 +52,9 @@ Meshdex is a 3D asset library with AI search. Users upload 3D models (glTF/GLB).
 7. Search: `web` → `gateway` → `ml-service.Search(text)` → asset ids → `asset-service.GetAssets` → response.
 
 ## Microservice patterns
+
 Each one gets an ADR and a README section.
+
 - **Transactional outbox** (asset-service → Kafka)
 - **Idempotent consumers** (`processed_events` table)
 - **Retries with backoff + dead-letter topic** (`asset.events.v1.dlq`)
@@ -60,6 +63,7 @@ Each one gets an ADR and a README section.
 - **Distributed tracing** with OpenTelemetry across HTTP, gRPC and Kafka
 
 ## Tech stack
+
 - Monorepo: **pnpm workspaces + Turborepo**
 - Language: TypeScript (**strict**) everywhere except `ml-service` (Python 3.12). Pinned to **TypeScript 6.0.x**: TypeScript 7 (native compiler) has no classic JS compiler API yet, which typescript-eslint (`<6.1.0`) and the Nest CLI (`~6.0`) depend on. Revisit when they support 7.
 - Runtime: Node.js current LTS
@@ -74,6 +78,7 @@ Each one gets an ADR and a README section.
 - Dependencies pinned to exact versions (`.npmrc`)
 
 ## Deployment
+
 Every service is built into its own image (`turbo prune <app> --docker`), CI builds and pushes only the services affected by a change, and each service is deployed as its own Helm release. The same charts run locally on kind and in the cloud on k3s; only values differ.
 
 ## Repository layout
@@ -104,4 +109,5 @@ tools/
 ```
 
 ## Asset licensing
+
 **CC0** sources only (Poly Haven, Kenney, Quaternius, Khronos glTF Sample Assets with a per-model license check). `ATTRIBUTION.md` lists source and license per imported set. Never assets with NC/ND licenses.

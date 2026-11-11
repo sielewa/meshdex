@@ -3,12 +3,15 @@
 One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** (and the options considered), **Consequences**. Accepted ADRs are not rewritten; a changed decision gets a new ADR that supersedes the old one.
 
 ## Index
-| # | Decision | Status |
-|---|---|---|
+
+| #   | Decision                                                      | Status   |
+| --- | ------------------------------------------------------------- | -------- |
 | 001 | [k3s on EC2 instead of EKS](001-k3s-on-ec2-instead-of-eks.md) | accepted |
 
 ## Pending decisions
+
 To be decided when first needed, then recorded as an ADR and removed from this list.
+
 - Module system for NestJS apps and shared packages: CommonJS (Nest CLI and Jest default, least friction) vs. ESM (`nodenext`, matches the root `"type": "module"`).
 - Drizzle column casing: camelCase columns (quoted in raw SQL) vs. snake_case columns with Drizzle's `casing: 'snake_case'` mapping.
 - Primary keys: UUIDv7 vs. bigint identity.
