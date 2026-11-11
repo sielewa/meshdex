@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package meshdex.asset.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// AssetService owns asset metadata, versions and the upload/processing lifecycle.
+//
+// File bytes never pass through this service: the browser uploads them directly
+// to object storage with presigned multipart URLs, and the processing worker
+// reads and writes objects there itself. This service only hands out URLs and
+// records what is stored where.
+//
+// Ids are UUIDv7 strings; times are google.protobuf.Timestamp (ADR 003).
+service AssetService {
+  // Creates an asset with its first version in UPLOADING state and returns
+  // presigned URLs for every part of a multipart upload.
+  rpc InitiateUpload(InitiateUploadRequest) returns (InitiateUploadResponse);
+
+  // Returns fresh presigned URLs for selected parts, so a client can resume an
+  // interrupted upload or continue after the original URLs expired.
+  rpc GetUploadPartUrls(GetUploadPartUrlsRequest) returns (GetUploadPartUrlsResponse);
+
+  // Assembles the uploaded parts, moves the version to UPLOADED and records the
+  // `asset.uploaded` event in the outbox in the same transaction.
+  rpc CompleteUpload(CompleteUploadRequest) returns (CompleteUploadResponse);
+
+  // Cancels an unfinished upload and frees the parts already stored.
+  rpc AbortUpload(AbortUploadRequest) returns (AbortUploadResponse);
+
+  rpc GetAsset(GetAssetRequest) returns (GetAssetResponse);
+
+  // Fetches many assets in one call (search results, GraphQL DataLoader), so
+  // callers never loop over GetAsset (N+1).
+  rpc BatchGetAssets(BatchGetAssetsRequest) returns (BatchGetAssetsResponse);
+
+  // Cursor-paginated listing, newest first.
+  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+
+  // Called by the processing worker when it picks up a version (UPLOADED -> PROCESSING).
+  // Idempotent: repeating it for a version already in PROCESSING succeeds.
+  rpc StartProcessing(StartProcessingRequest) returns (StartProcessingResponse);
+
+  // Called by the processing worker with the outcome (PROCESSING -> READY or FAILED).
+  // Idempotent: repeating the same outcome succeeds; a conflicting one fails
+  // with FAILED_PRECONDITION.
+  rpc CompleteProcessing(CompleteProcessingRequest) returns (CompleteProcessingResponse);
+}
+
+// Lifecycle of one asset version. Allowed transitions:
+// UPLOADING -> UPLOADED -> PROCESSING -> READY | FAILED
+enum AssetVersionStatus {
+  // Never set by the server; the proto3 default for a missing value.
+  ASSET_VERSION_STATUS_UNSPECIFIED = 0;
+  // Row exists, the browser is uploading parts.
+  ASSET_VERSION_STATUS_UPLOADING = 1;
+  // All parts assembled; waiting for the worker.
+  ASSET_VERSION_STATUS_UPLOADED = 2;
+  ASSET_VERSION_STATUS_PROCESSING = 3;
+  // Optimized model and thumbnails are stored; the version is searchable.
+  ASSET_VERSION_STATUS_READY = 4;
+  ASSET_VERSION_STATUS_FAILED = 5;
+}
+
+message Asset {
+  string id = 1;
+  string title = 2;
+  repeated string tags = 3;
+  // The version shown to users. Its status is the asset's status.
+  AssetVersion current_version = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message AssetVersion {
+  string id = 1;
+  string asset_id = 2;
+  // 1, 2, 3… per asset.
+  int32 number = 3;
+  AssetVersionStatus status = 4;
+  // The file as uploaded (private; never served to browsers directly).
+  StoredObject original = 5;
+  // Set when READY.
+  StoredObject optimized = 6;
+  // Set when READY.
+  repeated Thumbnail thumbnails = 7;
+  // Set when READY.
+  ModelStats stats = 8;
+  // Set when FAILED; safe to show to the uploader.
+  string failure_reason = 9;
+  google.protobuf.Timestamp created_at = 10;
+  // Set when READY or FAILED.
+  google.protobuf.Timestamp processed_at = 11;
+}
+
+// A file in object storage. Callers turn `key` into a URL (CDN base URL for
+// public objects, presigned GET for private ones); the bucket is configuration.
+message StoredObject {
+  string key = 1;
+  int64 size_bytes = 2;
+  string content_type = 3;
+}
+
+message Thumbnail {
+  StoredObject object = 1;
+  int32 width = 2;
+  int32 height = 3;
+  // Camera preset used for the render, e.g. "front", "three-quarter".
+  string view = 4;
+}
+
+message ModelStats {
+  int64 triangle_count = 1;
+  int64 vertex_count = 2;
+  int32 mesh_count = 3;
+  int32 texture_count = 4;
+}
+
+message InitiateUploadRequest {
+  string title = 1;
+  repeated string tags = 2;
+  string file_name = 3;
+  // Only "model/gltf-binary" (.glb) is accepted.
+  string content_type = 4;
+  // Exact file size; the server derives the part size and part count from it
+  // and rejects files above its limit before any byte is uploaded.
+  int64 size_bytes = 5;
+}
+
+message InitiateUploadResponse {
+  string asset_id = 1;
+  string asset_version_id = 2;
+  // Every part except the last has exactly this size.
+  int64 part_size_bytes = 3;
+  repeated UploadPartUrl parts = 4;
+}
+
+message UploadPartUrl {
+  // 1-based, as in S3.
+  int32 part_number = 1;
+  // Presigned PUT URL for this part.
+  string url = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message GetUploadPartUrlsRequest {
+  string asset_version_id = 1;
+  // Parts to (re)sign. Empty means all parts.
+  repeated int32 part_numbers = 2;
+}
+
+message GetUploadPartUrlsResponse {
+  repeated UploadPartUrl parts = 1;
+}
+
+message CompleteUploadRequest {
+  string asset_version_id = 1;
+  // ETag returned by object storage for each uploaded part, in any order.
+  repeated CompletedPart parts = 2;
+}
+
+message CompletedPart {
+  int32 part_number = 1;
+  string etag = 2;
+}
+
+message CompleteUploadResponse {
+  Asset asset = 1;
+}
+
+message AbortUploadRequest {
+  string asset_version_id = 1;
+}
+
+message AbortUploadResponse {}
+
+message GetAssetRequest {
+  string asset_id = 1;
+}
+
+message GetAssetResponse {
+  Asset asset = 1;
+}
+
+message BatchGetAssetsRequest {
+  // At most 100 ids per call.
+  repeated string asset_ids = 1;
+}
+
+message BatchGetAssetsResponse {
+  // Found assets in the order of the request (search ranking is preserved).
+  repeated Asset assets = 1;
+  // Ids that don't exist (e.g. deleted while another service still knew them).
+  // Not an error: services are eventually consistent.
+  repeated string not_found_asset_ids = 2;
+}
+
+message ListAssetsRequest {
+  // Default 20, maximum 100.
+  int32 page_size = 1;
+  // `next_page_token` from the previous response; empty for the first page.
+  string page_token = 2;
+  // Empty means all statuses.
+  repeated AssetVersionStatus statuses = 3;
+  // Only assets with this tag; empty means any.
+  string tag = 4;
+}
+
+message ListAssetsResponse {
+  repeated Asset assets = 1;
+  // Opaque cursor; empty when there are no more pages.
+  string next_page_token = 2;
+}
+
+message StartProcessingRequest {
+  string asset_version_id = 1;
+}
+
+message StartProcessingResponse {
+  AssetVersion version = 1;
+}
+
+message CompleteProcessingRequest {
+  string asset_version_id = 1;
+  // Exactly one outcome.
+  oneof outcome {
+    ProcessingSucceeded succeeded = 2;
+    ProcessingFailed failed = 3;
+  }
+}
+
+message ProcessingSucceeded {
+  StoredObject optimized = 1;
+  repeated Thumbnail thumbnails = 2;
+  ModelStats stats = 3;
+}
+
+message ProcessingFailed {
+  string reason = 1;
+}
+
+message CompleteProcessingResponse {
+  AssetVersion version = 1;
+}

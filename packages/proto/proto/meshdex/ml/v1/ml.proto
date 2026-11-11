@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package meshdex.ml.v1;
+
+// EmbeddingService turns asset thumbnails into CLIP embeddings and answers
+// natural-language search queries against them (pgvector).
+//
+// Image bytes never travel over gRPC: callers pass object storage keys and the
+// service reads the images itself. Concurrent EmbedAsset calls are grouped
+// into one model batch inside the service (dynamic batching), so callers stay
+// simple and the model still sees efficient batch sizes.
+//
+// Ids are UUIDv7 strings (ADR 003).
+service EmbeddingService {
+  // Computes and stores embeddings for one asset version's thumbnails.
+  // Idempotent: repeating it replaces the stored embeddings; a call for an
+  // older version than the one already stored is ignored.
+  rpc EmbedAsset(EmbedAssetRequest) returns (EmbedAssetResponse);
+
+  // Returns asset ids ranked by similarity to a text query.
+  rpc SearchAssets(SearchAssetsRequest) returns (SearchAssetsResponse);
+}
+
+message EmbedAssetRequest {
+  string asset_id = 1;
+  string asset_version_id = 2;
+  // Per-asset version number; protects against out-of-order delivery
+  // (an older version arriving after a newer one must not overwrite it).
+  int32 version_number = 3;
+  // Object storage keys of the rendered thumbnails (PNG/WebP).
+  repeated string thumbnail_keys = 4;
+}
+
+message EmbedAssetResponse {
+  // Model identifier the embeddings were computed with, e.g. "ViT-B-32/laion2b_s34b_b79k".
+  string model = 1;
+  int32 dimensions = 2;
+  int32 embedded_images = 3;
+  // False when the call was ignored because a newer version is already stored.
+  bool applied = 4;
+}
+
+message SearchAssetsRequest {
+  // Natural-language query, e.g. "wooden industrial chair".
+  string query = 1;
+  // Default 20, maximum 100.
+  int32 limit = 2;
+}
+
+message SearchAssetsResponse {
+  // Best match first.
+  repeated SearchHit hits = 1;
+  string model = 2;
+}
+
+message SearchHit {
+  string asset_id = 1;
+  // Cosine similarity in [-1, 1]; higher is more similar.
+  float score = 2;
+}

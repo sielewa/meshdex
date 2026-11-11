@@ -11,3 +11,7 @@ engineStrict: true
 
 # only install versions published at least 7 days ago (value in minutes)
 minimumReleaseAge: 10080
+
+allowBuilds:
+  '@bufbuild/buf': false
+  protobufjs: false

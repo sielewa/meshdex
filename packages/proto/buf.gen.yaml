@@ -1,0 +1,25 @@
+# TypeScript generation for the NestJS services.
+#
+# Only local plugins: buf's remote plugins run on the Buf Schema Registry,
+# which would mean uploading our contracts to an external service.
+# Python code for ml-service is generated inside ml-service with grpcio-tools.
+version: v2
+inputs:
+  - directory: proto
+plugins:
+  - local: protoc-gen-ts_proto
+    out: gen/ts
+    opt:
+      # Typed controller/client interfaces + decorators for NestJS. At runtime
+      # NestJS loads the .proto files itself (@grpc/proto-loader) and does the
+      # encoding, so no encode/decode code is generated.
+      - nestJs=true
+      - outputEncodeMethods=false
+      - outputJsonMethods=false
+      - outputPartialMethods=false
+      - addGrpcMetadata=true
+      # Timestamps stay { seconds, nanos }; mappers convert them to ms (ADR 003).
+      - useDate=false
+      # int64 fields as `number` (sizes and counts stay far below 2^53).
+      - forceLong=number
+      - esModuleInterop=true

@@ -52,3 +52,6 @@ logs/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Generated code (regenerated from .proto on build)
+packages/proto/gen/

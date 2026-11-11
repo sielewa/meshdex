@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Emits CommonJS because this package's package.json has "type": "commonjs",
+    // like the NestJS apps that consume it (pending decision in docs/adr/README.md).
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": "gen/ts",
+    "outDir": "dist",
+    "types": []
+  },
+  "include": ["gen/ts/**/*.ts"]
+}
