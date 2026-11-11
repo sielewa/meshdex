@@ -23,6 +23,7 @@ To be decided when first needed, then recorded as an ADR and removed from this l
 - Config validation: zod vs. class-validator.
 - Kafka message payload: protobuf (same buf contracts, `buf breaking` covers events) vs. JSON with a schema.
 - Generated proto TS code: committed vs. generated in CI/on install.
+- Broker in the cloud (Stage 7): Redpanda on k3s (same as local, fits one EC2) vs. Apache Kafka via Strimzi on k3s (JVM, more memory) vs. Amazon MSK (managed, hourly broker cost).
 - CI and primary remote: GitHub + GitHub Actions vs. GitLab CI as primary with a mirror to GitHub (repo is hosted on GitHub; `architecture.md` currently says GitLab CI).
 - Python tooling for `ml-service` (package manager, linter, type checker).
 - Helm layout: one chart per service vs. one shared library chart + per-service values.

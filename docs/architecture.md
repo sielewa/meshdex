@@ -67,7 +67,7 @@ Each one gets an ADR and a README section.
 - Monorepo: **pnpm workspaces + Turborepo**
 - Language: TypeScript (**strict**) everywhere except `ml-service` (Python 3.12). Pinned to **TypeScript 6.0.x**: TypeScript 7 (native compiler) has no classic JS compiler API yet, which typescript-eslint (`<6.1.0`) and the Nest CLI (`~6.0`) depend on. Revisit when they support 7.
 - Runtime: Node.js current LTS
-- Broker: **Kafka** (Redpanda locally — Kafka API compatible, single container)
+- Broker: **Kafka protocol**, served by **Redpanda** (Kafka API compatible, single binary) locally and in kind; the cloud broker is a pending decision. Services only use standard Kafka clients, so the broker is swappable.
 - DB: **PostgreSQL** + **pgvector**; ORM **Drizzle** (SQL-close, pgvector support); migrations per service
 - Object storage: **AWS S3**; locally **SeaweedFS** with its S3 gateway ([ADR 002](adr/002-seaweedfs-as-local-s3.md)). Code always uses the AWS SDK with the endpoint from config.
 - Proto tooling: **buf** (lint, breaking, generate); TS codegen with `ts-proto`
