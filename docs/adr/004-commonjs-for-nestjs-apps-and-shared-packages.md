@@ -1,6 +1,6 @@
 # ADR 004: CommonJS for NestJS apps and shared packages
 
-- **Status:** accepted
+- **Status:** accepted, amended by [ADR 008](008-commonjs-apps-on-esm-only-nestjs-12.md) (NestJS 12 is ESM-only)
 - **Date:** 2026-11-11
 
 ## Context

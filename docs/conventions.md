@@ -91,7 +91,7 @@ apps/<service>/src/
 - Imports: absolute `src/...` between modules, relative within a module; workspace packages by their package name.
 - Comments: `/** ... */` above classes, methods and fields explaining **why** (invariants, ordering, idempotency, trade-offs), not what. Magic numbers become named `private readonly` fields or live in `<feature>.constants.ts`.
 - Time ([ADR 003](adr/003-identifiers-and-time-across-services.md)): compute on ms timestamps (`number`), convert only at boundaries — `google.protobuf.Timestamp` in proto (shared helper), `timestamptz` (UTC) in the DB. Date columns end with `At` (`createdAt`, `processedAt`).
-- Ids ([ADR 003](adr/003-identifiers-and-time-across-services.md)): UUIDv7 generated in the app when the id leaves the service or is needed before INSERT; natural keys where the data has one; `bigint` identity only for ids that never leave the table. Random tokens: `crypto.randomInt()` / `crypto.randomBytes()`.
+- Ids ([ADR 003](adr/003-identifiers-and-time-across-services.md)): UUIDv7 generated in the app when the id leaves the service or is needed before INSERT; natural keys where the data has one; `bigint` identity for ids that never leave the service — including surrogate keys referenced only by the service's own tables, where a compact key keeps large join tables small (e.g. `tags.id` in `asset_tags`; the API uses tag names). Random tokens: `crypto.randomInt()` / `crypto.randomBytes()`.
 
 ## Database (Drizzle + PostgreSQL)
 
@@ -106,6 +106,7 @@ apps/<service>/src/
 ## Tests
 
 - Unit specs next to the file (`assets.service.spec.ts`). Build the class directly with `jest.fn()` fakes cast `as unknown as X` — no Nest `TestingModule` for unit tests.
+- NestJS 12 is ESM-only, so every app's `test` script runs Jest with `NODE_OPTIONS=--experimental-vm-modules` (ADR 008).
 - Integration tests (Testcontainers: Postgres, Redpanda, S3 emulator) live in the app's `test/` directory.
 - Test names are English sentences describing behaviour (`it('writes the asset and its outbox event in one transaction')`).
 
