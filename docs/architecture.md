@@ -69,7 +69,7 @@ Each one gets an ADR and a README section.
 - Runtime: Node.js current LTS
 - Broker: **Kafka** (Redpanda locally — Kafka API compatible, single container)
 - DB: **PostgreSQL** + **pgvector**; ORM **Drizzle** (SQL-close, pgvector support); migrations per service
-- Object storage: **AWS S3**; locally an S3-compatible emulator (LocalStack or MinIO — whichever image currently works; S3 SDK with custom endpoint via env)
+- Object storage: **AWS S3**; locally **SeaweedFS** with its S3 gateway ([ADR 002](adr/002-seaweedfs-as-local-s3.md)). Code always uses the AWS SDK with the endpoint from config.
 - Proto tooling: **buf** (lint, breaking, generate); TS codegen with `ts-proto`
 - Testing: Jest + Supertest (Node), Testcontainers (integration), pytest (ml), Playwright (web E2E)
 - Observability: OpenTelemetry SDK → Prometheus + Grafana (+ Tempo for traces, Loki for logs)

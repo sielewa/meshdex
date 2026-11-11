@@ -4,9 +4,10 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 
 ## Index
 
-| #   | Decision                                                      | Status   |
-| --- | ------------------------------------------------------------- | -------- |
-| 001 | [k3s on EC2 instead of EKS](001-k3s-on-ec2-instead-of-eks.md) | accepted |
+| #   | Decision                                                                 | Status   |
+| --- | ------------------------------------------------------------------------ | -------- |
+| 001 | [k3s on EC2 instead of EKS](001-k3s-on-ec2-instead-of-eks.md)            | accepted |
+| 002 | [SeaweedFS as the local S3 implementation](002-seaweedfs-as-local-s3.md) | accepted |
 
 ## Pending decisions
 
