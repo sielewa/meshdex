@@ -62,7 +62,7 @@ apps/<service>/src/
 - **`packages/proto` is the only shared contract** between services. It describes interfaces, not implementation, so sharing it doesn't couple deployments as long as changes stay backward compatible.
 - Each proto package has one owner: `meshdex.asset.v1` belongs to asset-service, `meshdex.ml.v1` to ml-service.
 - Evolution rules: only additive changes within `v1` (new fields/RPCs); never change or reuse a field number or type, `reserved` removed fields; a breaking change means a new `v2` package served alongside `v1` until clients move. `buf breaking` guards this in CI.
-- Generated types stop at the transport layer: controllers/clients map proto messages ⇄ domain interfaces, so a contract change doesn't ripple through services and repositories. Generated code is never edited by hand.
+- Generated types stop at the transport layer: controllers/clients map proto messages ⇄ domain interfaces, so a contract change doesn't ripple through services and repositories. Generated code is never edited by hand and **never committed**: `.proto` files are the only source of truth, `@meshdex/proto`'s `build` regenerates `gen/` (Turbo builds it before any dependent app, also for `dev`). Only local buf plugins — remote plugins would upload the contracts to the Buf Schema Registry.
 - **`packages/shared` holds infrastructure only** (logger, OTel setup, config helpers, error/status mapping helpers), never domain types or business logic: shared domain code would force all services to be redeployed together (a distributed monolith).
 
 ## Service runtime (every service)
