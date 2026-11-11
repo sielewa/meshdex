@@ -31,14 +31,17 @@ Stages are done in order. A stage is finished when its "Done when" holds and `RE
 ## Stage 4 — Ingest & benchmarks
 
 - [ ] `ingest` CLI: bulk import from Poly Haven API (CC0) and/or Kenney/Quaternius packs; streaming, bounded concurrency, backpressure, resumable
-- [ ] Benchmarks in `docs/benchmarks/`: throughput & memory vs concurrency; buffered vs streamed; worker replicas (KEDA, inside kind with resource limits) vs processing time. Methodology + environment description + raw results + conclusions.
+- [ ] Bulk DB loading: row-by-row vs. batched inserts vs. `COPY` when importing thousands of assets
+- [ ] Benchmarks in `docs/benchmarks/`: throughput & memory vs concurrency; buffered vs streamed; worker replicas (KEDA, inside kind with resource limits) vs processing time; DB loading methods. Methodology (warm-up, repeated runs, p50/p95/p99, variance) + environment description + raw results + conclusions.
 - **Done when:** README links a benchmark report with real numbers measured in the Kubernetes environment.
 
 ## Stage 5 — ML search + minimal web
 
-- [ ] `ml-service`: CLIP image + text embeddings, pgvector search, batching; benchmark batch size vs latency
+- [ ] `ml-service`: CLIP image + text embeddings, pgvector search, batched `Embed`; benchmark batch size vs latency
+- [ ] Reindex job as a data-loading pipeline: thumbnails streamed from S3 with prefetch, parallel decode/resize, batching into the model; benchmark throughput vs workers / batch size / prefetch depth and identify the bottleneck (I/O, decode or model)
+- [ ] Search quality evaluation: small labelled query set, recall@k, two CLIP models and two pgvector index types (HNSW vs IVFFlat) compared on recall vs latency; reproducible with one command, report in `docs/benchmarks/`
 - [ ] `web`: search page, asset grid with thumbnails, 3D viewer (R3F), upload with progress
-- **Done when:** text search returns relevant models in the UI.
+- **Done when:** text search returns relevant models in the UI, and the reindex and evaluation reports have real numbers.
 
 ## Stage 6 — Fullstack polish
 

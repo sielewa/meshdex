@@ -10,12 +10,13 @@ Code, comments, commit messages and docs are in English. Always talk to the user
 
 This file holds only rules for every task. Details live in `docs/`; I read the relevant file before working on it:
 
-| File                   | Contents                                                                                        | Read before                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `docs/architecture.md` | services, data ownership, event flow, patterns, tech stack, repo layout, licensing              | touching more than one service, adding a service, choosing a library |
-| `docs/roadmap.md`      | stages with tasks and "done when"                                                               | starting any task (I tick boxes when done)                           |
-| `docs/conventions.md`  | module layout, layers and errors, config, logging, events, contracts, runtime, style, DB, tests | writing or reviewing code                                            |
-| `docs/adr/README.md`   | ADR index and pending decisions                                                                 | any architectural choice                                             |
+| File                      | Contents                                                                                          | Read before                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `docs/architecture.md`    | services, data ownership, event flow, patterns, tech stack, repo layout, licensing                | touching more than one service, adding a service, choosing a library                         |
+| `docs/roadmap.md`         | stages with tasks and "done when"                                                                 | starting any task (I tick boxes when done)                                                   |
+| `docs/conventions.md`     | module layout, layers and errors, config, logging, events, contracts, runtime, style, DB, tests   | writing or reviewing code                                                                    |
+| `docs/adr/README.md`      | ADR index and pending decisions                                                                   | any architectural choice                                                                     |
+| `docs/data-processing.md` | data loading/processing techniques used, why, and their benchmarks (I add an entry with the code) | any work on uploads, ingest, worker, DB bulk paths, ML pipelines or contracts that move data |
 
 New lasting knowledge goes into the matching doc, not here. I change this file only for rules that apply to every session. Never secrets, no duplicates.
 

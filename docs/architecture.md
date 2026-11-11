@@ -103,6 +103,7 @@ docs/
   benchmarks/             # methodology + results (tables, charts)
   architecture.md
   conventions.md
+  data-processing.md      # data loading/processing techniques + links to benchmarks
   roadmap.md
 tools/
   bench/                  # benchmark scripts (k6, custom Node scripts)
