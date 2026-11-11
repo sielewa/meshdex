@@ -9,6 +9,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 
 ## Pending decisions
 To be decided when first needed, then recorded as an ADR and removed from this list.
+- Module system for NestJS apps and shared packages: CommonJS (Nest CLI and Jest default, least friction) vs. ESM (`nodenext`, matches the root `"type": "module"`).
 - Drizzle column casing: camelCase columns (quoted in raw SQL) vs. snake_case columns with Drizzle's `casing: 'snake_case'` mapping.
 - Primary keys: UUIDv7 vs. bigint identity.
 - Foreign keys inside one service's DB: yes vs. no (integrity in code only).

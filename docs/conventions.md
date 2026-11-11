@@ -21,7 +21,7 @@ apps/<service>/src/
                      `object-storage-port.interface.ts`)
     infrastructure/  Drizzle repositories named after their table (`assets.repository.ts`),
                      adapters implementing ports (S3, gRPC clients)
-    exceptions/      `export class AssetNotFoundException extends Error {};`
+    exceptions/      `export class AssetNotFoundException extends Error {}`
     listeners/       in-process `@OnEvent('asset.status-changed')` handlers
     jobs/            `@Cron(...)` / interval loops (e.g. outbox relay)
     events/          event classes
@@ -67,9 +67,10 @@ apps/<service>/src/
 - No transactions across services; cross-service consistency comes from the outbox + idempotent consumers.
 
 ## Style
-- Prettier (`singleQuote`, `trailingComma: all`), 2-space indent.
-- Semicolons after class, interface and enum declarations (`};`).
-- Multi-line parameter lists (one parameter per line, trailing comma) as soon as a signature has more than one parameter or doesn't fit; same for constructor DI (`private readonly`, one per line) and `@Module` arrays (one item per line).
+- **Formatting is Prettier's job** (`singleQuote`, `trailingComma: all`, `printWidth: 100`, 2-space indent). Never hand-format against it; `pnpm format` before handing over.
+- **ESLint checks code quality only** (`eslint.config.js`: typescript-eslint `strictTypeChecked` with type-aware rules, `no-console`, `eqeqeq`, `curly`, explicit types on exported APIs). No `eslint-disable` without a comment saying why.
+- No `import type` for classes injected by NestJS DI: constructor parameter types must stay runtime imports (`emitDecoratorMetadata`).
+- Constructor DI with `private readonly`.
 - Guard clauses with early `return`/`throw`; blank line after an `if` block and before the final `return`.
 - Explicit return types on all public methods (`Promise<void>`, `Promise<Asset | null>`).
 - TypeScript strict: no `any` (use `unknown` + narrowing), `null` spelled out in types.
