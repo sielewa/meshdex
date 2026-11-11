@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.turbo/
+.claude-workdir/
+
+# generated code
+packages/proto/gen/
+
+# user-owned Claude Code permissions (edited by hand only)
+.claude/settings.json

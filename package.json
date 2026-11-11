@@ -4,8 +4,17 @@
   "description": "3D asset library with AI search",
   "type": "module",
   "author": "sielewa",
-  "engines": { 
-    "node": ">=24" 
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "turbo run typecheck"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "devEngines": {
     "packageManager": {
@@ -14,5 +23,14 @@
       "onFail": "download"
     }
   },
-  "packageManager": "pnpm@12.18.0"
+  "packageManager": "pnpm@12.18.0",
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.10",
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
 }
