@@ -85,8 +85,8 @@ apps/<service>/src/
 - Enums: `UPPER_CASE = 'lower_case'` string values.
 - Imports: absolute `src/...` between modules, relative within a module; workspace packages by their package name.
 - Comments: `/** ... */` above classes, methods and fields explaining **why** (invariants, ordering, idempotency, trade-offs), not what. Magic numbers become named `private readonly` fields or live in `<feature>.constants.ts`.
-- Time: compute on ms timestamps (`number`), convert only at boundaries (DB, proto). DB stores UTC (`timestamptz`); date columns end with `At` (`createdAt`, `processedAt`).
-- Random ids/tokens: `crypto.randomUUID()` / `crypto.randomInt()`.
+- Time ([ADR 003](adr/003-identifiers-and-time-across-services.md)): compute on ms timestamps (`number`), convert only at boundaries — `google.protobuf.Timestamp` in proto (shared helper), `timestamptz` (UTC) in the DB. Date columns end with `At` (`createdAt`, `processedAt`).
+- Ids ([ADR 003](adr/003-identifiers-and-time-across-services.md)): UUIDv7 generated in the app when the id leaves the service or is needed before INSERT; natural keys where the data has one; `bigint` identity only for ids that never leave the table. Random tokens: `crypto.randomInt()` / `crypto.randomBytes()`.
 
 ## Database (Drizzle + PostgreSQL)
 
