@@ -1,6 +1,7 @@
 import { defaultShouldDehydrateQuery, QueryClient } from '@tanstack/react-query';
 import { GraphqlRequestError } from '@/graphql/graphql-request-error';
 import { RETRYABLE_ERROR_CODES } from '@/graphql/graphql.constants';
+import { DEFAULT_STALE_TIME_MS } from './query-client.constants';
 
 const MAX_RETRIES = 2;
 
@@ -13,9 +14,7 @@ export function makeQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Data rendered on the server counts as fresh for a while, so the browser doesn't
-        // refetch it right after hydration.
-        staleTime: 30_000,
+        staleTime: DEFAULT_STALE_TIME_MS,
         retry: (failureCount, error) => failureCount < MAX_RETRIES && isRetryable(error),
       },
       dehydrate: {

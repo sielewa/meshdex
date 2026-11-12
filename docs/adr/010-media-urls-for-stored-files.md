@@ -1,6 +1,6 @@
 # ADR 010: Media URLs for stored files
 
-- **Status:** accepted (implementation planned with the web asset page)
+- **Status:** accepted; originals implemented (`GetOriginalDownloadUrls`, `AssetVersion.originalDownloadUrl`), public derivative URLs come with the processing worker
 - **Date:** 2026-11-12
 
 ## Context

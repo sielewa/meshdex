@@ -11,5 +11,6 @@ export default defineConfig({
     // Components render into a DOM; plain modules don't mind it.
     environment: 'jsdom',
     include: ['src/**/*.spec.{ts,tsx}'],
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

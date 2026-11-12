@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { AssetsPageQuery } from '@/graphql/gql/graphql';
 import { formatBytes } from '@/lib/format-bytes';
@@ -8,7 +9,10 @@ type AssetListItem = AssetsPageQuery['assets']['nodes'][number];
 
 export function AssetCard({ asset }: { asset: AssetListItem }): ReactNode {
   return (
-    <article className="flex flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
+    <Link
+      href={`/assets/${asset.id}`}
+      className="flex h-full flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 transition-colors hover:border-neutral-600"
+    >
       {/* Thumbnails exist once the processing worker renders them (Stage 2). */}
       <div className="flex aspect-square items-center justify-center bg-neutral-800 text-sm text-neutral-500">
         No preview yet
@@ -35,6 +39,6 @@ export function AssetCard({ asset }: { asset: AssetListItem }): ReactNode {
           <time dateTime={asset.createdAt}>{formatDate(asset.createdAt)}</time>
         </p>
       </div>
-    </article>
+    </Link>
   );
 }
