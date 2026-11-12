@@ -4,6 +4,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { buildLoggerParams } from '@meshdex/shared';
 import { allConfigNamespaces, loggerConfig } from './config/config.namespaces';
 import { FetchModule } from './fetch/fetch.module';
+import { ImportModule } from './import/import.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FetchModule } from './fetch/fetch.module';
         }),
     }),
     FetchModule,
+    ImportModule,
   ],
 })
 export class AppModule {}

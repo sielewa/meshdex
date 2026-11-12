@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -86,6 +86,16 @@ describe('ModelCacheService', () => {
     expect(() => cache.filePath(modelDir, '/etc/passwd')).toThrow(UnsafeCachePathException);
     expect(() => cache.modelDir('../ArmChair_01', '1k')).toThrow(UnsafeCachePathException);
     expect(() => cache.modelDir('.hidden', '1k')).toThrow(UnsafeCachePathException);
+  });
+
+  it('lists cached model folders sorted by id, ignoring stray files and hidden folders', async () => {
+    await mkdir(join(dir, 'Table_01'));
+    await mkdir(join(dir, 'ArmChair_01'));
+    await mkdir(join(dir, '.trash'));
+    await writeFile(join(dir, 'import-state.jsonl'), '');
+
+    expect(await cache.listModelIds()).toEqual(['ArmChair_01', 'Table_01']);
+    expect(await new ModelCacheService({ dir: join(dir, 'missing') }).listModelIds()).toEqual([]);
   });
 
   it('reads back the manifest it wrote and returns null when there is none', async () => {

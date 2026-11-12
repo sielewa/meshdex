@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -124,6 +124,30 @@ export class ModelCacheService {
     } catch {
       return null;
     }
+  }
+
+  /** Ids of the models with a folder in the cache, sorted; empty when there is no cache yet. */
+  async listModelIds(): Promise<string[]> {
+    const entries = await readdir(this.config.dir, { withFileTypes: true }).catch(
+      (error: unknown) => {
+        // Checked by `code`, not `instanceof Error`: fs errors may come from another realm.
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          return [];
+        }
+
+        throw error;
+      },
+    );
+
+    return entries
+      .filter((entry) => entry.isDirectory() && SAFE_MODEL_ID.test(entry.name))
+      .map((entry) => entry.name)
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   }
 
   private async md5Of(path: string): Promise<string> {

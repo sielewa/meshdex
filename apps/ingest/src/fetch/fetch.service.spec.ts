@@ -9,6 +9,7 @@ import type { ModelFileSet } from '../clients/polyhaven/domain/model-file-set.in
 import type { PolyhavenModel } from '../clients/polyhaven/domain/polyhaven-model.interface';
 import type { PolyhavenPort } from '../clients/polyhaven/domain/polyhaven-port.interface';
 import { PolyhavenRequestException } from '../clients/polyhaven/exceptions/polyhaven-request.exception';
+import { TaskRunnerService } from '../tasks/task-runner.service';
 import { FetchService } from './fetch.service';
 
 /** In-memory Poly Haven: every model has a .gltf and a .bin; downloads are counted. */
@@ -93,6 +94,7 @@ const logger = {
   debug: jest.fn(),
 } as unknown as PinoLogger;
 const signal = new AbortController().signal;
+const tasks = new TaskRunnerService(logger);
 
 describe('FetchService', () => {
   let dir: string;
@@ -115,7 +117,7 @@ describe('FetchService', () => {
 
   it('caches every file of each model and writes the manifest last', async () => {
     const polyhaven = new FakePolyhaven([model('Chair_01'), model('Table_01')]);
-    const service = new FetchService(polyhaven, cache, logger);
+    const service = new FetchService(polyhaven, cache, tasks, logger);
 
     const summary = await service.run({ resolution: '1k', concurrency: 2 }, signal);
 
@@ -137,7 +139,7 @@ describe('FetchService', () => {
 
   it('skips models whose cached files_hash matches without calling the API again', async () => {
     const polyhaven = new FakePolyhaven([model('Chair_01')]);
-    const service = new FetchService(polyhaven, cache, logger);
+    const service = new FetchService(polyhaven, cache, tasks, logger);
 
     await service.run({ resolution: '1k', concurrency: 1 }, signal);
     const second = await service.run({ resolution: '1k', concurrency: 1 }, signal);
@@ -149,7 +151,7 @@ describe('FetchService', () => {
 
   it('downloads only the files missing after an interrupted run', async () => {
     const polyhaven = new FakePolyhaven([model('Chair_01')]);
-    const service = new FetchService(polyhaven, cache, logger);
+    const service = new FetchService(polyhaven, cache, tasks, logger);
     const fileSet = (await polyhaven.findGltfFiles('Chair_01')) as ModelFileSet;
     const gltf = fileSet.files[0] as ModelFileSet['files'][number];
 
@@ -169,10 +171,13 @@ describe('FetchService', () => {
   it('re-fetches a model whose files_hash changed', async () => {
     const first = new FakePolyhaven([model('Chair_01', 'v1')]);
 
-    await new FetchService(first, cache, logger).run({ resolution: '1k', concurrency: 1 }, signal);
+    await new FetchService(first, cache, tasks, logger).run(
+      { resolution: '1k', concurrency: 1 },
+      signal,
+    );
 
     const changed = new FakePolyhaven([model('Chair_01', 'v2')]);
-    const summary = await new FetchService(changed, cache, logger).run(
+    const summary = await new FetchService(changed, cache, tasks, logger).run(
       { resolution: '1k', concurrency: 1 },
       signal,
     );
@@ -188,7 +193,7 @@ describe('FetchService', () => {
 
     polyhaven.failNextDownloads = 2;
 
-    const summary = await new FetchService(polyhaven, cache, logger).run(
+    const summary = await new FetchService(polyhaven, cache, tasks, logger).run(
       { resolution: '1k', concurrency: 1 },
       signal,
     );
@@ -202,7 +207,7 @@ describe('FetchService', () => {
 
     polyhaven.failNextDownloads = 3;
 
-    const summary = await new FetchService(polyhaven, cache, logger).run(
+    const summary = await new FetchService(polyhaven, cache, tasks, logger).run(
       { resolution: '1k', concurrency: 1 },
       signal,
     );
@@ -221,7 +226,7 @@ describe('FetchService', () => {
       Array.from({ length: 8 }, (_, index) => model(`Model_${index}`)),
     );
 
-    await new FetchService(polyhaven, cache, logger).run(
+    await new FetchService(polyhaven, cache, tasks, logger).run(
       { resolution: '1k', concurrency: 3 },
       signal,
     );
@@ -232,7 +237,7 @@ describe('FetchService', () => {
   it('selects requested ids, reports unknown ones and counts models without glTF', async () => {
     const polyhaven = new FakePolyhaven([model('Chair_01'), model('NoGltf_01'), model('Table_01')]);
 
-    const summary = await new FetchService(polyhaven, cache, logger).run(
+    const summary = await new FetchService(polyhaven, cache, tasks, logger).run(
       {
         resolution: '1k',
         concurrency: 2,
@@ -257,7 +262,7 @@ describe('FetchService', () => {
   it('takes the first models by id with --limit', async () => {
     const polyhaven = new FakePolyhaven([model('C_01'), model('A_01'), model('B_01')]);
 
-    await new FetchService(polyhaven, cache, logger).run(
+    await new FetchService(polyhaven, cache, tasks, logger).run(
       {
         resolution: '1k',
         concurrency: 1,

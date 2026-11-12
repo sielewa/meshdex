@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
     "@grpc/grpc-js": "1.14.7",
     "@grpc/proto-loader": "0.8.1",
     "@meshdex/proto": "workspace:*",

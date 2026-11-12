@@ -1,5 +1,4 @@
 import { performance } from 'node:perf_hooks';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { CachedFile } from '../cache/domain/cached-file.interface';
@@ -11,6 +10,8 @@ import type { RemoteFile } from '../clients/polyhaven/domain/remote-file.interfa
 import type { TextureResolution } from '../clients/polyhaven/domain/texture-resolution.type';
 import { PolyhavenRequestException } from '../clients/polyhaven/exceptions/polyhaven-request.exception';
 import { POLYHAVEN } from '../clients/polyhaven/polyhaven.tokens';
+import type { RetryPolicy } from '../tasks/domain/retry-policy.interface';
+import { TaskRunnerService } from '../tasks/task-runner.service';
 import type { FetchSummary } from './domain/fetch-summary.interface';
 import type { ModelFetchResult } from './domain/model-fetch-result.interface';
 import type { FetchArgs } from './dto/fetch.args';
@@ -30,17 +31,35 @@ import {
  */
 @Injectable()
 export class FetchService {
+  /**
+   * Network errors, timeouts, 429/5xx and truncated downloads are transient. Unsafe paths and
+   * non-retryable API answers (404, malformed listings) fail at once.
+   */
+  private readonly retryPolicy: RetryPolicy = {
+    attempts: FETCH_RETRY_ATTEMPTS,
+    baseDelayMs: FETCH_RETRY_BASE_DELAY_MS,
+    maxDelayMs: FETCH_RETRY_MAX_DELAY_MS,
+    isRetryable: (error) =>
+      !(error instanceof UnsafeCachePathException) &&
+      !(error instanceof PolyhavenRequestException && !error.retryable),
+  };
+
   constructor(
     @Inject(POLYHAVEN)
     private readonly polyhaven: PolyhavenPort,
     private readonly cache: ModelCacheService,
+    private readonly tasks: TaskRunnerService,
     @InjectPinoLogger(FetchService.name)
     private readonly logger: PinoLogger,
   ) {}
 
   async run(args: FetchArgs, signal: AbortSignal): Promise<FetchSummary> {
     const startedAt = performance.now();
-    const catalog = await this.withRetry(() => this.polyhaven.listModels(signal), signal);
+    const catalog = await this.tasks.retry(
+      () => this.polyhaven.listModels(signal),
+      this.retryPolicy,
+      signal,
+    );
     const summary: FetchSummary = {
       modelsSelected: 0,
       modelsFetched: 0,
@@ -64,7 +83,7 @@ export class FetchService {
       'Fetch started',
     );
 
-    await this.runWithConcurrency(models, args.concurrency, async (model) => {
+    await this.tasks.forEach(models, args.concurrency, async (model) => {
       try {
         const result = await this.fetchModel(model, args.resolution, signal);
 
@@ -116,8 +135,9 @@ export class FetchService {
       return this.result('up-to-date', 0, 0);
     }
 
-    const fileSet = await this.withRetry(
+    const fileSet = await this.tasks.retry(
       () => this.polyhaven.findGltfFiles(model.id, resolution, signal),
+      this.retryPolicy,
       signal,
     );
 
@@ -183,11 +203,15 @@ export class FetchService {
     }
 
     // The whole download is retried: a broken stream can't be resumed mid-file.
-    await this.withRetry(async () => {
-      const body = await this.polyhaven.download(file.url, signal);
+    await this.tasks.retry(
+      async () => {
+        const body = await this.polyhaven.download(file.url, signal);
 
-      await this.cache.writeFile(body, path, file);
-    }, signal);
+        await this.cache.writeFile(body, path, file);
+      },
+      this.retryPolicy,
+      signal,
+    );
 
     return true;
   }
@@ -229,55 +253,6 @@ export class FetchService {
     const sorted = [...models].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
     return args.limit === undefined ? sorted : sorted.slice(0, args.limit);
-  }
-
-  /**
-   * Runs `worker` over `items` with at most `limit` calls in flight: `limit` loops share one
-   * index, each taking the next item when its previous one finishes.
-   */
-  private async runWithConcurrency<T>(
-    items: T[],
-    limit: number,
-    worker: (item: T) => Promise<void>,
-  ): Promise<void> {
-    let next = 0;
-    const loops = Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (next < items.length) {
-        const item = items[next] as T;
-
-        next += 1;
-        await worker(item);
-      }
-    });
-
-    await Promise.all(loops);
-  }
-
-  /**
-   * Retries transient failures (network errors, timeouts, 429/5xx, truncated downloads) with
-   * exponential backoff and full jitter, so parallel retries don't hit the API in lockstep.
-   * Unsafe paths, non-retryable API answers and the caller's abort fail at once.
-   */
-  private async withRetry<T>(operation: () => Promise<T>, signal: AbortSignal): Promise<T> {
-    for (let attempt = 1; ; attempt += 1) {
-      try {
-        return await operation();
-      } catch (error) {
-        const permanent =
-          signal.aborted ||
-          error instanceof UnsafeCachePathException ||
-          (error instanceof PolyhavenRequestException && !error.retryable);
-
-        if (permanent || attempt >= FETCH_RETRY_ATTEMPTS) {
-          throw error;
-        }
-
-        const cap = Math.min(FETCH_RETRY_MAX_DELAY_MS, FETCH_RETRY_BASE_DELAY_MS * 2 ** attempt);
-
-        this.logger.debug({ attempt, err: error }, 'Retrying after a transient failure');
-        await sleep(Math.random() * cap, undefined, { signal });
-      }
-    }
   }
 
   private result(
