@@ -1,4 +1,5 @@
 import type { ModelFailure } from './model-failure.interface';
+import type { PipelineStats } from './pipeline-stats.interface';
 
 /** Result of one `ingest import` run, logged at the end. */
 export interface ImportSummary {
@@ -10,5 +11,6 @@ export interface ImportSummary {
   failures: ModelFailure[];
   /** Size of the GLB files of the imported models. */
   bytesUploaded: number;
+  pipeline: PipelineStats;
   durationMs: number;
 }

@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PinoLogger } from 'nestjs-pino';
 import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
 import { ModelCacheService } from '../cache/model-cache.service';
+import { RunRecorderService } from '../runs/run-recorder.service';
 import { TaskRunnerService } from '../tasks/task-runner.service';
 import type { GlbUpload } from './domain/glb-upload.interface';
 import type { UploadedAsset } from './domain/uploaded-asset.interface';
@@ -103,6 +104,7 @@ describe('ImportService', () => {
       pipeline.uploader,
       new ImportStateService(logger),
       new TaskRunnerService(logger),
+      new RunRecorderService(),
       { dir },
       logger,
     );
@@ -237,6 +239,75 @@ describe('ImportService', () => {
 
     expect(summary.modelsImported).toBe(12);
     expect(pipeline.maxInMemory).toBe(3);
+    // Uploads were the bottleneck: the packer spent time blocked on the full queue.
+    expect(summary.pipeline.packerBlockedMs).toBeGreaterThan(50);
+    expect(summary.pipeline.maxQueued).toBe(1);
+  });
+
+  it('shows idle uploaders when packing is the bottleneck', async () => {
+    await cacheModels(...Array.from({ length: 6 }, (_, index) => `Model_${String(index)}`));
+    pipeline.packDelayMs = 10;
+
+    const summary = await service.run(
+      {
+        ...args,
+        packConcurrency: 1,
+        uploadConcurrency: 2,
+      },
+      signal,
+    );
+
+    expect(summary.pipeline.uploaderIdleMs).toBeGreaterThan(summary.pipeline.packerBlockedMs);
+    expect(summary.pipeline.packBusyMs).toBeGreaterThanOrEqual(50);
+  });
+
+  it('writes a run record with options, measurements and throughput when asked', async () => {
+    await cacheModels('Chair_01', 'Table_01');
+
+    const runs = join(dir, 'runs');
+
+    await service.run(
+      {
+        ...args,
+        record: runs,
+        label: 'baseline',
+      },
+      signal,
+    );
+
+    const [file] = await readdir(runs);
+    const record = JSON.parse(await readFile(join(runs, file ?? ''), 'utf8')) as Record<
+      string,
+      Record<string, unknown>
+    >;
+
+    expect(file).toMatch(/^\d{4}-\d{2}-\d{2}T[\d-]+Z-import-baseline\.json$/);
+    expect(record).toMatchObject({
+      version: 1,
+      command: 'import',
+      label: 'baseline',
+      options: {
+        resolution: '1k',
+        packConcurrency: 2,
+        uploadConcurrency: 2,
+        queueSize: 2,
+        limit: null,
+        ids: null,
+      },
+      result: {
+        modelsImported: 2,
+        bytesUploaded: 16,
+      },
+    });
+    expect(record.measurements).toEqual(
+      expect.objectContaining({
+        wallMs: expect.any(Number) as number,
+        peakRssBytes: expect.any(Number) as number,
+        eventLoopDelayMs: expect.any(Object) as object,
+      }),
+    );
+    expect(record.result?.megabytesPerSecond).toEqual(expect.any(Number));
+    expect(record.environment?.cpuCount).toBeGreaterThan(0);
   });
 
   it('selects requested ids, reports ones not cached, and limits by id order', async () => {

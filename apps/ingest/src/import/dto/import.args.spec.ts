@@ -16,6 +16,8 @@ describe('ImportArgs', () => {
       limit: '5',
       ids: ['ArmChair_01'],
       state: 'runs/state.jsonl',
+      record: 'runs',
+      label: 'queue-16',
     });
 
     expect(args).toMatchObject({
@@ -32,6 +34,7 @@ describe('ImportArgs', () => {
     ['a queue above the cap', { queueSize: '33' }],
     ['an empty state path', { state: '' }],
     ['an id that is a path', { ids: ['../etc'] }],
+    ['a label that is not a file-name slug', { label: '../Baseline run' }],
   ])('rejects %s', (_case, override) => {
     expect(() => validateConfig(ImportArgs, { ...valid, ...override })).toThrow(
       ConfigValidationException,

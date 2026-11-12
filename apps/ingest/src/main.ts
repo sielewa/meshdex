@@ -30,6 +30,8 @@ Options (import):
   --limit <n>                 Only the first n cached models by id
   --ids <a,b,...>             Only these model ids
   --state <file>              Import state file (default <cache dir>/import-state.jsonl)
+  --record <dir>              Write the run's measurements to <dir> as JSON
+  --label <name>              Name of the recorded run (lower-case, digits, dashes)
 
   --help                      Show this help
 `;
@@ -50,6 +52,8 @@ const COMMAND_OPTIONS = {
     limit: { type: 'string' },
     ids: { type: 'string' },
     state: { type: 'string' },
+    record: { type: 'string' },
+    label: { type: 'string' },
   },
 } satisfies Record<string, NonNullable<ParseArgsConfig['options']>>;
 

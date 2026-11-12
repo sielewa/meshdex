@@ -6,9 +6,14 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
 import { ModelCacheService } from '../cache/model-cache.service';
 import { cacheConfig } from '../config/config.namespaces';
+import type { RunMeasurements } from '../runs/domain/run-measurements.interface';
+import { RunRecorderService } from '../runs/run-recorder.service';
+import { RUN_RECORD_VERSION } from '../runs/runs.constants';
 import { BoundedQueue } from '../tasks/bounded-queue';
 import { TaskRunnerService } from '../tasks/task-runner.service';
 import type { GlbUpload } from './domain/glb-upload.interface';
+import type { ImportRunOptions } from './domain/import-run-options.interface';
+import type { ImportRunResult } from './domain/import-run-result.interface';
 import type { ImportSummary } from './domain/import-summary.interface';
 import type { PackedModel } from './domain/packed-model.interface';
 import type { ImportArgs } from './dto/import.args';
@@ -38,6 +43,9 @@ import { ModelUploaderService } from './model-uploader.service';
  * models are in memory at any time, whichever stage is slower: when uploads lag, packers
  * wait in `push`; when packing lags, uploaders wait in `take`. One model's failure is
  * recorded and the rest carry on; the caller's abort stops both stages.
+ *
+ * Every run is measured (`RunProbe`) and the measurements are logged; `--record <dir>` also
+ * writes them as a JSON run record for benchmark reports.
  */
 @Injectable()
 export class ImportService {
@@ -47,6 +55,7 @@ export class ImportService {
     private readonly uploader: ModelUploaderService,
     private readonly state: ImportStateService,
     private readonly tasks: TaskRunnerService,
+    private readonly recorder: RunRecorderService,
     @Inject(cacheConfig.KEY)
     private readonly cacheSettings: ConfigType<typeof cacheConfig>,
     @InjectPinoLogger(ImportService.name)
@@ -54,7 +63,48 @@ export class ImportService {
   ) {}
 
   async run(args: ImportArgs, signal: AbortSignal): Promise<ImportSummary> {
-    const startedAt = performance.now();
+    const startedAt = new Date().toISOString();
+    const probe = this.recorder.start();
+    let summary: ImportSummary;
+
+    try {
+      summary = await this.execute(args, signal);
+    } catch (error) {
+      probe.stop();
+      throw error;
+    }
+
+    const measurements = probe.stop();
+
+    summary.durationMs = measurements.wallMs;
+    this.logger.info({ ...summary, measurements }, 'Import finished');
+
+    if (args.record !== undefined) {
+      const path = await this.recorder.write<ImportRunOptions, ImportRunResult>(args.record, {
+        version: RUN_RECORD_VERSION,
+        command: 'import',
+        label: args.label ?? null,
+        startedAt,
+        options: {
+          resolution: args.resolution,
+          packConcurrency: args.packConcurrency,
+          uploadConcurrency: args.uploadConcurrency,
+          queueSize: args.queueSize,
+          limit: args.limit ?? null,
+          ids: args.ids ?? null,
+        },
+        environment: await this.recorder.environment(),
+        measurements,
+        result: this.runResult(summary, measurements),
+      });
+
+      this.logger.info({ path }, 'Run recorded');
+    }
+
+    return summary;
+  }
+
+  private async execute(args: ImportArgs, signal: AbortSignal): Promise<ImportSummary> {
     const statePath =
       args.state === undefined
         ? join(this.cacheSettings.dir, IMPORT_STATE_FILE_NAME)
@@ -66,6 +116,13 @@ export class ImportService {
       failures: [],
       bytesUploaded: 0,
       durationMs: 0,
+      pipeline: {
+        packBusyMs: 0,
+        uploadBusyMs: 0,
+        packerBlockedMs: 0,
+        uploaderIdleMs: 0,
+        maxQueued: 0,
+      },
     };
     const selected = await this.select(args, summary);
     const imported = new Set(
@@ -92,8 +149,15 @@ export class ImportService {
 
     await this.runPipeline(pending, args, statePath, summary, signal);
 
-    summary.durationMs = Math.round(performance.now() - startedAt);
-    this.logger.info({ ...summary }, 'Import finished');
+    const { pipeline } = summary;
+
+    summary.pipeline = {
+      packBusyMs: Math.round(pipeline.packBusyMs),
+      uploadBusyMs: Math.round(pipeline.uploadBusyMs),
+      packerBlockedMs: Math.round(pipeline.packerBlockedMs),
+      uploaderIdleMs: Math.round(pipeline.uploaderIdleMs),
+      maxQueued: pipeline.maxQueued,
+    };
 
     return summary;
   }
@@ -106,6 +170,7 @@ export class ImportService {
     signal: AbortSignal,
   ): Promise<void> {
     const queue = new BoundedQueue<PackedModel>(args.queueSize);
+    const stats = summary.pipeline;
     const onAbort = (): void => {
       queue.abort(signal.reason);
     };
@@ -118,7 +183,11 @@ export class ImportService {
           const packed = await this.pack(manifest, summary, signal);
 
           if (packed !== null) {
+            const waitStartedAt = performance.now();
+
             await queue.push(packed);
+            stats.packerBlockedMs += performance.now() - waitStartedAt;
+            stats.maxQueued = Math.max(stats.maxQueued, queue.size);
           }
         })
         .finally(() => {
@@ -126,8 +195,20 @@ export class ImportService {
         });
       const uploading = Promise.all(
         Array.from({ length: args.uploadConcurrency }, async () => {
-          for (let packed = await queue.take(); packed !== undefined; packed = await queue.take()) {
+          for (;;) {
+            const waitStartedAt = performance.now();
+            const packed = await queue.take();
+
+            stats.uploaderIdleMs += performance.now() - waitStartedAt;
+
+            if (packed === undefined) {
+              return;
+            }
+
+            const uploadStartedAt = performance.now();
+
             await this.upload(packed, statePath, summary, signal);
+            stats.uploadBusyMs += performance.now() - uploadStartedAt;
           }
         }),
       ).catch((error: unknown) => {
@@ -154,11 +235,14 @@ export class ImportService {
 
     try {
       const glb = await this.packer.pack(manifest);
+      const packMs = performance.now() - startedAt;
+
+      summary.pipeline.packBusyMs += packMs;
 
       return {
         manifest,
         glb,
-        packMs: Math.round(performance.now() - startedAt),
+        packMs: Math.round(packMs),
       };
     } catch (error) {
       this.recordFailure(manifest.modelId, error, summary, signal);
@@ -272,6 +356,19 @@ export class ImportService {
     }
 
     return args.limit === undefined ? manifests : manifests.slice(0, args.limit);
+  }
+
+  private runResult(summary: ImportSummary, measurements: RunMeasurements): ImportRunResult {
+    const { durationMs: _durationMs, ...result } = summary;
+    const seconds = measurements.wallMs / 1000;
+    const perSecond = (value: number): number =>
+      seconds > 0 ? Math.round((value / seconds) * 100) / 100 : 0;
+
+    return {
+      ...result,
+      modelsPerSecond: perSecond(summary.modelsImported),
+      megabytesPerSecond: perSecond(summary.bytesUploaded / 1e6),
+    };
   }
 
   /** The caller's abort is not a model failure: it is rethrown and stops the run. */
