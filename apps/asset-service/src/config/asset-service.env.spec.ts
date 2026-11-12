@@ -30,13 +30,19 @@ describe('AssetServiceEnv', () => {
 
   it('rejects a part size below the 5 MiB S3 minimum', () => {
     expect(() =>
-      validateConfig(AssetServiceEnv, { ...validEnv, UPLOAD_PART_SIZE_BYTES: '1048576' }),
+      validateConfig(AssetServiceEnv, {
+        ...validEnv,
+        UPLOAD_PART_SIZE_BYTES: '1048576',
+      }),
     ).toThrow(ConfigValidationException);
   });
 
   it('rejects booleans that are not literally "true" or "false"', () => {
-    expect(() => validateConfig(AssetServiceEnv, { ...validEnv, LOG_PRETTY: 'yes' })).toThrow(
-      ConfigValidationException,
-    );
+    expect(() =>
+      validateConfig(AssetServiceEnv, {
+        ...validEnv,
+        LOG_PRETTY: 'yes',
+      }),
+    ).toThrow(ConfigValidationException);
   });
 });

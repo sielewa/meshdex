@@ -1,5 +1,5 @@
 import { HealthImplementation } from 'grpc-health-check';
-import { READINESS_SERVICE } from './grpc-health';
+import { READINESS_SERVICE } from './health.constants';
 import { HealthService } from './health.service';
 
 describe('HealthService', () => {

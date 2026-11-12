@@ -1,20 +1,11 @@
-export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
-
-export interface UploadedPart {
-  /** 1-based, as in S3. */
-  partNumber: number;
-  etag: string;
-}
-
-export interface ObjectMetadata {
-  sizeBytes: number;
-  contentType: string | null;
-}
+import type { ObjectMetadata } from './object-metadata.interface';
+import type { UploadedPart } from './uploaded-part.interface';
 
 /**
  * What asset-service needs from object storage. The S3 adapter implements it for
  * AWS and for the local SeaweedFS (only the endpoint differs); unit tests use fakes.
  * Bytes never pass through the service: clients upload parts to presigned URLs.
+ * Injected with the `OBJECT_STORAGE` token (`storage.tokens.ts`).
  */
 export interface ObjectStorage {
   /** Starts a multipart upload and returns its storage-side id. */
@@ -41,7 +32,3 @@ export interface ObjectStorage {
   /** Returns null when the object doesn't exist. */
   headObject(key: string): Promise<ObjectMetadata | null>;
 }
-
-export class StorageUploadNotFoundException extends Error {}
-
-export class StoragePartsRejectedException extends Error {}

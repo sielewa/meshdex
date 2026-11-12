@@ -1,5 +1,19 @@
 import { registerAs } from '@nestjs/config';
-import { assetServiceEnv } from './asset-service.env';
+import { validateConfig } from '@meshdex/shared';
+import { AssetServiceEnv } from './asset-service.env';
+
+let validatedEnv: AssetServiceEnv | undefined;
+
+/**
+ * Validates `process.env` on first use and caches the result, so all namespaces
+ * (and `main.ts`, which needs the gRPC URL before Nest starts) share one validation
+ * pass. Throws `ConfigValidationException` listing every problem.
+ */
+function assetServiceEnv(): AssetServiceEnv {
+  validatedEnv ??= validateConfig(AssetServiceEnv, process.env);
+
+  return validatedEnv;
+}
 
 /**
  * Config split into namespaces: a module injects only its slice with

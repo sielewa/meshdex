@@ -8,17 +8,11 @@ import {
   type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import {
-  StoragePartsRejectedException,
-  StorageUploadNotFoundException,
-  type ObjectMetadata,
-  type ObjectStorage,
-  type UploadedPart,
-} from '../domain/object-storage-port.interface';
-
-function isS3Error(error: unknown, ...names: string[]): boolean {
-  return error instanceof S3ServiceException && names.includes(error.name);
-}
+import { StoragePartsRejectedException } from '../exceptions/storage-parts-rejected.exception';
+import { StorageUploadNotFoundException } from '../exceptions/storage-upload-not-found.exception';
+import type { ObjectMetadata } from '../domain/object-metadata.interface';
+import type { ObjectStorage } from '../domain/object-storage-port.interface';
+import type { UploadedPart } from '../domain/uploaded-part.interface';
 
 export class S3ObjectStorage implements ObjectStorage {
   constructor(
@@ -28,7 +22,11 @@ export class S3ObjectStorage implements ObjectStorage {
 
   async createMultipartUpload(key: string, contentType: string): Promise<string> {
     const result = await this.client.send(
-      new CreateMultipartUploadCommand({ Bucket: this.bucket, Key: key, ContentType: contentType }),
+      new CreateMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: contentType,
+      }),
     );
 
     if (!result.UploadId) {
@@ -68,16 +66,19 @@ export class S3ObjectStorage implements ObjectStorage {
           Key: key,
           UploadId: uploadId,
           MultipartUpload: {
-            Parts: parts.map((part) => ({ PartNumber: part.partNumber, ETag: part.etag })),
+            Parts: parts.map((part) => ({
+              PartNumber: part.partNumber,
+              ETag: part.etag,
+            })),
           },
         }),
       );
     } catch (error) {
-      if (isS3Error(error, 'NoSuchUpload')) {
+      if (this.isS3Error(error, 'NoSuchUpload')) {
         throw new StorageUploadNotFoundException(`Multipart upload for ${key} no longer exists`);
       }
 
-      if (isS3Error(error, 'InvalidPart', 'InvalidPartOrder', 'EntityTooSmall')) {
+      if (this.isS3Error(error, 'InvalidPart', 'InvalidPartOrder', 'EntityTooSmall')) {
         throw new StoragePartsRejectedException(error instanceof Error ? error.message : key);
       }
 
@@ -88,10 +89,14 @@ export class S3ObjectStorage implements ObjectStorage {
   async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
     try {
       await this.client.send(
-        new AbortMultipartUploadCommand({ Bucket: this.bucket, Key: key, UploadId: uploadId }),
+        new AbortMultipartUploadCommand({
+          Bucket: this.bucket,
+          Key: key,
+          UploadId: uploadId,
+        }),
       );
     } catch (error) {
-      if (!isS3Error(error, 'NoSuchUpload')) {
+      if (!this.isS3Error(error, 'NoSuchUpload')) {
         throw error;
       }
     }
@@ -100,16 +105,26 @@ export class S3ObjectStorage implements ObjectStorage {
   async headObject(key: string): Promise<ObjectMetadata | null> {
     try {
       const result = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        }),
       );
 
-      return { sizeBytes: result.ContentLength ?? 0, contentType: result.ContentType ?? null };
+      return {
+        sizeBytes: result.ContentLength ?? 0,
+        contentType: result.ContentType ?? null,
+      };
     } catch (error) {
-      if (isS3Error(error, 'NotFound', 'NoSuchKey')) {
+      if (this.isS3Error(error, 'NotFound', 'NoSuchKey')) {
         return null;
       }
 
       throw error;
     }
+  }
+
+  private isS3Error(error: unknown, ...names: string[]): boolean {
+    return error instanceof S3ServiceException && names.includes(error.name);
   }
 }

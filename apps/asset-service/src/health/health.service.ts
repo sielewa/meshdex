@@ -5,7 +5,8 @@ import {
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 import { HealthImplementation } from 'grpc-health-check';
-import { GRPC_HEALTH, READINESS_SERVICE } from './grpc-health';
+import { READINESS_SERVICE } from './health.constants';
+import { GRPC_HEALTH } from './health.tokens';
 
 /**
  * Liveness ("process is up") and readiness ("send me traffic") are separate on purpose:

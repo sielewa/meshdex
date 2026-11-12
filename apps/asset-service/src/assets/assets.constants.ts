@@ -11,3 +11,6 @@ export const MAX_UPLOAD_PARTS = 10_000;
 
 export const ASSET_EVENTS_TOPIC = 'asset.events.v1';
 export const ASSET_UPLOADED_EVENT = 'asset.uploaded';
+
+/** Longer failure reasons reported by the worker are truncated. */
+export const MAX_FAILURE_REASON_LENGTH = 1000;

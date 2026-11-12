@@ -2,61 +2,37 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { v7 as uuidv7 } from 'uuid';
 import { uploadConfig } from '../config/config.namespaces';
-import { DATABASE, type Database } from '../database/database.types';
-import {
-  OBJECT_STORAGE,
-  StoragePartsRejectedException,
-  StorageUploadNotFoundException,
-  type ObjectStorage,
-  type UploadedPart,
-} from '../storage/domain/object-storage-port.interface';
+import { DATABASE } from '../database/database.tokens';
+import type { Database } from '../database/domain/database.type';
+import { OBJECT_STORAGE } from '../storage/storage.tokens';
+import { StoragePartsRejectedException } from '../storage/exceptions/storage-parts-rejected.exception';
+import { StorageUploadNotFoundException } from '../storage/exceptions/storage-upload-not-found.exception';
+import type { ObjectStorage } from '../storage/domain/object-storage-port.interface';
+import type { UploadedPart } from '../storage/domain/uploaded-part.interface';
 import {
   ASSET_EVENTS_TOPIC,
   ASSET_UPLOADED_EVENT,
   GLB_CONTENT_TYPE,
   GLB_EXTENSION,
+  MAX_TAG_LENGTH,
+  MAX_TAGS_PER_ASSET,
   MAX_TITLE_LENGTH,
   MAX_UPLOAD_PARTS,
 } from './assets.constants';
 import type { Asset } from './domain/asset.interface';
 import { AssetVersionStatus } from './domain/asset-version-status.enum';
-import { normalizeTagNames } from './domain/tag-names';
-import {
-  countParts,
-  originalObjectKey,
-  resolvePartNumbers,
-  validateCompletedParts,
-} from './domain/upload-plan';
 import type { VersionUpload } from './domain/version-upload.interface';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
-import { AssetViewsRepository } from './infrastructure/asset-views.repository';
+import { CatalogService } from '../catalog/catalog.service';
 import { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
 import { AssetsRepository } from './infrastructure/assets.repository';
 import { OutboxRepository } from './infrastructure/outbox.repository';
 import { TagsRepository } from './infrastructure/tags.repository';
-
-export interface InitiateUploadInput {
-  title: string;
-  tags: string[];
-  fileName: string;
-  contentType: string;
-  sizeBytes: number;
-}
-
-export interface PresignedPart {
-  partNumber: number;
-  url: string;
-  expiresAt: number;
-}
-
-export interface InitiatedUpload {
-  assetId: string;
-  versionId: string;
-  partSizeBytes: number;
-  parts: PresignedPart[];
-}
+import type { InitiateUploadInput } from './domain/initiate-upload-input.interface';
+import type { InitiatedUpload } from './domain/initiated-upload.interface';
+import type { PresignedPart } from './domain/presigned-part.interface';
 
 /**
  * Upload lifecycle of asset versions (UPLOADING -> UPLOADED). File bytes go from
@@ -77,30 +53,38 @@ export class UploadService {
     private readonly assetVersionsRepository: AssetVersionsRepository,
     private readonly tagsRepository: TagsRepository,
     private readonly outboxRepository: OutboxRepository,
-    private readonly assetViewsRepository: AssetViewsRepository,
+    private readonly catalogService: CatalogService,
   ) {}
 
   /**
    * Storage first, then the database: if the INSERT fails, an orphaned multipart
-   * upload is left in storage — invisible and removed by the bucket's
-   * incomplete-upload lifecycle rule. The reverse order could leave a database row
-   * pointing at an upload that never existed.
+   * upload is left in storage — invisible and unused. It is cleaned up by an
+   * `AbortIncompleteMultipartUpload` lifecycle rule in AWS (Terraform) and, for every
+   * environment, by the planned stale-uploads reconciler (roadmap). The reverse order
+   * could leave a database row pointing at an upload that never existed.
    */
   async initiate(input: InitiateUploadInput): Promise<InitiatedUpload> {
     const title = this.validateTitle(input.title);
-    const tagNames = normalizeTagNames(input.tags);
+    const tagNames = this.normalizeTagNames(input.tags);
     this.validateFile(input);
 
     const partSizeBytes = this.config.partSizeBytes;
     const assetId = uuidv7();
     const versionId = uuidv7();
-    const originalKey = originalObjectKey(assetId, versionId);
+    const originalKey = this.originalObjectKey(assetId, versionId);
     const now = Date.now();
 
     const uploadId = await this.storage.createMultipartUpload(originalKey, input.contentType);
 
     await this.db.transaction(async (tx) => {
-      await this.assetsRepository.create({ id: assetId, title, createdAt: now }, tx);
+      await this.assetsRepository.create(
+        {
+          id: assetId,
+          title,
+          createdAt: now,
+        },
+        tx,
+      );
       await this.assetVersionsRepository.createUploading(
         {
           id: versionId,
@@ -119,7 +103,10 @@ export class UploadService {
       await this.tagsRepository.linkToAsset(assetId, tagNames, tx);
     });
 
-    const partNumbers = resolvePartNumbers([], countParts(input.sizeBytes, partSizeBytes));
+    const partNumbers = this.resolvePartNumbers(
+      [],
+      this.countParts(input.sizeBytes, partSizeBytes),
+    );
 
     return {
       assetId,
@@ -132,9 +119,9 @@ export class UploadService {
   /** Fresh URLs for resuming an interrupted upload or replacing expired ones. */
   async getPartUrls(versionId: string, requestedPartNumbers: number[]): Promise<PresignedPart[]> {
     const upload = await this.requireUploading(versionId);
-    const partNumbers = resolvePartNumbers(
+    const partNumbers = this.resolvePartNumbers(
       requestedPartNumbers,
-      countParts(upload.sizeBytes, upload.partSizeBytes),
+      this.countParts(upload.sizeBytes, upload.partSizeBytes),
     );
 
     return this.signParts(upload.originalKey, this.requireUploadId(upload), partNumbers);
@@ -148,9 +135,9 @@ export class UploadService {
       return this.requireAssetView(upload.assetId);
     }
 
-    const sortedParts = validateCompletedParts(
+    const sortedParts = this.validateCompletedParts(
       parts,
-      countParts(upload.sizeBytes, upload.partSizeBytes),
+      this.countParts(upload.sizeBytes, upload.partSizeBytes),
     );
 
     try {
@@ -299,7 +286,7 @@ export class UploadService {
       );
     }
 
-    if (countParts(input.sizeBytes, this.config.partSizeBytes) > MAX_UPLOAD_PARTS) {
+    if (this.countParts(input.sizeBytes, this.config.partSizeBytes) > MAX_UPLOAD_PARTS) {
       throw new InvalidUploadRequestException('File needs more parts than object storage allows');
     }
   }
@@ -332,13 +319,88 @@ export class UploadService {
     return upload.uploadId;
   }
 
-  private async requireAssetView(assetId: string): Promise<Asset> {
-    const [asset] = await this.assetViewsRepository.findByIds([assetId]);
+  private requireAssetView(assetId: string): Promise<Asset> {
+    return this.catalogService.getAsset(assetId);
+  }
 
-    if (!asset) {
-      throw new AssetVersionNotFoundException(`Asset ${assetId} not found`);
+  /**
+   * Turns user input into canonical tag names: trimmed, lower-case, inner whitespace
+   * as single dashes ("Wooden  Chair" -> "wooden-chair"), duplicates removed, input
+   * order kept. The `tags_name_normalized` check constraint enforces the same rule.
+   */
+  private normalizeTagNames(rawNames: string[]): string[] {
+    const names: string[] = [];
+
+    for (const raw of rawNames) {
+      const name = raw.trim().toLowerCase().replace(/\s+/g, '-');
+
+      if (name.length === 0 || names.includes(name)) {
+        continue;
+      }
+
+      if (name.length > MAX_TAG_LENGTH) {
+        throw new InvalidUploadRequestException(
+          `Tag "${name.slice(0, 20)}…" is longer than ${String(MAX_TAG_LENGTH)} characters`,
+        );
+      }
+
+      names.push(name);
     }
 
-    return asset;
+    if (names.length > MAX_TAGS_PER_ASSET) {
+      throw new InvalidUploadRequestException(
+        `At most ${String(MAX_TAGS_PER_ASSET)} tags per asset`,
+      );
+    }
+
+    return names;
+  }
+
+  /** Every part has `partSizeBytes` except the (smaller) last one. */
+  private countParts(sizeBytes: number, partSizeBytes: number): number {
+    return Math.ceil(sizeBytes / partSizeBytes);
+  }
+
+  /** The version id keeps versions of one asset apart. */
+  private originalObjectKey(assetId: string, versionId: string): string {
+    return `originals/${assetId}/${versionId}.glb`;
+  }
+
+  /**
+   * Checks that the client reports every part exactly once and returns them sorted,
+   * as CompleteMultipartUpload requires ascending part numbers.
+   */
+  private validateCompletedParts(parts: UploadedPart[], partCount: number): UploadedPart[] {
+    const sorted = [...parts].sort((left, right) => left.partNumber - right.partNumber);
+    const complete =
+      sorted.length === partCount &&
+      sorted.every((part, index) => part.partNumber === index + 1 && part.etag.length > 0);
+
+    if (!complete) {
+      throw new InvalidUploadRequestException(
+        `Expected parts 1..${String(partCount)} each with an ETag, got ${String(parts.length)}`,
+      );
+    }
+
+    return sorted;
+  }
+
+  /** Validates requested part numbers; an empty list means "all parts". */
+  private resolvePartNumbers(requested: number[], partCount: number): number[] {
+    if (requested.length === 0) {
+      return Array.from({ length: partCount }, (_, index) => index + 1);
+    }
+
+    const invalid = requested.find(
+      (partNumber) => !Number.isInteger(partNumber) || partNumber < 1 || partNumber > partCount,
+    );
+
+    if (invalid !== undefined) {
+      throw new InvalidUploadRequestException(
+        `Part number ${String(invalid)} is outside 1..${String(partCount)}`,
+      );
+    }
+
+    return [...new Set(requested)];
   }
 }

@@ -1,49 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { desc, eq, inArray } from 'drizzle-orm';
-import { DATABASE, type Database, type DbExecutor } from '../../database/database.types';
+import { DATABASE } from '../../database/database.tokens';
+import type { Database } from '../../database/domain/database.type';
+import type { DbExecutor } from '../../database/domain/db-executor.type';
 import { assetTags, assets, assetVersions, tags } from '../../database/schema';
-import type { Asset, AssetVersion } from '../domain/asset.interface';
-import { parseAssetVersionStatus } from '../domain/asset-version-status.enum';
-
-type VersionRow = typeof assetVersions.$inferSelect;
-
-function toAssetVersion(row: VersionRow): AssetVersion {
-  return {
-    id: row.id,
-    assetId: row.assetId,
-    number: row.number,
-    status: parseAssetVersionStatus(row.status),
-    original: {
-      key: row.originalKey,
-      sizeBytes: row.originalSizeBytes,
-      contentType: row.originalContentType,
-    },
-    optimized:
-      row.optimizedKey !== null &&
-      row.optimizedSizeBytes !== null &&
-      row.optimizedContentType !== null
-        ? {
-            key: row.optimizedKey,
-            sizeBytes: row.optimizedSizeBytes,
-            contentType: row.optimizedContentType,
-          }
-        : null,
-    thumbnails: row.thumbnails.map((thumbnail) => ({
-      object: {
-        key: thumbnail.key,
-        sizeBytes: thumbnail.sizeBytes,
-        contentType: thumbnail.contentType,
-      },
-      width: thumbnail.width,
-      height: thumbnail.height,
-      view: thumbnail.view,
-    })),
-    stats: row.stats ?? null,
-    failureReason: row.failureReason,
-    createdAt: row.createdAt.getTime(),
-    processedAt: row.processedAt?.getTime() ?? null,
-  };
-}
+import type { Asset } from '../../assets/domain/asset.interface';
+import type { AssetVersion } from '../../assets/domain/asset-version.interface';
+import { AssetVersionStatus } from '../../assets/domain/asset-version-status.enum';
 
 /**
  * Assembles full `Asset` views (asset + current version + tags) for many ids at once:
@@ -52,6 +15,16 @@ function toAssetVersion(row: VersionRow): AssetVersion {
 @Injectable()
 export class AssetViewsRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
+
+  async findVersionById(versionId: string): Promise<AssetVersion | null> {
+    const [row] = await this.db
+      .select()
+      .from(assetVersions)
+      .where(eq(assetVersions.id, versionId))
+      .limit(1);
+
+    return row ? this.toAssetVersion(row) : null;
+  }
 
   /** Returns found assets in no particular order; callers restore the order they need. */
   async findByIds(ids: string[], executor: DbExecutor = this.db): Promise<Asset[]> {
@@ -69,13 +42,18 @@ export class AssetViewsRepository {
       .orderBy(assetVersions.assetId, desc(assetVersions.number));
 
     const tagRows = await executor
-      .select({ assetId: assetTags.assetId, name: tags.name })
+      .select({
+        assetId: assetTags.assetId,
+        name: tags.name,
+      })
       .from(assetTags)
       .innerJoin(tags, eq(tags.id, assetTags.tagId))
       .where(inArray(assetTags.assetId, ids))
       .orderBy(tags.name);
 
-    const versionsByAsset = new Map(versionRows.map((row) => [row.assetId, toAssetVersion(row)]));
+    const versionsByAsset = new Map(
+      versionRows.map((row) => [row.assetId, this.toAssetVersion(row)]),
+    );
     const tagsByAsset = new Map<string, string[]>();
 
     for (const { assetId, name } of tagRows) {
@@ -98,5 +76,57 @@ export class AssetViewsRepository {
           ]
         : [];
     });
+  }
+
+  private toAssetVersion(row: typeof assetVersions.$inferSelect): AssetVersion {
+    return {
+      id: row.id,
+      assetId: row.assetId,
+      number: row.number,
+      status: this.parseStatus(row.status),
+      original: {
+        key: row.originalKey,
+        sizeBytes: row.originalSizeBytes,
+        contentType: row.originalContentType,
+      },
+      optimized:
+        row.optimizedKey !== null &&
+        row.optimizedSizeBytes !== null &&
+        row.optimizedContentType !== null
+          ? {
+              key: row.optimizedKey,
+              sizeBytes: row.optimizedSizeBytes,
+              contentType: row.optimizedContentType,
+            }
+          : null,
+      thumbnails: row.thumbnails.map((thumbnail) => ({
+        object: {
+          key: thumbnail.key,
+          sizeBytes: thumbnail.sizeBytes,
+          contentType: thumbnail.contentType,
+        },
+        width: thumbnail.width,
+        height: thumbnail.height,
+        view: thumbnail.view,
+      })),
+      stats: row.stats ?? null,
+      failureReason: row.failureReason,
+      createdAt: row.createdAt.getTime(),
+      processedAt: row.processedAt?.getTime() ?? null,
+    };
+  }
+
+  /** Narrows a status read from the database; an unknown value means corrupted data, not user error. */
+  private parseStatus(value: string): AssetVersionStatus {
+    if (!this.isKnownStatus(value)) {
+      throw new Error(`Unknown asset version status in database: "${value}"`);
+    }
+
+    return value;
+  }
+
+  /** Type guard: narrows the type only when the runtime check passed (no blind `as`). */
+  private isKnownStatus(value: string): value is AssetVersionStatus {
+    return (Object.values(AssetVersionStatus) as string[]).includes(value);
   }
 }

@@ -1,19 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import type { DbExecutor } from '../../database/database.types';
+import type { DbExecutor } from '../../database/domain/db-executor.type';
 import { assets } from '../../database/schema';
+import type { NewAsset } from '../domain/new-asset.interface';
 
 @Injectable()
 export class AssetsRepository {
-  async create(
-    asset: { id: string; title: string; createdAt: number },
-    tx: DbExecutor,
-  ): Promise<void> {
+  async create(asset: NewAsset, tx: DbExecutor): Promise<void> {
     const createdAt = new Date(asset.createdAt);
 
-    await tx
-      .insert(assets)
-      .values({ id: asset.id, title: asset.title, createdAt, updatedAt: createdAt });
+    await tx.insert(assets).values({
+      id: asset.id,
+      title: asset.title,
+      createdAt,
+      updatedAt: createdAt,
+    });
   }
 
   async touch(id: string, updatedAt: number, tx: DbExecutor): Promise<void> {

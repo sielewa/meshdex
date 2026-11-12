@@ -1,17 +1,15 @@
 import type { ConfigType } from '@nestjs/config';
 import type { uploadConfig } from '../config/config.namespaces';
-import type { Database } from '../database/database.types';
-import {
-  StoragePartsRejectedException,
-  StorageUploadNotFoundException,
-  type ObjectStorage,
-} from '../storage/domain/object-storage-port.interface';
+import type { Database } from '../database/domain/database.type';
+import { StoragePartsRejectedException } from '../storage/exceptions/storage-parts-rejected.exception';
+import { StorageUploadNotFoundException } from '../storage/exceptions/storage-upload-not-found.exception';
+import type { ObjectStorage } from '../storage/domain/object-storage-port.interface';
 import type { Asset } from './domain/asset.interface';
 import { AssetVersionStatus } from './domain/asset-version-status.enum';
 import type { VersionUpload } from './domain/version-upload.interface';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
-import type { AssetViewsRepository } from './infrastructure/asset-views.repository';
+import type { CatalogService } from '../catalog/catalog.service';
 import type { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
 import { UploadService } from './upload.service';
 
@@ -29,7 +27,7 @@ describe('UploadService', () => {
   };
   let tagsRepository: { linkToAsset: jest.Mock };
   let outboxRepository: { append: jest.Mock };
-  let viewsRepository: { findByIds: jest.Mock };
+  let catalogService: { getAsset: jest.Mock };
   let service: UploadService;
 
   const uploading: VersionUpload = {
@@ -45,8 +43,14 @@ describe('UploadService', () => {
   };
   const assetView = { id: 'asset-1' } as Asset;
   const twoParts = [
-    { partNumber: 2, etag: '"b"' },
-    { partNumber: 1, etag: '"a"' },
+    {
+      partNumber: 2,
+      etag: '"b"',
+    },
+    {
+      partNumber: 1,
+      etag: '"a"',
+    },
   ];
 
   beforeEach(() => {
@@ -57,9 +61,16 @@ describe('UploadService', () => {
       ),
       completeMultipartUpload: jest.fn().mockResolvedValue(undefined),
       abortMultipartUpload: jest.fn().mockResolvedValue(undefined),
-      headObject: jest.fn().mockResolvedValue({ sizeBytes: 20 * MIB, contentType: null }),
+      headObject: jest.fn().mockResolvedValue({
+        sizeBytes: 20 * MIB,
+        contentType: null,
+      }),
     };
-    assetsRepository = { create: jest.fn(), touch: jest.fn(), deleteById: jest.fn() };
+    assetsRepository = {
+      create: jest.fn(),
+      touch: jest.fn(),
+      deleteById: jest.fn(),
+    };
     versionsRepository = {
       createUploading: jest.fn(),
       findUploadById: jest.fn().mockResolvedValue(uploading),
@@ -68,7 +79,7 @@ describe('UploadService', () => {
     };
     tagsRepository = { linkToAsset: jest.fn() };
     outboxRepository = { append: jest.fn() };
-    viewsRepository = { findByIds: jest.fn().mockResolvedValue([assetView]) };
+    catalogService = { getAsset: jest.fn().mockResolvedValue(assetView) };
 
     const db = {
       transaction: (work: (transaction: unknown) => Promise<unknown>) => work(tx),
@@ -87,7 +98,7 @@ describe('UploadService', () => {
       versionsRepository as unknown as AssetVersionsRepository,
       tagsRepository,
       outboxRepository,
-      viewsRepository as unknown as AssetViewsRepository,
+      catalogService as unknown as CatalogService,
     );
   });
 
@@ -108,11 +119,18 @@ describe('UploadService', () => {
         'model/gltf-binary',
       );
       expect(assetsRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ id: upload.assetId, title: 'Wooden chair' }),
+        expect.objectContaining({
+          id: upload.assetId,
+          title: 'Wooden chair',
+        }),
         tx,
       );
       expect(versionsRepository.createUploading).toHaveBeenCalledWith(
-        expect.objectContaining({ uploadId: 'upload-1', number: 1, partSizeBytes: 16 * MIB }),
+        expect.objectContaining({
+          uploadId: 'upload-1',
+          number: 1,
+          partSizeBytes: 16 * MIB,
+        }),
         tx,
       );
       expect(tagsRepository.linkToAsset).toHaveBeenCalledWith(
@@ -125,19 +143,129 @@ describe('UploadService', () => {
 
     it('rejects anything but GLB before touching storage', async () => {
       await expect(
-        service.initiate({ ...input, contentType: 'model/obj', fileName: 'chair.obj' }),
+        service.initiate({
+          ...input,
+          contentType: 'model/obj',
+          fileName: 'chair.obj',
+        }),
       ).rejects.toThrow(InvalidUploadRequestException);
       expect(storage.createMultipartUpload).not.toHaveBeenCalled();
     });
 
     it('rejects files above the size limit', async () => {
-      await expect(service.initiate({ ...input, sizeBytes: 513 * MIB })).rejects.toThrow(
+      await expect(
+        service.initiate({
+          ...input,
+          sizeBytes: 513 * MIB,
+        }),
+      ).rejects.toThrow(InvalidUploadRequestException);
+    });
+
+    it('splits the file into parts with a smaller last part', async () => {
+      const exact = await service.initiate({
+        ...input,
+        sizeBytes: 16 * MIB,
+      });
+      const oneByteMore = await service.initiate({
+        ...input,
+        sizeBytes: 16 * MIB + 1,
+      });
+      const largest = await service.initiate({
+        ...input,
+        sizeBytes: 512 * MIB,
+      });
+
+      expect(exact.parts).toHaveLength(1);
+      expect(oneByteMore.parts).toHaveLength(2);
+      expect(largest.parts).toHaveLength(32);
+    });
+
+    it('drops empty and duplicate tags, keeping input order', async () => {
+      const upload = await service.initiate({
+        ...input,
+        tags: ['chair', ' ', 'Chair', 'table'],
+      });
+
+      expect(tagsRepository.linkToAsset).toHaveBeenCalledWith(
+        upload.assetId,
+        ['chair', 'table'],
+        tx,
+      );
+    });
+
+    it('rejects tags longer than the limit and more than 20 tags', async () => {
+      const tooMany = Array.from({ length: 21 }, (_, index) => `tag-${String(index)}`);
+
+      await expect(
+        service.initiate({
+          ...input,
+          tags: ['x'.repeat(51)],
+        }),
+      ).rejects.toThrow(InvalidUploadRequestException);
+      await expect(
+        service.initiate({
+          ...input,
+          tags: tooMany,
+        }),
+      ).rejects.toThrow(InvalidUploadRequestException);
+    });
+  });
+
+  describe('getPartUrls', () => {
+    it('re-signs all parts for an empty list and each requested part once', async () => {
+      await expect(service.getPartUrls('version-1', [])).resolves.toHaveLength(2);
+
+      const parts = await service.getPartUrls('version-1', [2, 2]);
+
+      expect(parts.map((part) => part.partNumber)).toEqual([2]);
+    });
+
+    it('rejects part numbers outside the upload', async () => {
+      await expect(service.getPartUrls('version-1', [3])).rejects.toThrow(
         InvalidUploadRequestException,
       );
     });
   });
 
   describe('complete', () => {
+    it('rejects missing, duplicated or unsigned parts before calling storage', async () => {
+      const attempts = [
+        [
+          {
+            partNumber: 1,
+            etag: '"a"',
+          },
+        ],
+        [
+          {
+            partNumber: 1,
+            etag: '"a"',
+          },
+          {
+            partNumber: 1,
+            etag: '"a"',
+          },
+        ],
+        [
+          {
+            partNumber: 1,
+            etag: '"a"',
+          },
+          {
+            partNumber: 2,
+            etag: '',
+          },
+        ],
+      ];
+
+      for (const parts of attempts) {
+        await expect(service.complete('version-1', parts)).rejects.toThrow(
+          InvalidUploadRequestException,
+        );
+      }
+      expect(storage.completeMultipartUpload).not.toHaveBeenCalled();
+    });
+
     it('assembles the parts in order and records the uploaded event once', async () => {
       await expect(service.complete('version-1', twoParts)).resolves.toBe(assetView);
 
@@ -145,8 +273,14 @@ describe('UploadService', () => {
         uploading.originalKey,
         'upload-1',
         [
-          { partNumber: 1, etag: '"a"' },
-          { partNumber: 2, etag: '"b"' },
+          {
+            partNumber: 1,
+            etag: '"a"',
+          },
+          {
+            partNumber: 2,
+            etag: '"b"',
+          },
         ],
       );
       expect(versionsRepository.markUploaded).toHaveBeenCalledWith(
@@ -201,7 +335,10 @@ describe('UploadService', () => {
     });
 
     it('rejects an object whose size differs from the declared one', async () => {
-      storage.headObject.mockResolvedValue({ sizeBytes: 1, contentType: null });
+      storage.headObject.mockResolvedValue({
+        sizeBytes: 1,
+        contentType: null,
+      });
 
       await expect(service.complete('version-1', twoParts)).rejects.toThrow(
         InvalidUploadRequestException,

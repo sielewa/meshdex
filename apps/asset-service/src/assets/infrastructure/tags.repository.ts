@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { inArray } from 'drizzle-orm';
-import type { DbExecutor } from '../../database/database.types';
+import type { DbExecutor } from '../../database/domain/db-executor.type';
 import { assetTags, tags } from '../../database/schema';
 
 @Injectable()
@@ -24,7 +24,12 @@ export class TagsRepository {
 
     await tx
       .insert(assetTags)
-      .values(tagRows.map((tag) => ({ assetId, tagId: tag.id })))
+      .values(
+        tagRows.map((tag) => ({
+          assetId,
+          tagId: tag.id,
+        })),
+      )
       .onConflictDoNothing();
   }
 }

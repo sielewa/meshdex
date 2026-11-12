@@ -2,14 +2,17 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Module } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { s3Config } from '../config/config.namespaces';
-import { OBJECT_STORAGE, type ObjectStorage } from './domain/object-storage-port.interface';
+import { OBJECT_STORAGE } from './storage.tokens';
+import type { ObjectStorage } from './domain/object-storage-port.interface';
 import { S3ObjectStorage } from './infrastructure/s3-object-storage';
 
 @Module({
   providers: [
     {
       provide: OBJECT_STORAGE,
-      inject: [s3Config.KEY],
+      inject: [
+        s3Config.KEY,
+      ],
       useFactory: (config: ConfigType<typeof s3Config>): ObjectStorage =>
         new S3ObjectStorage(
           new S3Client({
@@ -31,6 +34,8 @@ import { S3ObjectStorage } from './infrastructure/s3-object-storage';
         ),
     },
   ],
-  exports: [OBJECT_STORAGE],
+  exports: [
+    OBJECT_STORAGE,
+  ],
 })
 export class StorageModule {}

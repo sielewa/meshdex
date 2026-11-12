@@ -1,23 +1,21 @@
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsString, IsUrl, Max, Min } from 'class-validator';
-import { validateConfig } from '@meshdex/shared';
-
-const MIB = 1024 * 1024;
-
-/** Parses "true"/"false" env strings; anything else stays as-is and fails `@IsBoolean`. */
-const toBoolean = ({ value }: { value: unknown }): unknown =>
-  value === 'true' ? true : value === 'false' ? false : value;
+import { MIB } from './config.constants';
 
 /**
  * Every environment variable asset-service reads, validated once at startup (ADR 007).
  * Modules never touch `process.env`; they inject their config namespace instead.
+ * Booleans accept only the literal strings "true"/"false"; anything else fails `@IsBoolean`.
  */
 export class AssetServiceEnv {
   /** host:port the gRPC server binds to. */
   @IsString()
   GRPC_URL!: string;
 
-  @IsUrl({ protocols: ['postgres', 'postgresql'], require_tld: false })
+  @IsUrl({
+    protocols: ['postgres', 'postgresql'],
+    require_tld: false,
+  })
   DATABASE_URL!: string;
 
   @Type(() => Number)
@@ -26,7 +24,10 @@ export class AssetServiceEnv {
   @Max(100)
   DATABASE_POOL_MAX!: number;
 
-  @IsUrl({ protocols: ['http', 'https'], require_tld: false })
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_tld: false,
+  })
   S3_ENDPOINT!: string;
 
   @IsString()
@@ -41,7 +42,9 @@ export class AssetServiceEnv {
   @IsString()
   S3_SECRET_ACCESS_KEY!: string;
 
-  @Transform(toBoolean)
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
   @IsBoolean()
   S3_FORCE_PATH_STYLE!: boolean;
 
@@ -66,20 +69,9 @@ export class AssetServiceEnv {
   @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
   LOG_LEVEL!: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
-  @Transform(toBoolean)
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
   @IsBoolean()
   LOG_PRETTY!: boolean;
-}
-
-let validatedEnv: AssetServiceEnv | undefined;
-
-/**
- * Validates `process.env` on first use and caches the result, so all config
- * namespaces (and `main.ts`, which needs the gRPC URL before Nest starts) share
- * one validation pass. Throws `ConfigValidationException` listing every problem.
- */
-export function assetServiceEnv(): AssetServiceEnv {
-  validatedEnv ??= validateConfig(AssetServiceEnv, process.env);
-
-  return validatedEnv;
 }

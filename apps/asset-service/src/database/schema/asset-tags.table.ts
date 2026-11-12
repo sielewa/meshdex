@@ -15,7 +15,10 @@ export const assetTags = pgTable(
   },
   (table) => [
     /** Also indexes `asset_id` (leading column): "tags of these assets" and cascades from `assets`. */
-    primaryKey({ name: 'asset_tags_pk', columns: [table.assetId, table.tagId] }),
+    primaryKey({
+      name: 'asset_tags_pk',
+      columns: [table.assetId, table.tagId],
+    }),
     /** The reverse direction: "assets with this tag" and cascades from `tags`. */
     index('asset_tags_tag_id_asset_id_idx').on(table.tagId, table.assetId),
   ],

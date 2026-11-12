@@ -1,9 +1,5 @@
 import { HealthImplementation } from 'grpc-health-check';
-
-/** Service name Kubernetes queries for readiness; liveness uses the empty name (whole server). */
-export const READINESS_SERVICE = 'meshdex.asset.v1.AssetService';
-
-export const GRPC_HEALTH = Symbol('GRPC_HEALTH');
+import { READINESS_SERVICE } from './health.constants';
 
 /**
  * Standard gRPC health protocol (`grpc.health.v1.Health`), which Kubernetes gRPC

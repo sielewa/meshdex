@@ -3,6 +3,7 @@ import { ConfigModule, type ConfigType } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { buildLoggerParams } from '@meshdex/shared';
 import { AssetsModule } from './assets/assets.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { allConfigNamespaces, loggerConfig } from './config/config.namespaces';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -16,12 +17,18 @@ import { HealthModule } from './health/health.module';
       load: allConfigNamespaces,
     }),
     LoggerModule.forRootAsync({
-      inject: [loggerConfig.KEY],
+      inject: [
+        loggerConfig.KEY,
+      ],
       useFactory: (config: ConfigType<typeof loggerConfig>) =>
-        buildLoggerParams({ serviceName: 'asset-service', ...config }),
+        buildLoggerParams({
+          serviceName: 'asset-service',
+          ...config,
+        }),
     }),
     DatabaseModule,
     HealthModule,
+    CatalogModule,
     AssetsModule,
   ],
 })

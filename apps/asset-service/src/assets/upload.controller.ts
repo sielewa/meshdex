@@ -1,5 +1,6 @@
+import { status } from '@grpc/grpc-js';
 import { Controller } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
+import { GrpcMethod, RpcException } from '@nestjs/microservices';
 import {
   ASSET_SERVICE_NAME,
   type AbortUploadRequest,
@@ -14,30 +15,27 @@ import {
   type UploadPartUrl,
 } from '@meshdex/proto/asset/v1';
 import { toProtoTimestamp } from '@meshdex/shared';
-import { toProtoAsset } from './asset.mapper';
-import { toRpcException } from './assets-rpc-errors';
-import { UploadService, type PresignedPart } from './upload.service';
-
-type UploadRpcs = Pick<
-  AssetServiceController,
-  'initiateUpload' | 'getUploadPartUrls' | 'completeUpload' | 'abortUpload'
->;
-
-function toProtoPart(part: PresignedPart): UploadPartUrl {
-  return {
-    partNumber: part.partNumber,
-    url: part.url,
-    expiresAt: toProtoTimestamp(part.expiresAt),
-  };
-}
+import { AssetProtoMapper } from '../catalog/asset-proto.mapper';
+import { UploadService } from './upload.service';
+import type { PresignedPart } from './domain/presigned-part.interface';
+import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.exception';
+import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
+import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
+import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 
 /**
  * Upload RPCs of `meshdex.asset.v1.AssetService`. Other RPCs of the same service live in
  * other controllers; `implements Pick<...>` keeps each method checked against the contract.
  */
 @Controller()
-export class UploadController implements UploadRpcs {
-  constructor(private readonly uploadService: UploadService) {}
+export class UploadController implements Pick<
+  AssetServiceController,
+  'initiateUpload' | 'getUploadPartUrls' | 'completeUpload' | 'abortUpload'
+> {
+  constructor(
+    private readonly uploadService: UploadService,
+    private readonly assetProtoMapper: AssetProtoMapper,
+  ) {}
 
   @GrpcMethod(ASSET_SERVICE_NAME, 'InitiateUpload')
   async initiateUpload(request: InitiateUploadRequest): Promise<InitiateUploadResponse> {
@@ -54,10 +52,10 @@ export class UploadController implements UploadRpcs {
         assetId: upload.assetId,
         assetVersionId: upload.versionId,
         partSizeBytes: upload.partSizeBytes,
-        parts: upload.parts.map(toProtoPart),
+        parts: upload.parts.map((part) => this.toProtoPart(part)),
       };
     } catch (error) {
-      throw toRpcException(error);
+      throw this.toRpcException(error);
     }
   }
 
@@ -69,9 +67,9 @@ export class UploadController implements UploadRpcs {
         request.partNumbers,
       );
 
-      return { parts: parts.map(toProtoPart) };
+      return { parts: parts.map((part) => this.toProtoPart(part)) };
     } catch (error) {
-      throw toRpcException(error);
+      throw this.toRpcException(error);
     }
   }
 
@@ -80,9 +78,9 @@ export class UploadController implements UploadRpcs {
     try {
       const asset = await this.uploadService.complete(request.assetVersionId, request.parts);
 
-      return { asset: toProtoAsset(asset) };
+      return { asset: this.assetProtoMapper.toProtoAsset(asset) };
     } catch (error) {
-      throw toRpcException(error);
+      throw this.toRpcException(error);
     }
   }
 
@@ -93,7 +91,41 @@ export class UploadController implements UploadRpcs {
 
       return {};
     } catch (error) {
-      throw toRpcException(error);
+      throw this.toRpcException(error);
     }
+  }
+
+  private toProtoPart(part: PresignedPart): UploadPartUrl {
+    return {
+      partNumber: part.partNumber,
+      url: part.url,
+      expiresAt: toProtoTimestamp(part.expiresAt),
+    };
+  }
+
+  /** Maps the domain exceptions of the upload RPCs to gRPC status codes; unknown errors become INTERNAL. */
+  private toRpcException(error: unknown): unknown {
+    if (error instanceof InvalidUploadRequestException) {
+      return new RpcException({
+        code: status.INVALID_ARGUMENT,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof AssetVersionNotFoundException || error instanceof AssetNotFoundException) {
+      return new RpcException({
+        code: status.NOT_FOUND,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof UploadNotInProgressException) {
+      return new RpcException({
+        code: status.FAILED_PRECONDITION,
+        message: error.message,
+      });
+    }
+
+    return error;
   }
 }

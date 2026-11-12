@@ -9,24 +9,9 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import type { ModelStats } from '../../assets/domain/model-stats.interface';
+import type { ThumbnailRecord } from '../../assets/domain/thumbnail-record.interface';
 import { assets } from './assets.table';
-
-/** Stored shape of one rendered thumbnail (kept as JSON: always read and written together). */
-export interface ThumbnailRecord {
-  key: string;
-  sizeBytes: number;
-  contentType: string;
-  width: number;
-  height: number;
-  view: string;
-}
-
-export interface ModelStatsRecord {
-  triangleCount: number;
-  vertexCount: number;
-  meshCount: number;
-  textureCount: number;
-}
 
 /**
  * One uploaded file of an asset and its processing lifecycle
@@ -57,7 +42,7 @@ export const assetVersions = pgTable(
     optimizedSizeBytes: bigint({ mode: 'number' }),
     optimizedContentType: text(),
     thumbnails: jsonb().$type<ThumbnailRecord[]>().notNull().default([]),
-    stats: jsonb().$type<ModelStatsRecord>(),
+    stats: jsonb().$type<ModelStats>(),
     failureReason: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
