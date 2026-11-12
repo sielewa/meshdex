@@ -21,6 +21,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 013 | [Ingest source and pipeline](013-ingest-source-and-pipeline.md)                                                    | accepted              |
 | 014 | [Benchmark runs as JSON files in the repository](014-benchmark-runs-as-json-in-the-repo.md)                        | accepted              |
 | 015 | [Experiments page: runs bundled at build time, SVG charts](015-experiments-page-build-time-runs-and-svg-charts.md) | accepted              |
+| 016 | [Benchmark experiments defined in a manifest](016-benchmark-experiments-manifest.md)                               | accepted              |
 
 ## Pending decisions
 
