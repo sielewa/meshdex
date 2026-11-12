@@ -18,19 +18,31 @@ apps/<service>/src/
     schema/           one file per table (`assets.table.ts`) + `index.ts`; shared by the
                       service's modules (ADR 005)
   <feature>/
-    <feature>.module.ts / .service.ts / .constants.ts
+    <feature>.module.ts / .service.ts / .constants.ts / .tokens.ts (DI injection tokens)
     <feature>.controller.ts   transport entry — gRPC `@GrpcMethod` (asset-service),
                               `<feature>.resolver.ts` (gateway), `<feature>.consumer.ts` (worker, Kafka)
-    domain/          interfaces, enums, ports (`asset.interface.ts`, `asset-status.enum.ts`,
-                     `object-storage-port.interface.ts`)
-    infrastructure/  this module's Drizzle repositories, named after the table they query
-                     (`assets.repository.ts`), adapters implementing ports (S3, gRPC clients)
+    <name>.mapper.ts          injectable mapper class (domain <-> transport) when several
+                              controllers need it, e.g. `AssetProtoMapper`
+    domain/          declarations only, one per file: `<name>.interface.ts`, `<name>.enum.ts`,
+                     `<name>.type.ts` (unions/aliases), ports `<name>-port.interface.ts`.
+                     No functions, no constants.
+    infrastructure/  classes only: Drizzle repositories named after the table they query
+                     (`assets.repository.ts`) and adapters implementing ports (S3, gRPC clients)
     exceptions/      `export class AssetNotFoundException extends Error {}`
     listeners/       in-process `@OnEvent('asset.status-changed')` handlers
     jobs/            `@Cron(...)` / interval loops (e.g. outbox relay)
     events/          event classes
     dto/             class-validator DTOs (gateway inputs); gRPC messages use ts-proto generated types
 ```
+
+**Code lives where it is used.** These rules apply to every app and package:
+
+- **Files with a class contain only that class** (services, controllers, repositories, adapters, modules, mappers): no interfaces, type aliases, constants or helper functions next to it.
+- **Logic used by one class is a `private` method of that class** — no helper functions in separate files. Logic needed by several classes becomes an injectable class (e.g. `AssetProtoMapper`); a few lines needed by two repositories may simply be a private method in each.
+- Types go to `domain/` (one per file), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
+- A contract subset is written inline: `implements Pick<AssetServiceController, 'getAsset' | …>`.
+- Each controller maps its own errors in a `private toRpcException(error)`, listing exactly the exceptions its service can throw.
+- Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), and `packages/*` libraries whose exported functions are their public API.
 
 ## Layers and errors
 
@@ -80,8 +92,13 @@ apps/<service>/src/
 
 ## Style
 
-- **Formatting is Prettier's job** (`singleQuote`, `trailingComma: all`, `printWidth: 100`, 2-space indent). Never hand-format against it; `pnpm format` before handing over.
-- **ESLint checks code quality only** (`eslint.config.js`: typescript-eslint `strictTypeChecked` with type-aware rules, `no-console`, `eqeqeq`, `curly`, explicit types on exported APIs). No `eslint-disable` without a comment saying why.
+- **Formatting is Prettier's job** (`singleQuote`, `trailingComma: all`, `printWidth: 100`, 2-space indent), plus two house rules enforced by ESLint (`@stylistic`), which Prettier can't express:
+  - **object literals with 3+ properties: one property per line** (Prettier then keeps them expanded);
+  - **NestJS modules (`*.module.ts`): one item per line in every array** — `controllers`, `providers`, `imports`, `exports`. Module files are excluded from Prettier so it doesn't collapse those arrays.
+
+  Before handing over: `eslint --fix`, then `pnpm format`.
+
+- **ESLint checks code quality** (`eslint.config.js`: typescript-eslint `strictTypeChecked` with type-aware rules, `no-console`, `eqeqeq`, `curly`, explicit types on exported APIs). No `eslint-disable` without a comment saying why.
 - No `import type` for classes injected by NestJS DI: constructor parameter types must stay runtime imports (`emitDecoratorMetadata`).
 - Constructor DI with `private readonly`.
 - Guard clauses with early `return`/`throw`; blank line after an `if` block and before the final `return`.
@@ -91,7 +108,7 @@ apps/<service>/src/
 - Imports: absolute `src/...` between modules, relative within a module; workspace packages by their package name.
 - Comments: `/** ... */` above classes, methods and fields explaining **why** (invariants, ordering, idempotency, trade-offs), not what. Magic numbers become named `private readonly` fields or live in `<feature>.constants.ts`.
 - Time ([ADR 003](adr/003-identifiers-and-time-across-services.md)): compute on ms timestamps (`number`), convert only at boundaries — `google.protobuf.Timestamp` in proto (shared helper), `timestamptz` (UTC) in the DB. Date columns end with `At` (`createdAt`, `processedAt`).
-- Ids ([ADR 003](adr/003-identifiers-and-time-across-services.md)): UUIDv7 generated in the app when the id leaves the service or is needed before INSERT; natural keys where the data has one; `bigint` identity only for ids that never leave the table. Random tokens: `crypto.randomInt()` / `crypto.randomBytes()`.
+- Ids ([ADR 003](adr/003-identifiers-and-time-across-services.md)): UUIDv7 generated in the app when the id leaves the service or is needed before INSERT; natural keys where the data has one; `bigint` identity for ids that never leave the service — including surrogate keys referenced only by the service's own tables, where a compact key keeps large join tables small (e.g. `tags.id` in `asset_tags`; the API uses tag names). Random tokens: `crypto.randomInt()` / `crypto.randomBytes()`.
 
 ## Database (Drizzle + PostgreSQL)
 
@@ -102,10 +119,17 @@ apps/<service>/src/
 - Enum-like columns (status, type) are text kept consistent by TS enums in code (no native PG `ENUM`: adding a value then needs a migration).
 - Unique violations: catch Postgres code `23505` in the repository and turn it into a domain result/exception.
 - Transactions: `db.transaction(async (tx) => ...)` inside one service. The outbox row is always written in the same transaction as the state change it describes.
+- Values read from the database are narrowed with checks, not `as` casts (e.g. `parseAssetVersionStatus`): unknown values mean corrupted data and fail loudly.
+
+## Dependencies (pnpm)
+
+- **Every NestJS app installs the same set of `@nestjs/*` packages at the same versions** (including `@nestjs/platform-express`). pnpm creates a separate copy of the same version of `@nestjs/core` for each set of its optional peers; when a shared dependency such as `nestjs-pino` ends up linked to another copy than the app, DI fails with `Nest can't resolve dependencies of the LoggerModule (…, ApplicationConfig, …)` because the two `ApplicationConfig` classes are different objects.
+- Shared packages declare frameworks as `peerDependencies` (ranges) so they use the app's copy.
 
 ## Tests
 
 - Unit specs next to the file (`assets.service.spec.ts`). Build the class directly with `jest.fn()` fakes cast `as unknown as X` — no Nest `TestingModule` for unit tests.
+- NestJS 12 is ESM-only, so every app's `test` script runs Jest with `NODE_OPTIONS=--experimental-vm-modules` (ADR 008).
 - Integration tests (Testcontainers: Postgres, Redpanda, S3 emulator) live in the app's `test/` directory.
 - Test names are English sentences describing behaviour (`it('writes the asset and its outbox event in one transaction')`).
 

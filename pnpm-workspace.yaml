@@ -13,5 +13,10 @@ engineStrict: true
 minimumReleaseAge: 10080
 
 allowBuilds:
+  '@apollo/protobufjs': false
   '@bufbuild/buf': false
+  '@parcel/watcher': false
+  cpu-features: false
+  esbuild: false
   protobufjs: false
+  ssh2: false
