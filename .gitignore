@@ -61,3 +61,5 @@ packages/proto/gen/
 # GraphQL types generated from apps/gateway/schema.graphql, and Next.js' type stubs
 apps/web/src/graphql/gql/
 apps/web/next-env.d.ts
+# Benchmark runs bundled for the Experiments page (apps/web/scripts/collect-benchmark-runs.ts)
+apps/web/src/**/*.generated.json

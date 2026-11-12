@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "command": "import",
+  "label": "1k50-u8",
+  "startedAt": "2026-11-12T22:54:57.107Z",
+  "options": {
+    "resolution": "1k",
+    "packConcurrency": 2,
+    "packInWorkers": false,
+    "uploadConcurrency": 8,
+    "queueSize": 4,
+    "limit": 50,
+    "ids": null
+  },
+  "environment": {
+    "node": "v24.22.1",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpuModel": "Apple M4",
+    "cpuCount": 10,
+    "totalMemoryBytes": 34359738368,
+    "gitCommit": "57c5cac9dd7e30db5982224ed2d21f2176b0d9c8",
+    "gitDirty": false
+  },
+  "measurements": {
+    "wallMs": 742,
+    "cpuUserMs": 617,
+    "cpuSystemMs": 113,
+    "peakRssBytes": 383664128,
+    "peakHeapUsedBytes": 39262320,
+    "peakArrayBuffersBytes": 101570187,
+    "eventLoopDelayMs": {
+      "p50": 0.15,
+      "p99": 6.44,
+      "max": 24.07
+    }
+  },
+  "result": {
+    "modelsSelected": 50,
+    "modelsImported": 50,
+    "modelsAlreadyImported": 0,
+    "failures": [],
+    "bytesUploaded": 65208736,
+    "pipeline": {
+      "packBusyMs": 363,
+      "uploadBusyMs": 5134,
+      "packerBlockedMs": 707,
+      "uploaderIdleMs": 168,
+      "maxQueued": 4
+    },
+    "modelsPerSecond": 67.39,
+    "megabytesPerSecond": 87.88
+  }
+}

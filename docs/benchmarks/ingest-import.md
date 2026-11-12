@@ -3,7 +3,7 @@
 - **Date:** 2026-11-12
 - **Code:** `1c22834` (clean tree in every run)
 - **Question:** does moving glTF → GLB packing off the main thread (`--pack-in-workers`) make `ingest import` faster, and what does it cost?
-- **Answer:** no. In both subsets the import is limited by uploads, so freeing the main thread doesn't add throughput. Workers make every run about 0.2 s slower (thread start-up), use about 60–115 % more CPU and about 130 MB more memory. They only cut event-loop delay (max 22.9 → 5.3 ms on the 1k subset). **Main-thread packing stays the default**; `--pack-in-workers` stays as an option.
+- **Answer:** no. In both subsets the import is limited by uploads, so freeing the main thread doesn't add throughput. Workers make every run about 0.2 s slower (thread start-up), use about 60–115 % more CPU and about 140 MB more memory. They only cut event-loop delay (max 22.9 → 5.3 ms on the 1k subset). **Main-thread packing stays the default**; `--pack-in-workers` stays as an option.
 
 ## What is measured
 
@@ -21,7 +21,7 @@ Everything else is the same: P = 2, Q = 4, U = 4 (defaults).
 Each run is recorded by `RunProbe` from the start of the command to its end, so worker start-up and shutdown count against `workers`. Metrics (all in the run files):
 
 - `wallMs`, CPU time (`cpuUserMs + cpuSystemMs`, the whole process, all threads);
-- peak RSS (the whole process; `peakArrayBuffersBytes` counts the main thread only, so it isn't comparable between the modes);
+- peak RSS in SI megabytes, like throughput (the whole process; `peakArrayBuffersBytes` counts the main thread only, so it isn't comparable between the modes);
 - event-loop delay of the main thread (p99, max), sampled with `monitorEventLoopDelay`;
 - pipeline time summed over slots: packing, uploading, packers blocked on a full queue, uploaders idle on an empty one. Blocked packers mean uploads are the bottleneck; idle uploaders mean packing is.
 
@@ -52,7 +52,7 @@ Median (min–max) of 5 runs.
 | Wall time             | **786** (762–811) ms | 965 (871–997) ms     | **601** (578–609) ms | 798 (768–818) ms      |
 | Throughput            | **83.0** MB/s        | 67.6 MB/s            | **134** MB/s         | 101 MB/s              |
 | CPU time              | **879** ms           | 1406 ms (+60 %)      | **427** ms           | 924 ms (+116 %)       |
-| Peak RSS              | **364** MB           | 494 MB               | **485** MB           | 622 MB                |
+| Peak RSS              | **382** MB           | 518 MB               | **509** MB           | 653 MB                |
 | Event-loop delay p99  | 5.8 ms               | **2.2** ms           | 4.7 ms               | **3.0** ms            |
 | Event-loop delay max  | 22.9 (19.0–25.6) ms  | **5.3** (4.6–8.3) ms | 11.8 (10.1–25.3) ms  | **9.7** (8.3–10.7) ms |
 | Pack busy (2 slots)   | 294 ms               | 529 ms               | 197 ms               | 404 ms                |
@@ -66,7 +66,7 @@ Wall time, CPU time, RSS and event-loop delay p99 don't overlap between the mode
 
 1. **Uploads are the bottleneck, so packing elsewhere can't speed the import up.** With main-thread packing the 4 uploaders are busy 93 % (1k50) and 87 % (4k10) of the run, while the packers spend only 16–19 % of their time packing and 57 % (1k50) of it blocked on a full queue. Making the faster stage faster doesn't move the pipeline.
 2. **Workers cost about 0.2 s per run, almost all of it at the start.** The wall-time gap is 179 ms (1k50) and 197 ms (4k10) and doesn't grow with the number of models. Uploaders wait about 155 ms each for the first packed model in `workers` mode (idle 623 vs 50 ms over 4 slots) instead of about 12 ms: that is the time to start the threads and load the packing code into each of them. On a long import this fixed cost would be amortised; on these short runs it decides the result.
-3. **Every worker is a whole V8 isolate.** CPU time grows by about 500 ms in both subsets (two isolates starting and loading `@gltf-transform`, plus structured cloning of requests and manifests) and RSS by about 130 MB (about 65 MB per worker). "Pack busy" doubles because, seen from the main thread, it now includes the round trip to the worker.
+3. **Every worker is a whole V8 isolate.** CPU time grows by about 500 ms in both subsets (two isolates starting and loading `@gltf-transform`, plus structured cloning of requests and manifests) and RSS by about 140 MB (about 70 MB per worker). "Pack busy" doubles because, seen from the main thread, it now includes the round trip to the worker.
 4. **The one gain is a calmer event loop.** Main-thread packing blocks the loop for at most 19–26 ms on 1k models; workers bring that down to 5–8 ms. For a batch CLI whose gRPC deadlines are 2 s and 15 s this doesn't matter. It would matter if the same process had to answer latency-sensitive requests, or if packing grew CPU-heavy (mesh compression, texture resizing) or handled much bigger models (the 1k catalog has a 958 MB one), where a single pack could block the loop for seconds.
 5. **Per-model overhead shows up as soon as models get small.** The same pipeline moves 134 MB/s with 8 MB models and 83 MB/s with 1.3 MB ones: about 58 ms of upload time per 1k model against 210 ms per 4k model that is six times bigger. Each model costs several round trips to asset-service (initiate, part URLs, part upload, complete) whatever its size. Upload concurrency and the per-model control path are where the next gain is, not packing.
 
@@ -79,7 +79,7 @@ Wall time, CPU time, RSS and event-loop delay p99 don't overlap between the mode
 
 ## Next
 
-- Sweep upload concurrency U (and queue size Q) to see where the upload stage stops scaling.
+- ~~Sweep upload concurrency U~~: done, [ingest-upload-concurrency.md](ingest-upload-concurrency.md). A sweep of queue size Q is still open.
 - A byte budget for the pipeline before importing models of hundreds of MB.
 - Repeat the measurement inside kind with CPU and memory limits (Stage 4).
 

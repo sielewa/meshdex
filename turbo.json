@@ -22,20 +22,40 @@
     },
     "@meshdex/web#build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/gateway/schema.graphql",
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
+      ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "@meshdex/web#typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/gateway/schema.graphql",
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
+      ]
     },
     "@meshdex/web#lint": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/gateway/schema.graphql",
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
+      ]
     },
     "@meshdex/web#test": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/gateway/schema.graphql",
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
+      ],
       "outputs": ["coverage/**"]
     }
   }
