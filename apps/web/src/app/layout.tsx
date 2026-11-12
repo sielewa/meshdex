@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import { getServerEnv } from '@/config/server-env';
@@ -25,9 +26,14 @@ export default async function RootLayout({
       <body className="min-h-screen font-sans">
         <Providers gatewayEndpoint={PUBLIC_GATEWAY_URL}>
           <header className="border-b border-neutral-800">
-            <div className="mx-auto max-w-6xl px-4 py-4 text-lg font-semibold tracking-tight">
-              Meshdex
-            </div>
+            <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
+              <Link href="/" className="text-lg font-semibold tracking-tight">
+                Meshdex
+              </Link>
+              <Link href="/upload" className="text-sm text-neutral-300 hover:text-white">
+                Upload
+              </Link>
+            </nav>
           </header>
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
         </Providers>
