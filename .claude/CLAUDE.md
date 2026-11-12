@@ -69,4 +69,7 @@ docker compose -f infra/docker/compose.yml up -d    # ask first; Redpanda Consol
 docker compose -f infra/docker/compose.yml down -v  # also wipes volumes (re-runs DB init), ask first
 pnpm --filter proto generate
 pnpm test
+pnpm --filter @meshdex/ingest start fetch --limit 10   # Poly Haven → apps/ingest/.cache (after build)
+pnpm --filter @meshdex/ingest start import --limit 10  # cache → GLB → asset-service (needs infra + asset-service)
+  # add --record <dir> --label <name> to save the run's measurements as JSON
 ```

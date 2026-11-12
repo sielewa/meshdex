@@ -43,6 +43,9 @@ __pycache__/
 *.log
 logs/
 
+# ingest: models downloaded from Poly Haven (apps/ingest/.cache)
+.cache/
+
 # Claude Code: local settings and temp workdir
 .claude/settings.local.json
 .claude-workdir/

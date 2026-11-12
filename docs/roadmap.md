@@ -8,7 +8,7 @@ Before the processing pipeline, the system gets a thin but complete slice across
 
 1. `asset-service` (gRPC) + `gateway` (GraphQL) — Stage 1
 2. `web`: upload with parallel parts and progress, asset grid, 3D viewer (R3F) — from Stage 5
-3. `ingest` with streaming/backpressure + **Experiments**: benchmark runs are recorded in the system and compared in the web UI (charts per configuration) — from Stage 4
+3. `ingest` with streaming/backpressure + **Experiments**: benchmark runs are recorded as JSON in `docs/benchmarks/runs/` ([ADR 014](adr/014-benchmark-runs-as-json-in-the-repo.md)) and compared in the web UI (charts per configuration) — from Stage 4
 4. Minimal `ml-service`: CLIP embeddings of source preview images, text search, batch-size experiment — from Stage 5
 5. Docker images + kind + Helm for the services that exist — from Stage 3
 
@@ -44,7 +44,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 
 ## Stage 4 — Ingest & benchmarks
 
-- [ ] `ingest` CLI: bulk import from Poly Haven API (CC0) and/or Kenney/Quaternius packs; streaming, bounded concurrency, backpressure, resumable
+- [x] `ingest` CLI: bulk import from Poly Haven API (CC0) and/or Kenney/Quaternius packs; streaming, bounded concurrency, backpressure, resumable
 - [ ] Bulk DB loading: row-by-row vs. batched inserts vs. `COPY` when importing thousands of assets
 - [ ] Benchmarks in `docs/benchmarks/`: throughput & memory vs concurrency; buffered vs streamed; worker replicas (KEDA, inside kind with resource limits) vs processing time; DB loading methods. Methodology (warm-up, repeated runs, p50/p95/p99, variance) + environment description + raw results + conclusions.
 - **Done when:** README links a benchmark report with real numbers measured in the Kubernetes environment.

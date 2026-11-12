@@ -6,6 +6,8 @@ Applies to the Node/NestJS services (`gateway`, `asset-service`, `processing-wor
 
 Each feature is a separate NestJS module in `apps/<service>/src/<feature>` with its own transport entry, service, repositories and listeners. A new feature gets a new module registered in `app.module.ts`, not an extension of an existing one. Modules don't reach into other modules' repositories: if they need foreign data they have their own repository, import a module that exports a service, or react to in-process events (`@OnEvent`). Across services: only gRPC and Kafka.
 
+**One capability per module.** A module holds one thing the service can do, with the classes that serve it; repositories, mappers and adapters don't count. Two services in a module are fine when they act on the same data (asset-service `assets/`: `AssetUploadService` and `AssetProcessingService` both drive the asset version lifecycle, ADR 005). A third service, or a service whose dependencies don't overlap with the rest of the module, is a second capability: it gets its own module that exports it, and the orchestrating module imports it. Example: ingest `import/` (pipeline, state file) imports `packing/` (glTF → GLB, main thread or workers) and `upload/` (GLB → asset); packing and upload know nothing of each other. **Names follow the module:** service (and controller/resolver) names start with the module's name. A module's main service is `<Module>Service` in `<module>.service.ts` (`upload/` → `UploadService`); other services add their role (`ImportStateService`, `WorkerPackingService`); when no service is the main one, all of them do (`assets/` → `AssetUploadService`, `AssetProcessingService` and their controllers). Classes that aren't services (`BoundedQueue`, `WorkerPool`) are named after what they are.
+
 ```
 apps/<service>/src/
   main.ts             bootstrap (OpenTelemetry initialised first, then transport, global pipes,
@@ -46,7 +48,7 @@ apps/<service>/src/
 - Types go to `domain/` (one per file; web: `types/`, see below), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
 - A contract subset is written inline: `implements Pick<AssetServiceController, 'getAsset' | …>`.
 - Each controller maps its own errors in a `private toRpcException(error)`, listing exactly the exceptions its service can throw.
-- Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), `*.registration.ts` (schema registration side effects such as `registerEnumType`), test helpers in `test/support/`, and `packages/*` libraries whose exported functions are their public API.
+- Exceptions: `main.ts` (entry point), `*.worker.ts` (worker thread entry points, e.g. `ingest/src/packing/workers/pack.worker.ts`), `config/config.namespaces.ts` (`registerAs` definitions), `*.registration.ts` (schema registration side effects such as `registerEnumType`), test helpers in `test/support/`, and `packages/*` libraries whose exported functions are their public API.
 
 ## Layers and errors
 
