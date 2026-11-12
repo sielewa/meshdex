@@ -8,3 +8,25 @@
 body {
   @apply bg-neutral-950 text-neutral-100 antialiased;
 }
+
+/*
+ * Chart tokens (Experiments page). Categorical slots are the dark steps of the data-viz
+ * palette, checked for colour-blind separation and 3:1 contrast against the card surface
+ * (neutral-900, #171717). Charts reference these by role, never by raw hex.
+ */
+:root {
+  --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
+  --chart-series-4: #c98500;
+  --chart-series-5: #d55181;
+  --chart-series-6: #008300;
+  --chart-series-7: #9085e9;
+  --chart-series-8: #e66767;
+  --chart-surface: #171717;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #383835;
+  --chart-muted: #898781;
+  --chart-ink: #f0efec;
+  --chart-ink-secondary: #c3c2b7;
+}

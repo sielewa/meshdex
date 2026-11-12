@@ -36,6 +36,17 @@ export default async function RootLayout({
             </nav>
           </header>
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          <footer className="border-t border-neutral-800">
+            {/* Engineering view, kept out of the main navigation (ADR 015). */}
+            <nav
+              className="mx-auto flex max-w-6xl gap-6 px-4 py-6 text-sm"
+              aria-label="Engineering"
+            >
+              <Link href="/experiments" className="text-neutral-500 hover:text-neutral-200">
+                Experiments
+              </Link>
+            </nav>
+          </footer>
         </Providers>
       </body>
     </html>
