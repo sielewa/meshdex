@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { validate as isUuid } from 'uuid';
 import type { Asset } from '../assets/domain/asset.interface';
 import type { AssetVersion } from '../assets/domain/asset-version.interface';
 import { DEFAULT_PAGE_SIZE, MAX_BATCH_GET_IDS, MAX_PAGE_SIZE } from './catalog.constants';
@@ -19,6 +20,7 @@ export class CatalogService {
   ) {}
 
   async getAsset(assetId: string): Promise<Asset> {
+    this.assertAssetIds([assetId]);
     const [asset] = await this.assetViewsRepository.findByIds([assetId]);
 
     if (!asset) {
@@ -49,6 +51,8 @@ export class CatalogService {
     if (ids.length > MAX_BATCH_GET_IDS) {
       throw new InvalidCatalogRequestException(`At most ${String(MAX_BATCH_GET_IDS)} ids per call`);
     }
+
+    this.assertAssetIds(ids);
 
     const byId = new Map(
       (await this.assetViewsRepository.findByIds(ids)).map((asset) => [asset.id, asset]),
@@ -90,5 +94,17 @@ export class CatalogService {
       assets,
       next: hasMore ? (pagePositions.at(-1) ?? null) : null,
     };
+  }
+
+  /**
+   * Malformed ids can't name an asset. They are rejected before the query, where Postgres
+   * would fail on the uuid column (22P02) and turn a caller's mistake into INTERNAL.
+   */
+  private assertAssetIds(ids: string[]): void {
+    const malformed = ids.filter((id) => !isUuid(id));
+
+    if (malformed.length > 0) {
+      throw new InvalidCatalogRequestException(`Asset ids are not UUIDs: ${malformed.join(', ')}`);
+    }
   }
 }

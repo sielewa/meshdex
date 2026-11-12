@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { validate as isUuid } from 'uuid';
 import { CatalogService } from '../catalog/catalog.service';
 import { MAX_FAILURE_REASON_LENGTH } from './assets.constants';
 import type { AssetVersion } from './domain/asset-version.interface';
 import { AssetVersionStatus } from './domain/asset-version-status.enum';
 import type { ProcessingOutcome } from './domain/processing-outcome.type';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
+import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidProcessingResultException } from './exceptions/invalid-processing-result.exception';
 import { ProcessingStateConflictException } from './exceptions/processing-state-conflict.exception';
 import { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
@@ -24,6 +26,7 @@ export class ProcessingService {
   ) {}
 
   async start(versionId: string): Promise<AssetVersion> {
+    this.assertVersionId(versionId);
     await this.applyTransition(versionId, AssetVersionStatus.PROCESSING, () =>
       this.assetVersionsRepository.markProcessing(versionId, Date.now()),
     );
@@ -32,6 +35,7 @@ export class ProcessingService {
   }
 
   async complete(versionId: string, outcome: ProcessingOutcome): Promise<AssetVersion> {
+    this.assertVersionId(versionId);
     const validated = this.validateOutcome(outcome);
     const target =
       validated.kind === 'succeeded' ? AssetVersionStatus.READY : AssetVersionStatus.FAILED;
@@ -43,6 +47,13 @@ export class ProcessingService {
     );
 
     return this.catalogService.getAssetVersion(versionId);
+  }
+
+  /** A malformed id can't name a version; rejecting it here keeps it away from the uuid column. */
+  private assertVersionId(versionId: string): void {
+    if (!isUuid(versionId)) {
+      throw new InvalidAssetVersionIdException(`Asset version id ${versionId} is not a UUID`);
+    }
   }
 
   /**

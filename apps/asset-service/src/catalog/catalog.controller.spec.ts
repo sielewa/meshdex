@@ -49,10 +49,12 @@ describe('CatalogController page tokens', () => {
     expect(lastPage.nextPageToken).toBe('');
   });
 
-  it('rejects malformed tokens with INVALID_ARGUMENT', async () => {
+  it('rejects malformed or forged tokens with INVALID_ARGUMENT', async () => {
     const wrongShape = Buffer.from('{"c":"x","i":1}').toString('base64url');
+    // Right shape, but an id the keyset query would compare against the uuid column.
+    const forgedId = Buffer.from('{"c":1,"i":"x"}').toString('base64url');
 
-    for (const token of ['garbage', wrongShape]) {
+    for (const token of ['garbage', wrongShape, forgedId]) {
       const rejection = controller.listAssets(request(token));
 
       await expect(rejection).rejects.toBeInstanceOf(RpcException);
