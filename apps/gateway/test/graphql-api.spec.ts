@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { status } from '@grpc/grpc-js';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -27,6 +29,12 @@ interface GraphqlResponse {
 
 const ids = ['019a7a5e-8b1c-7c3d-9e4f-000000000001', '019a7a5e-8b1c-7c3d-9e4f-000000000002'];
 const missingId = '019a7a5e-8b1c-7c3d-9e4f-0000000000ff';
+const SCHEMA_FILE_HEADER = [
+  "# Generated from the gateway's code-first schema (ADR 011). Do not edit by hand.",
+  '# Regenerate: UPDATE_SCHEMA=true pnpm --filter @meshdex/gateway test -- graphql-api',
+  '',
+  '',
+].join('\n');
 
 describe('GraphQL API', () => {
   const fake = new FakeAssetServiceServer();
@@ -78,10 +86,22 @@ describe('GraphQL API', () => {
     fake.reset();
   });
 
-  it('serves the reviewed schema', () => {
+  /**
+   * `schema.graphql` is the contract artifact the web app generates its types from
+   * (ADR 011). The test fails when the code-first schema and the file disagree, so a
+   * contract change can't be merged without the file — and its diff — changing too.
+   * Regenerate with `UPDATE_SCHEMA=true pnpm --filter @meshdex/gateway test -- graphql-api`.
+   */
+  it('serves exactly the schema committed in schema.graphql', () => {
     const { schema } = app.get(GraphQLSchemaHost);
+    const schemaFile = join(__dirname, '..', 'schema.graphql');
+    const printed = `${SCHEMA_FILE_HEADER}${printSchema(schema)}\n`;
 
-    expect(printSchema(schema)).toMatchSnapshot();
+    if (process.env.UPDATE_SCHEMA === 'true') {
+      writeFileSync(schemaFile, printed);
+    }
+
+    expect(readFileSync(schemaFile, 'utf8')).toBe(printed);
   });
 
   it('batches the asset lookups of one request into a single BatchGetAssets call', async () => {

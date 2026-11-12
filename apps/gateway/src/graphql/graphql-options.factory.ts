@@ -24,8 +24,8 @@ export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConf
 
   createGqlOptions(): ApolloDriverConfig {
     return {
-      // Schema built in memory from the decorated classes; the printed SDL is checked
-      // into the e2e snapshot so every contract change shows up in review.
+      // Schema built in memory from the decorated classes (no file writes at runtime);
+      // the e2e test keeps the committed schema.graphql in sync with it (ADR 011).
       autoSchemaFile: true,
       sortSchema: true,
       introspection: this.config.introspection,

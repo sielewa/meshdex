@@ -16,6 +16,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 008 | [CommonJS apps on ESM-only NestJS 12](008-commonjs-apps-on-esm-only-nestjs-12.md)                   | accepted (amends 004) |
 | 009 | [GraphQL API conventions](009-graphql-api-conventions.md)                                           | accepted              |
 | 010 | [Media URLs for stored files](010-media-urls-for-stored-files.md)                                   | accepted              |
+| 011 | [GraphQL schema file as the contract artifact](011-graphql-schema-file-as-contract.md)              | accepted (amends 009) |
 
 ## Pending decisions
 

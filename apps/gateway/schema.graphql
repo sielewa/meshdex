@@ -1,7 +1,7 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+# Generated from the gateway's code-first schema (ADR 011). Do not edit by hand.
+# Regenerate: UPDATE_SCHEMA=true pnpm --filter @meshdex/gateway test -- graphql-api
 
-exports[`GraphQL API serves the reviewed schema 1`] = `
-"type Asset {
+type Asset {
   createdAt: DateTime!
 
   """The version shown to users."""
@@ -125,7 +125,7 @@ type Query {
 
   """Assets, newest first."""
   assets(
-    """\`pageInfo.endCursor\` of the previous page."""
+    """`pageInfo.endCursor` of the previous page."""
     after: String
     first: Int! = 20
 
@@ -170,5 +170,4 @@ type UploadSession {
   """Every part except the last has exactly this size (bytes)."""
   partSizeBytes: Float!
   parts: [UploadPartUrl!]!
-}"
-`;
+}
