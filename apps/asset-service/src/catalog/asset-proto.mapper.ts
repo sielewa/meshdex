@@ -48,6 +48,7 @@ export class AssetProtoMapper {
       failureReason: version.failureReason ?? '',
       createdAt: toProtoTimestamp(version.createdAt),
       processedAt: version.processedAt === null ? undefined : toProtoTimestamp(version.processedAt),
+      sourcePreview: undefined,
     };
   }
 

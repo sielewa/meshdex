@@ -418,6 +418,8 @@ describe('GraphQL API', () => {
         fileName: 'chair.glb',
         contentType: 'model/gltf-binary',
         sizeBytes: 20_000_000,
+        // Unset message field as the server decodes it: browser uploads send no preview (ADR 017).
+        sourcePreview: null,
       },
     ]);
   });

@@ -54,6 +54,7 @@ export class AssetUploadController implements Pick<
         assetVersionId: upload.versionId,
         partSizeBytes: upload.partSizeBytes,
         parts: upload.parts.map((part) => this.toProtoPart(part)),
+        sourcePreviewUpload: undefined,
       };
     } catch (error) {
       throw this.toRpcException(error);
