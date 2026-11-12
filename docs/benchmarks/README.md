@@ -5,6 +5,10 @@ Measured performance of Meshdex, with the raw data behind every number ([ADR 014
 - `runs/`: one JSON file per recorded run (`<startedAt>-<command>[-<label>].json`), never edited after it is written. Each holds the options, the machine, the git commit (and whether the tree was dirty), the measurements and the result.
 - `<topic>.md`: reports. Each states its methodology (warm-up, repeated runs, percentiles), the environment, links to the runs it uses and its conclusions.
 
+## Reports
+
+- [Ingest import: packing on the main thread vs in worker threads](ingest-import.md) (2026-11-12)
+
 ## Recording a run
 
 ```

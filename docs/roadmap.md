@@ -44,7 +44,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 
 ## Stage 4 — Ingest & benchmarks
 
-- [ ] `ingest` CLI: bulk import from Poly Haven API (CC0) and/or Kenney/Quaternius packs; streaming, bounded concurrency, backpressure, resumable
+- [x] `ingest` CLI: bulk import from Poly Haven API (CC0) and/or Kenney/Quaternius packs; streaming, bounded concurrency, backpressure, resumable
 - [ ] Bulk DB loading: row-by-row vs. batched inserts vs. `COPY` when importing thousands of assets
 - [ ] Benchmarks in `docs/benchmarks/`: throughput & memory vs concurrency; buffered vs streamed; worker replicas (KEDA, inside kind with resource limits) vs processing time; DB loading methods. Methodology (warm-up, repeated runs, p50/p95/p99, variance) + environment description + raw results + conclusions.
 - **Done when:** README links a benchmark report with real numbers measured in the Kubernetes environment.
