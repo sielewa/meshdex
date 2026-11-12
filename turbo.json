@@ -19,6 +19,24 @@
       "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
+    },
+    "@meshdex/web#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "@meshdex/web#typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"]
+    },
+    "@meshdex/web#lint": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"]
+    },
+    "@meshdex/web#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/gateway/schema.graphql"],
+      "outputs": ["coverage/**"]
     }
   }
 }

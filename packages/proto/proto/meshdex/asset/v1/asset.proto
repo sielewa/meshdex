@@ -37,6 +37,11 @@ service AssetService {
   // Cursor-paginated listing, newest first.
   rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
 
+  // Short-lived presigned GET URLs for the original uploads of the given versions.
+  // The bucket stays private (ADR 010); callers ask only when a client needs the file.
+  // Batched like BatchGetAssets, so a GraphQL DataLoader never makes one call per version.
+  rpc GetOriginalDownloadUrls(GetOriginalDownloadUrlsRequest) returns (GetOriginalDownloadUrlsResponse);
+
   // Called by the processing worker when it picks up a version (UPLOADED -> PROCESSING).
   // Idempotent: repeating it for a version already in PROCESSING succeeds.
   rpc StartProcessing(StartProcessingRequest) returns (StartProcessingResponse);
@@ -210,6 +215,24 @@ message ListAssetsResponse {
   repeated Asset assets = 1;
   // Opaque cursor; empty when there are no more pages.
   string next_page_token = 2;
+}
+
+message GetOriginalDownloadUrlsRequest {
+  // At most 100 ids per call.
+  repeated string asset_version_ids = 1;
+}
+
+message GetOriginalDownloadUrlsResponse {
+  // One entry per requested version whose original is fully stored, in request order.
+  // Versions still uploading, aborted or unknown are left out (not an error).
+  repeated OriginalDownloadUrl urls = 1;
+}
+
+message OriginalDownloadUrl {
+  string asset_version_id = 1;
+  // Presigned GET URL of the original file.
+  string url = 2;
+  google.protobuf.Timestamp expires_at = 3;
 }
 
 message StartProcessingRequest {

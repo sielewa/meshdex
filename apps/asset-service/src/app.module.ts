@@ -6,6 +6,7 @@ import { AssetsModule } from './assets/assets.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { allConfigNamespaces, loggerConfig } from './config/config.namespaces';
 import { DatabaseModule } from './database/database.module';
+import { DownloadsModule } from './downloads/downloads.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { HealthModule } from './health/health.module';
     HealthModule,
     CatalogModule,
     AssetsModule,
+    DownloadsModule,
   ],
 })
 export class AppModule {}

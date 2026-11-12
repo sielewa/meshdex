@@ -28,7 +28,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 ## Stage 2 — Processing pipeline
 
 - [ ] Outbox table + relay → Kafka
-- [ ] `processing-worker`: idempotency, glTF-Transform (Draco, texture resize), thumbnails via Puppeteer + three.js (headless WebGL / SwiftShader; fallback: Blender headless — ask first)
+- [ ] `processing-worker`: idempotency, glTF-Transform (Draco, texture resize; the web viewer then needs the Draco decoder served from our own origin — drei defaults to Google's CDN), thumbnails via Puppeteer + three.js (headless WebGL / SwiftShader; fallback: Blender headless — ask first)
 - [ ] Retry + DLQ
 - [ ] Integration test: kill broker mid-processing → nothing lost, nothing processed twice
 - **Done when:** upload → optimized GLB + thumbnails in S3, status = READY.
@@ -62,7 +62,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 - [ ] Auth (JWT, then one OAuth provider)
 - [ ] Live processing status (subscription/SSE), Redis cache
 - [ ] Playwright E2E, accessibility & Core Web Vitals pass
-- [ ] SSR/ISR asset pages with metadata (SEO)
+- [ ] SSR/ISR asset pages with metadata (SEO). Note: `generateMetadata` runs on every link prefetch — fetching the asset there multiplied gateway calls per grid view (measured 13 vs 1); needs caching or `prefetch={false}` first; and unknown asset ids are a soft 404 (200 + noindex) because the page streams behind `loading.tsx`
 
 ## Stage 7 — Cloud & operations
 

@@ -43,7 +43,7 @@ apps/<service>/src/
 
 - **Files with a class contain only that class** (services, controllers, repositories, adapters, modules, mappers): no interfaces, type aliases, constants or helper functions next to it.
 - **Logic used by one class is a `private` method of that class** — no helper functions in separate files. Logic needed by several classes becomes an injectable class (e.g. `AssetProtoMapper`); a few lines needed by two repositories may simply be a private method in each.
-- Types go to `domain/` (one per file), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
+- Types go to `domain/` (one per file; web: `types/`, see below), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
 - A contract subset is written inline: `implements Pick<AssetServiceController, 'getAsset' | …>`.
 - Each controller maps its own errors in a `private toRpcException(error)`, listing exactly the exceptions its service can throw.
 - Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), `*.registration.ts` (schema registration side effects such as `registerEnumType`), test helpers in `test/support/`, and `packages/*` libraries whose exported functions are their public API.
@@ -137,6 +137,43 @@ apps/<service>/src/
 - NestJS 12 is ESM-only, so every app's `test` script runs Jest with `NODE_OPTIONS=--experimental-vm-modules` (ADR 008).
 - Integration tests (Testcontainers: Postgres, Redpanda, S3 emulator) live in the app's `test/` directory. A downstream gRPC service is replaced by a real gRPC server on a random port loaded from the same `.proto` (`gateway/test/support/fake-asset-service-server.ts`), so the client's loader options, deadlines and retries are exercised over the network.
 - Test names are English sentences describing behaviour (`it('writes the asset and its outbox event in one transaction')`).
+
+## web (Next.js)
+
+Data fetching, API access and testing follow [ADR 012](adr/012-web-data-fetching-and-api-access.md).
+
+```
+apps/web/src/
+  app/                 routes only: layout.tsx, page.tsx, loading.tsx, error.tsx — thin; a page
+                       prefetches its data and renders feature components
+  features/<feature>/  one product area (Bulletproof React layout); only the folders it needs:
+    api/               `<feature>.queries.ts` (GraphQL documents + TanStack `queryOptions`/mutation
+                       factories shared by server prefetch and client hooks), other network calls
+                       (e.g. PUT to a presigned URL) and their error classes
+    components/        React components, one per file, with their form schemas
+    hooks/             `use-*.ts`
+    lib/               logic without React (e.g. `MultipartUploader`, localStorage stores) —
+                       unit-tested with fakes of the types in `types/`
+    types/             interfaces and type aliases used across the feature
+    <feature>.constants.ts
+  components/          shared components used by several features, no data fetching
+                       (e.g. `model-viewer/`)
+  graphql/             executeGraphql, error type, endpoint context; `gql/` is generated
+  config/              runtime environment (zod schema + server-only accessor)
+  lib/                 shared helpers and framework glue (formatters, QueryClient factories)
+  instrumentation.ts   startup hook; Node-only checks in instrumentation-node.ts (an invalid
+                       environment exits the process: Next.js only logs errors thrown there)
+```
+
+- **Server by default.** Components are server components unless they need state, effects or browser APIs; `'use client'` goes on the smallest leaf that needs it. Modules that must never reach the browser import `'server-only'`.
+- **Data:** a page prefetches with `getServerQueryClient()` and wraps client components in `HydrationBoundary`; client components call `useQuery`/`useInfiniteQuery` with the same `queryOptions` factory and the endpoint from `useGatewayEndpoint()`. Query keys never contain the endpoint (server and browser share the cache entry).
+- **GraphQL:** operations are written with `graphql()` from `@/graphql/gql` in the feature's `*.queries.ts`; run `pnpm --filter @meshdex/web codegen` after adding one. Results are generated types — no hand-written copies of API shapes.
+- **Every route that fetches data has a `loading.tsx`.** It is the prefetch boundary: Next.js prefetches links in the viewport and renders dynamic routes down to the nearest loading boundary, so without one each visible link costs a gateway call. Don't fetch data in `generateMetadata` (it runs on every prefetch) and don't fetch in layouts (they run on prefetch too); checks that need no data, like an id's format, belong in the layout so they can still return a real 404.
+- **Configuration** is read at runtime on the server (`getServerEnv()`), never through `NEXT_PUBLIC_*` (build-time inlining would bind the image to one environment).
+- **Files and names:** kebab-case file names, named exports (Next.js route files are the exception: they need a default export), one exported component or hook per file, imports through the `@/` alias (also inside a feature — no `./` or `../`, so moving a file never breaks its neighbours). Barrel files (`index.ts` re-exports) are not used: import the file itself.
+- **Imports flow one way:** shared (`components/`, `lib/`, `graphql/`, `config/`) → `features/` → `app/`. A feature never imports another feature; the page composes them. A component two features need moves to `components/`. Enforced with `no-restricted-imports` in `apps/web/eslint.config.js`.
+- **No calls to third parties:** telemetry stays disabled, no `next/font/google`, no external scripts.
+- **Tests:** Vitest specs next to the file (`*.spec.ts(x)`), Testing Library for components (query by role/text, not by class names).
 
 ## ml-service (Python)
 

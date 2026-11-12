@@ -2,6 +2,7 @@ import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   S3ServiceException,
   UploadPartCommand,
@@ -100,6 +101,17 @@ export class S3ObjectStorage implements ObjectStorage {
         throw error;
       }
     }
+  }
+
+  presignDownload(key: string, expiresInSeconds: number): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+      { expiresIn: expiresInSeconds },
+    );
   }
 
   async headObject(key: string): Promise<ObjectMetadata | null> {

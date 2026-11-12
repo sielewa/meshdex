@@ -6,6 +6,7 @@ import type { Request } from 'express';
 import { GraphQLError, type GraphQLFormattedError } from 'graphql';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AssetLoaderFactory } from '../assets/asset-loader.factory';
+import { OriginalDownloadUrlLoaderFactory } from '../assets/original-download-url-loader.factory';
 import { graphqlConfig } from '../config/config.namespaces';
 import { GraphqlErrorCode } from './domain/graphql-error-code.enum';
 import type { GraphqlContext } from './domain/graphql-context.interface';
@@ -18,14 +19,15 @@ export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConf
     @Inject(graphqlConfig.KEY)
     private readonly config: ConfigType<typeof graphqlConfig>,
     private readonly assetLoaderFactory: AssetLoaderFactory,
+    private readonly originalDownloadUrlLoaderFactory: OriginalDownloadUrlLoaderFactory,
     @InjectPinoLogger(GraphqlOptionsFactory.name)
     private readonly logger: PinoLogger,
   ) {}
 
   createGqlOptions(): ApolloDriverConfig {
     return {
-      // Schema built in memory from the decorated classes; the printed SDL is checked
-      // into the e2e snapshot so every contract change shows up in review.
+      // Schema built in memory from the decorated classes (no file writes at runtime);
+      // the e2e test keeps the committed schema.graphql in sync with it (ADR 011).
       autoSchemaFile: true,
       sortSchema: true,
       introspection: this.config.introspection,
@@ -36,6 +38,7 @@ export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConf
       context: ({ req }: { req: Request }): GraphqlContext => ({
         req,
         assetLoader: this.assetLoaderFactory.create(),
+        originalDownloadUrlLoader: this.originalDownloadUrlLoaderFactory.create(),
       }),
       formatError: (formattedError, error) => this.formatError(formattedError, error),
     };

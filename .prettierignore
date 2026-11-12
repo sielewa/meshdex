@@ -8,7 +8,10 @@ coverage/
 .claude-workdir/
 
 # generated code
+apps/gateway/schema.graphql
 packages/proto/gen/
+apps/web/src/graphql/gql/
+apps/web/next-env.d.ts
 apps/*/drizzle/meta/
 
 # NestJS modules: one item per line in every array, enforced by ESLint (@stylistic)

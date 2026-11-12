@@ -183,6 +183,32 @@ describe('GrpcAssetServiceAdapter against a gRPC server', () => {
     );
   });
 
+  it('maps download URLs and their expiry', async () => {
+    fake.respond('getOriginalDownloadUrls', {
+      urls: [
+        {
+          assetVersionId: `${assetId}-v1`,
+          url: 'http://storage.test/original.glb?sig',
+          expiresAt: {
+            seconds: 1_794_475_800,
+            nanos: 0,
+          },
+        },
+      ],
+    });
+
+    await expect(adapter.getOriginalDownloadUrls([`${assetId}-v1`])).resolves.toEqual([
+      {
+        versionId: `${assetId}-v1`,
+        url: 'http://storage.test/original.glb?sig',
+        expiresAt: 1_794_475_800_000,
+      },
+    ]);
+    expect(fake.requests('getOriginalDownloadUrls')).toEqual([
+      { assetVersionIds: [`${assetId}-v1`] },
+    ]);
+  });
+
   it('rethrows unexpected gRPC codes unchanged', async () => {
     fake.fail('listAssets', status.INTERNAL, 'relation "assets" does not exist');
 

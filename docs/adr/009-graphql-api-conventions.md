@@ -1,6 +1,6 @@
 # ADR 009: GraphQL API conventions
 
-- **Status:** accepted
+- **Status:** accepted; the snapshot-based schema review is superseded by [ADR 011](011-graphql-schema-file-as-contract.md)
 - **Date:** 2026-11-12
 
 ## Context

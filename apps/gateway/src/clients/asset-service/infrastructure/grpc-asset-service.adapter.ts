@@ -21,6 +21,7 @@ import type { AssetVersion } from '../domain/asset-version.interface';
 import type { CompletedPart } from '../domain/completed-part.interface';
 import type { InitiateUploadCommand } from '../domain/initiate-upload-command.interface';
 import type { ListAssetsQuery } from '../domain/list-assets-query.interface';
+import type { OriginalDownloadUrl } from '../domain/original-download-url.interface';
 import type { StoredObject } from '../domain/stored-object.interface';
 import type { UploadPartUrl } from '../domain/upload-part-url.interface';
 import type { UploadSession } from '../domain/upload-session.interface';
@@ -103,6 +104,21 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
 
   async abortUpload(assetVersionId: string): Promise<void> {
     await this.call(this.client.abortUpload({ assetVersionId }));
+  }
+
+  async getOriginalDownloadUrls(versionIds: readonly string[]): Promise<OriginalDownloadUrl[]> {
+    const response = await this.call(
+      this.client.getOriginalDownloadUrls({ assetVersionIds: [...versionIds] }),
+    );
+
+    return response.urls.map((download) => ({
+      versionId: download.assetVersionId,
+      url: download.url,
+      expiresAt: this.toEpochMs(
+        download.expiresAt,
+        `OriginalDownloadUrl ${download.assetVersionId} expiresAt`,
+      ),
+    }));
   }
 
   /**

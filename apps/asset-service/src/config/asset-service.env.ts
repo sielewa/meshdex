@@ -66,6 +66,13 @@ export class AssetServiceEnv {
   @Max(7 * 24 * 3600)
   UPLOAD_URL_TTL_SECONDS!: number;
 
+  /** Lifetime of presigned GET URLs for originals; SigV4 allows at most 7 days. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(60)
+  @Max(7 * 24 * 3600)
+  DOWNLOAD_URL_TTL_SECONDS!: number;
+
   @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
   LOG_LEVEL!: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
