@@ -6,12 +6,13 @@
   "scripts": {
     "codegen": "graphql-codegen",
     "codegen:watch": "graphql-codegen --watch",
-    "dev": "graphql-codegen && NEXT_TELEMETRY_DISABLED=1 next dev --port 3000",
-    "build": "graphql-codegen && NEXT_TELEMETRY_DISABLED=1 next build",
-    "start": "NEXT_TELEMETRY_DISABLED=1 next start --port 3000",
-    "typecheck": "graphql-codegen && next typegen && tsc --noEmit",
-    "lint": "graphql-codegen && eslint .",
-    "test": "graphql-codegen && vitest run"
+    "generate": "graphql-codegen && node scripts/collect-benchmark-runs.ts",
+    "dev": "pnpm generate && NEXT_TELEMETRY_DISABLED=1 next dev --port 3000",
+    "build": "pnpm generate && NEXT_TELEMETRY_DISABLED=1 next build",
+    "typecheck": "pnpm generate && next typegen && tsc --noEmit",
+    "lint": "pnpm generate && eslint .",
+    "test": "pnpm generate && vitest run",
+    "start": "NEXT_TELEMETRY_DISABLED=1 next start --port 3000"
   },
   "dependencies": {
     "@react-three/drei": "10.7.9",
