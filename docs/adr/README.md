@@ -19,6 +19,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 011 | [GraphQL schema file as the contract artifact](011-graphql-schema-file-as-contract.md)              | accepted (amends 009) |
 | 012 | [Web app data fetching and API access](012-web-data-fetching-and-api-access.md)                     | accepted              |
 | 013 | [Ingest source and pipeline](013-ingest-source-and-pipeline.md)                                     | accepted              |
+| 014 | [Benchmark runs as JSON files in the repository](014-benchmark-runs-as-json-in-the-repo.md)         | accepted              |
 
 ## Pending decisions
 
