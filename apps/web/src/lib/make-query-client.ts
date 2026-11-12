@@ -1,7 +1,7 @@
 import { defaultShouldDehydrateQuery, QueryClient } from '@tanstack/react-query';
 import { GraphqlRequestError } from '@/graphql/graphql-request-error';
 import { RETRYABLE_ERROR_CODES } from '@/graphql/graphql.constants';
-import { DEFAULT_STALE_TIME_MS } from './query-client.constants';
+import { DEFAULT_STALE_TIME_MS } from '@/lib/query-client.constants';
 
 const MAX_RETRIES = 2;
 

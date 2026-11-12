@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes } from './format-bytes';
+import { formatBytes } from '@/lib/format-bytes';
 
 describe('formatBytes', () => {
   it('uses SI units with one decimal below 100', () => {

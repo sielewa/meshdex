@@ -1,5 +1,5 @@
 import 'server-only';
-import { serverEnvSchema, type ServerEnv } from './server-env.schema';
+import { serverEnvSchema, type ServerEnv } from '@/config/server-env.schema';
 
 let validated: ServerEnv | undefined;
 

@@ -3,8 +3,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useGatewayEndpoint } from '@/graphql/use-gateway-endpoint';
-import { AssetCard } from './asset-card';
-import { assetsInfiniteQueryOptions } from './assets.queries';
+import { AssetCard } from '@/features/assets/components/asset-card';
+import { assetsInfiniteQueryOptions } from '@/features/assets/api/assets.queries';
 
 /**
  * The asset list. The first page normally arrives hydrated from the server prefetch, so

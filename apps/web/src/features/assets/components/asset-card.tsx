@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { AssetsPageQuery } from '@/graphql/gql/graphql';
 import { formatBytes } from '@/lib/format-bytes';
 import { formatDate } from '@/lib/format-date';
-import { AssetStatusBadge } from './asset-status-badge';
+import { AssetStatusBadge } from '@/features/assets/components/asset-status-badge';
 
 type AssetListItem = AssetsPageQuery['assets']['nodes'][number];
 

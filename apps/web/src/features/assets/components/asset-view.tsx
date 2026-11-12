@@ -4,15 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
 import { useGatewayEndpoint } from '@/graphql/use-gateway-endpoint';
-import { AssetDetails } from './asset-details';
-import { assetQueryOptions } from './assets.queries';
+import { AssetDetails } from '@/features/assets/components/asset-details';
+import { assetQueryOptions } from '@/features/assets/api/assets.queries';
 
 /**
  * three.js and the viewer are a separate chunk, fetched only when this page renders, and
  * never rendered on the server (WebGL exists only in the browser).
  */
 const ModelViewer = dynamic(
-  () => import('@/features/viewer/model-viewer').then((module) => module.ModelViewer),
+  () => import('@/components/model-viewer/model-viewer').then((module) => module.ModelViewer),
   {
     ssr: false,
     loading: () => <p className="p-6 text-sm text-neutral-400">Loading viewer…</p>,

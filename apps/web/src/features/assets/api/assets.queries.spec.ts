@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AssetPageQuery } from '@/graphql/gql/graphql';
 import { DEFAULT_STALE_TIME_MS } from '@/lib/query-client.constants';
-import { staleTimeUntilUrlExpiry } from './assets.queries';
+import { staleTimeUntilUrlExpiry } from '@/features/assets/api/assets.queries';
 
 const NOW = Date.UTC(2026, 10, 12, 9, 0, 0);
 

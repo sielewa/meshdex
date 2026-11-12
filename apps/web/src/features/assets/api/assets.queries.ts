@@ -3,7 +3,10 @@ import { executeGraphql } from '@/graphql/execute-graphql';
 import { graphql } from '@/graphql/gql';
 import type { AssetPageQuery } from '@/graphql/gql/graphql';
 import { DEFAULT_STALE_TIME_MS } from '@/lib/query-client.constants';
-import { ASSETS_PAGE_SIZE, DOWNLOAD_URL_EXPIRY_MARGIN_MS } from './assets.constants';
+import {
+  ASSETS_PAGE_SIZE,
+  DOWNLOAD_URL_EXPIRY_MARGIN_MS,
+} from '@/features/assets/assets.constants';
 
 export const assetsPageDocument = graphql(`
   query AssetsPage($first: Int!, $after: String) {

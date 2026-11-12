@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { executeGraphql } from './execute-graphql';
-import { TypedDocumentString } from './gql/graphql';
-import { GraphqlRequestError } from './graphql-request-error';
+import { executeGraphql } from '@/graphql/execute-graphql';
+import { TypedDocumentString } from '@/graphql/gql/graphql';
+import { GraphqlRequestError } from '@/graphql/graphql-request-error';
 
 const document = new TypedDocumentString<{ ping: string }, { id: string }>(
   'query Ping($id: ID!) { ping(id: $id) }',

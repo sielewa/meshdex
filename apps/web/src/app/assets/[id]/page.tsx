@@ -4,8 +4,8 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { z } from 'zod';
 import { getServerEnv } from '@/config/server-env';
-import { AssetView } from '@/features/assets/asset-view';
-import { assetQueryOptions } from '@/features/assets/assets.queries';
+import { AssetView } from '@/features/assets/components/asset-view';
+import { assetQueryOptions } from '@/features/assets/api/assets.queries';
 import type { AssetPageQuery } from '@/graphql/gql/graphql';
 import { getServerQueryClient } from '@/lib/get-server-query-client';
 

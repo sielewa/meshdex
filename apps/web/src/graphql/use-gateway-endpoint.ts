@@ -1,7 +1,7 @@
 'use client';
 
 import { useContext } from 'react';
-import { GatewayEndpointContext } from './gateway-endpoint-context';
+import { GatewayEndpointContext } from '@/graphql/gateway-endpoint-context';
 
 /** Endpoint browsers send GraphQL requests to; throws outside `Providers` (a wiring bug). */
 export function useGatewayEndpoint(): string {

@@ -3,9 +3,9 @@
 import { OrbitControls, Stage } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense, type ReactNode } from 'react';
-import { GltfModel } from './gltf-model';
-import { LoadProgress } from './load-progress';
-import { ViewerErrorBoundary } from './viewer-error-boundary';
+import { GltfModel } from '@/components/model-viewer/gltf-model';
+import { LoadProgress } from '@/components/model-viewer/load-progress';
+import { ViewerErrorBoundary } from '@/components/model-viewer/viewer-error-boundary';
 
 /**
  * Interactive 3D preview of a GLB. Loaded with `next/dynamic` (no SSR) by the asset page,

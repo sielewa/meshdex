@@ -1,5 +1,5 @@
-import type { TypedDocumentString } from './gql/graphql';
-import { GraphqlRequestError } from './graphql-request-error';
+import type { TypedDocumentString } from '@/graphql/gql/graphql';
+import { GraphqlRequestError } from '@/graphql/graphql-request-error';
 
 interface GraphqlResponseBody<TResult> {
   data?: TResult | null;

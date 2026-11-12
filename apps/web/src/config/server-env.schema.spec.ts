@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { serverEnvSchema } from './server-env.schema';
+import { serverEnvSchema } from '@/config/server-env.schema';
 
 const validEnv = {
   GATEWAY_INTERNAL_URL: 'http://gateway:4000/graphql',

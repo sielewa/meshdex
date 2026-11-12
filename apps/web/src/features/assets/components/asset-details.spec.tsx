@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { AssetPageQuery } from '@/graphql/gql/graphql';
-import { AssetDetails } from './asset-details';
+import { AssetDetails } from '@/features/assets/components/asset-details';
 
 type AssetDetail = NonNullable<AssetPageQuery['asset']>;
 

@@ -3,7 +3,7 @@ import type { AssetPageQuery } from '@/graphql/gql/graphql';
 import { formatBytes } from '@/lib/format-bytes';
 import { formatCount } from '@/lib/format-count';
 import { formatDate } from '@/lib/format-date';
-import { AssetStatusBadge } from './asset-status-badge';
+import { AssetStatusBadge } from '@/features/assets/components/asset-status-badge';
 
 type AssetDetail = NonNullable<AssetPageQuery['asset']>;
 

@@ -1,8 +1,8 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { getServerEnv } from '@/config/server-env';
-import { AssetGrid } from '@/features/assets/asset-grid';
-import { assetsInfiniteQueryOptions } from '@/features/assets/assets.queries';
+import { AssetGrid } from '@/features/assets/components/asset-grid';
+import { assetsInfiniteQueryOptions } from '@/features/assets/api/assets.queries';
 import { getServerQueryClient } from '@/lib/get-server-query-client';
 
 /**
