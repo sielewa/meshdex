@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -65,6 +66,11 @@ export class ImportArgs {
   @IsString()
   @IsNotEmpty()
   state?: string;
+
+  /** Pack in worker threads (one per pack slot) instead of on the main thread. */
+  @IsOptional()
+  @IsBoolean()
+  packInWorkers?: boolean;
 
   /** Directory to write the run's measurements to as JSON; nothing is written when omitted. */
   @IsOptional()

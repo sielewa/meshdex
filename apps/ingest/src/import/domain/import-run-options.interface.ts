@@ -4,6 +4,7 @@ import type { TextureResolution } from '../../clients/polyhaven/domain/texture-r
 export interface ImportRunOptions {
   resolution: TextureResolution;
   packConcurrency: number;
+  packInWorkers: boolean;
   uploadConcurrency: number;
   queueSize: number;
   limit: number | null;

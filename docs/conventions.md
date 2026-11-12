@@ -46,7 +46,7 @@ apps/<service>/src/
 - Types go to `domain/` (one per file; web: `types/`, see below), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
 - A contract subset is written inline: `implements Pick<AssetServiceController, 'getAsset' | …>`.
 - Each controller maps its own errors in a `private toRpcException(error)`, listing exactly the exceptions its service can throw.
-- Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), `*.registration.ts` (schema registration side effects such as `registerEnumType`), test helpers in `test/support/`, and `packages/*` libraries whose exported functions are their public API.
+- Exceptions: `main.ts` (entry point), `*.worker.ts` (worker thread entry points, e.g. `ingest/src/import/workers/pack.worker.ts`), `config/config.namespaces.ts` (`registerAs` definitions), `*.registration.ts` (schema registration side effects such as `registerEnumType`), test helpers in `test/support/`, and `packages/*` libraries whose exported functions are their public API.
 
 ## Layers and errors
 

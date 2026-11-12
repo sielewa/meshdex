@@ -25,6 +25,7 @@ Options (fetch):
 Options (import):
   --resolution <1k|2k|4k>     Texture resolution of the cached models (default 1k)
   --pack-concurrency <n>      Models packed in parallel, 1-8 (default 2)
+  --pack-in-workers           Pack in worker threads (one per pack slot)
   --upload-concurrency <n>    Models uploaded in parallel, 1-16 (default 4)
   --queue-size <n>            Packed models waiting for upload, 1-32 (default 4)
   --limit <n>                 Only the first n cached models by id
@@ -47,6 +48,7 @@ const COMMAND_OPTIONS = {
   import: {
     resolution: { type: 'string', default: '1k' },
     'pack-concurrency': { type: 'string', default: '2' },
+    'pack-in-workers': { type: 'boolean', default: false },
     'upload-concurrency': { type: 'string', default: '4' },
     'queue-size': { type: 'string', default: '4' },
     limit: { type: 'string' },

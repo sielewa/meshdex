@@ -12,6 +12,7 @@ import { RUN_RECORD_VERSION } from '../runs/runs.constants';
 import { BoundedQueue } from '../tasks/bounded-queue';
 import { TaskRunnerService } from '../tasks/task-runner.service';
 import type { GlbUpload } from './domain/glb-upload.interface';
+import type { ModelPacker } from './domain/model-packer.interface';
 import type { ImportRunOptions } from './domain/import-run-options.interface';
 import type { ImportRunResult } from './domain/import-run-result.interface';
 import type { ImportSummary } from './domain/import-summary.interface';
@@ -29,6 +30,7 @@ import {
 import { ImportStateService } from './import-state.service';
 import { ModelPackerService } from './model-packer.service';
 import { ModelUploaderService } from './model-uploader.service';
+import { WorkerPackerService } from './worker-packer.service';
 
 /**
  * `ingest import`: cached models → assets in asset-service (ADR 013), as a two-stage pipeline.
@@ -52,6 +54,7 @@ export class ImportService {
   constructor(
     private readonly cache: ModelCacheService,
     private readonly packer: ModelPackerService,
+    private readonly workerPacker: WorkerPackerService,
     private readonly uploader: ModelUploaderService,
     private readonly state: ImportStateService,
     private readonly tasks: TaskRunnerService,
@@ -88,6 +91,7 @@ export class ImportService {
         options: {
           resolution: args.resolution,
           packConcurrency: args.packConcurrency,
+          packInWorkers: args.packInWorkers === true,
           uploadConcurrency: args.uploadConcurrency,
           queueSize: args.queueSize,
           limit: args.limit ?? null,
@@ -147,7 +151,17 @@ export class ImportService {
       'Import started',
     );
 
-    await this.runPipeline(pending, args, statePath, summary, signal);
+    // Workers are started inside the measured run: their start-up is part of what they cost.
+    const pool =
+      args.packInWorkers === true && pending.length > 0
+        ? this.workerPacker.open(args.packConcurrency)
+        : null;
+
+    try {
+      await this.runPipeline(pending, pool ?? this.packer, args, statePath, summary, signal);
+    } finally {
+      await pool?.close();
+    }
 
     const { pipeline } = summary;
 
@@ -164,6 +178,7 @@ export class ImportService {
 
   private async runPipeline(
     pending: CachedModelManifest[],
+    packer: ModelPacker,
     args: ImportArgs,
     statePath: string,
     summary: ImportSummary,
@@ -180,7 +195,7 @@ export class ImportService {
     try {
       const packing = this.tasks
         .forEach(pending, args.packConcurrency, async (manifest) => {
-          const packed = await this.pack(manifest, summary, signal);
+          const packed = await this.pack(packer, manifest, summary, signal);
 
           if (packed !== null) {
             const waitStartedAt = performance.now();
@@ -225,6 +240,7 @@ export class ImportService {
 
   /** Pack stage: the model's GLB, or `null` when packing failed (recorded in the summary). */
   private async pack(
+    packer: ModelPacker,
     manifest: CachedModelManifest,
     summary: ImportSummary,
     signal: AbortSignal,
@@ -234,7 +250,7 @@ export class ImportService {
     const startedAt = performance.now();
 
     try {
-      const glb = await this.packer.pack(manifest);
+      const glb = await packer.pack(manifest);
       const packMs = performance.now() - startedAt;
 
       summary.pipeline.packBusyMs += packMs;

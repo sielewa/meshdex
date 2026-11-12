@@ -13,6 +13,7 @@ import { ImportService } from './import.service';
 import { ImportStateService } from './import-state.service';
 import type { ModelPackerService } from './model-packer.service';
 import type { ModelUploaderService } from './model-uploader.service';
+import type { WorkerPackerService } from './worker-packer.service';
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -97,10 +98,35 @@ describe('ImportService', () => {
     });
   });
 
+  /** Stands in for the worker pool: packs with the same fake and records that it was closed. */
+  const pool = {
+    packed: [] as string[],
+    closed: 0,
+  };
+  const workerPacker = {
+    open: (size: number) => {
+      pool.packed.push(`size ${String(size)}`);
+
+      return {
+        pack: async (manifest: CachedModelManifest) => {
+          pool.packed.push(manifest.modelId);
+
+          return pipeline.packer.pack(manifest);
+        },
+        close: () => {
+          pool.closed += 1;
+
+          return Promise.resolve();
+        },
+      };
+    },
+  } as unknown as WorkerPackerService;
+
   function newService(): ImportService {
     return new ImportService(
       cache,
       pipeline.packer,
+      workerPacker,
       pipeline.uploader,
       new ImportStateService(logger),
       new TaskRunnerService(logger),
@@ -261,6 +287,25 @@ describe('ImportService', () => {
     expect(summary.pipeline.packBusyMs).toBeGreaterThanOrEqual(50);
   });
 
+  it('packs through a worker pool sized like the pack stage and closes it', async () => {
+    await cacheModels('A_01', 'B_01');
+    pool.packed = [];
+    pool.closed = 0;
+
+    const summary = await service.run(
+      {
+        ...args,
+        packConcurrency: 3,
+        packInWorkers: true,
+      },
+      signal,
+    );
+
+    expect(summary.modelsImported).toBe(2);
+    expect(pool.packed).toEqual(['size 3', 'A_01', 'B_01']);
+    expect(pool.closed).toBe(1);
+  });
+
   it('writes a run record with options, measurements and throughput when asked', async () => {
     await cacheModels('Chair_01', 'Table_01');
 
@@ -289,6 +334,7 @@ describe('ImportService', () => {
       options: {
         resolution: '1k',
         packConcurrency: 2,
+        packInWorkers: false,
         uploadConcurrency: 2,
         queueSize: 2,
         limit: null,

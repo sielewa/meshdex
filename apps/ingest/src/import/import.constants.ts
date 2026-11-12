@@ -27,3 +27,6 @@ export const MAX_TAG_LENGTH = 50;
 export const PART_RETRY_ATTEMPTS = 3;
 export const PART_RETRY_BASE_DELAY_MS = 250;
 export const PART_RETRY_MAX_DELAY_MS = 4_000;
+
+/** Compiled worker entry next to `worker-packer.service.js` (in `workers/`). */
+export const PACK_WORKER_FILE = 'pack.worker.js';

@@ -8,6 +8,7 @@ import { ImportService } from './import.service';
 import { ImportStateService } from './import-state.service';
 import { ModelPackerService } from './model-packer.service';
 import { ModelUploaderService } from './model-uploader.service';
+import { WorkerPackerService } from './worker-packer.service';
 
 /** `ingest import`: local model cache → GLB → assets in asset-service. */
 @Module({
@@ -23,6 +24,7 @@ import { ModelUploaderService } from './model-uploader.service';
     ImportStateService,
     ModelPackerService,
     ModelUploaderService,
+    WorkerPackerService,
   ],
   exports: [
     ImportService,
