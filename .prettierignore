@@ -11,5 +11,9 @@ coverage/
 packages/proto/gen/
 apps/*/drizzle/meta/
 
+# NestJS modules: one item per line in every array, enforced by ESLint (@stylistic)
+# instead of Prettier, which would collapse short arrays onto one line.
+**/*.module.ts
+
 # user-owned Claude Code permissions (edited by hand only)
 .claude/settings.json

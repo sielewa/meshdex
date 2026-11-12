@@ -26,6 +26,7 @@
   "packageManager": "pnpm@12.18.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@stylistic/eslint-plugin": "5.10.0",
     "eslint": "10.14.0",
     "eslint-config-prettier": "10.1.8",
     "prettier": "3.9.10",
