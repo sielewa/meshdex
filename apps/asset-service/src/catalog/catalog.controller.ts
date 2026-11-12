@@ -1,6 +1,7 @@
 import { status } from '@grpc/grpc-js';
 import { Controller } from '@nestjs/common';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
+import { validate as isUuid } from 'uuid';
 import {
   ASSET_SERVICE_NAME,
   AssetVersionStatus as ProtoAssetVersionStatus,
@@ -92,7 +93,10 @@ export class CatalogController implements Pick<
     ).toString('base64url');
   }
 
-  /** Empty token means the first page; anything malformed is the caller's error. */
+  /**
+   * Empty token means the first page; anything malformed is the caller's error. The id is
+   * checked too: a forged token must not reach the keyset query's uuid comparison.
+   */
   private decodePageToken(token: string): PageCursor | null {
     if (token === '') {
       return null;
@@ -108,7 +112,8 @@ export class CatalogController implements Pick<
         'i' in parsed &&
         typeof parsed.c === 'number' &&
         Number.isSafeInteger(parsed.c) &&
-        typeof parsed.i === 'string'
+        typeof parsed.i === 'string' &&
+        isUuid(parsed.i)
       ) {
         return {
           createdAt: parsed.c,

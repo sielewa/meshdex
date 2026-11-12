@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
-import { v7 as uuidv7 } from 'uuid';
+import { validate as isUuid, v7 as uuidv7 } from 'uuid';
 import { uploadConfig } from '../config/config.namespaces';
 import { DATABASE } from '../database/database.tokens';
 import type { Database } from '../database/domain/database.type';
@@ -23,6 +23,7 @@ import type { Asset } from './domain/asset.interface';
 import { AssetVersionStatus } from './domain/asset-version-status.enum';
 import type { VersionUpload } from './domain/version-upload.interface';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
+import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 import { CatalogService } from '../catalog/catalog.service';
@@ -118,6 +119,7 @@ export class UploadService {
 
   /** Fresh URLs for resuming an interrupted upload or replacing expired ones. */
   async getPartUrls(versionId: string, requestedPartNumbers: number[]): Promise<PresignedPart[]> {
+    this.assertVersionId(versionId);
     const upload = await this.requireUploading(versionId);
     const partNumbers = this.resolvePartNumbers(
       requestedPartNumbers,
@@ -128,6 +130,7 @@ export class UploadService {
   }
 
   async complete(versionId: string, parts: UploadedPart[]): Promise<Asset> {
+    this.assertVersionId(versionId);
     const upload = await this.requireUpload(versionId);
 
     // Already completed by an earlier (e.g. timed-out and retried) call: same result.
@@ -194,8 +197,9 @@ export class UploadService {
     return this.requireAssetView(upload.assetId);
   }
 
-  /** Idempotent: aborting an unknown or already aborted upload succeeds. */
+  /** Idempotent: aborting an unknown (well-formed) or already aborted upload succeeds. */
   async abort(versionId: string): Promise<void> {
+    this.assertVersionId(versionId);
     const upload = await this.assetVersionsRepository.findUploadById(versionId);
 
     if (!upload) {
@@ -288,6 +292,13 @@ export class UploadService {
 
     if (this.countParts(input.sizeBytes, this.config.partSizeBytes) > MAX_UPLOAD_PARTS) {
       throw new InvalidUploadRequestException('File needs more parts than object storage allows');
+    }
+  }
+
+  /** A malformed id can't name a version; rejecting it here keeps it away from the uuid column. */
+  private assertVersionId(versionId: string): void {
+    if (!isUuid(versionId)) {
+      throw new InvalidAssetVersionIdException(`Asset version id ${versionId} is not a UUID`);
     }
   }
 

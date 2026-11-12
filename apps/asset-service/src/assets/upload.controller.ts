@@ -20,6 +20,7 @@ import { UploadService } from './upload.service';
 import type { PresignedPart } from './domain/presigned-part.interface';
 import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.exception';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
+import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 
@@ -105,7 +106,10 @@ export class UploadController implements Pick<
 
   /** Maps the domain exceptions of the upload RPCs to gRPC status codes; unknown errors become INTERNAL. */
   private toRpcException(error: unknown): unknown {
-    if (error instanceof InvalidUploadRequestException) {
+    if (
+      error instanceof InvalidAssetVersionIdException ||
+      error instanceof InvalidUploadRequestException
+    ) {
       return new RpcException({
         code: status.INVALID_ARGUMENT,
         message: error.message,

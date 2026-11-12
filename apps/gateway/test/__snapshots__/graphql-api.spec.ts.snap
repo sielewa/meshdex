@@ -1,0 +1,174 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`GraphQL API serves the reviewed schema 1`] = `
+"type Asset {
+  createdAt: DateTime!
+
+  """The version shown to users."""
+  currentVersion: AssetVersion!
+  id: ID!
+
+  """Status of the current version."""
+  status: AssetStatus!
+  tags: [String!]!
+  title: String!
+  updatedAt: DateTime!
+}
+
+type AssetConnection {
+  nodes: [Asset!]!
+  pageInfo: PageInfo!
+}
+
+"""
+Lifecycle of an asset version: UPLOADING → UPLOADED → PROCESSING → READY | FAILED.
+"""
+enum AssetStatus {
+  FAILED
+  PROCESSING
+  READY
+  UPLOADED
+  UPLOADING
+}
+
+type AssetVersion {
+  createdAt: DateTime!
+
+  """Set when FAILED; safe to show."""
+  failureReason: String
+  id: ID!
+
+  """1, 2, 3… per asset."""
+  number: Int!
+
+  """Set when READY."""
+  optimized: StoredFile
+
+  """The file as uploaded."""
+  original: StoredFile!
+
+  """Set when READY or FAILED."""
+  processedAt: DateTime
+
+  """Set when READY."""
+  stats: ModelStats
+  status: AssetStatus!
+
+  """Empty until READY."""
+  thumbnails: [Thumbnail!]!
+}
+
+input CompleteUploadInput {
+  assetVersionId: ID!
+
+  """One entry per uploaded part, any order."""
+  parts: [CompletedPartInput!]!
+}
+
+input CompletedPartInput {
+  """ETag response header of the part upload."""
+  etag: String!
+  partNumber: Int!
+}
+
+"""UTC date-time in ISO 8601, e.g. 2026-11-12T09:54:33.123Z."""
+scalar DateTime
+
+input InitiateUploadInput {
+  """Only "model/gltf-binary" (.glb) is accepted."""
+  contentType: String!
+  fileName: String!
+
+  """Exact file size in bytes."""
+  sizeBytes: Float!
+  tags: [String!]! = []
+  title: String!
+}
+
+type ModelStats {
+  meshCount: Int!
+  textureCount: Int!
+  triangleCount: Int!
+  vertexCount: Int!
+}
+
+type Mutation {
+  """Cancels an unfinished upload and frees stored parts."""
+  abortUpload(assetVersionId: ID!): Boolean!
+
+  """Assembles the uploaded parts; the version moves to UPLOADED."""
+  completeUpload(input: CompleteUploadInput!): Asset!
+
+  """
+  Creates an asset in UPLOADING state and returns presigned URLs for every part.
+  """
+  initiateUpload(input: InitiateUploadInput!): UploadSession!
+
+  """Fresh presigned URLs to resume an upload or replace expired ones."""
+  renewUploadPartUrls(
+    assetVersionId: ID!
+
+    """Parts to re-sign; null or empty means all."""
+    partNumbers: [Int!]
+  ): [UploadPartUrl!]!
+}
+
+type PageInfo {
+  """Opaque cursor; null on the last page."""
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type Query {
+  """An asset by id; null when it does not exist."""
+  asset(id: ID!): Asset
+
+  """Assets, newest first."""
+  assets(
+    """\`pageInfo.endCursor\` of the previous page."""
+    after: String
+    first: Int! = 20
+
+    """Empty or null means all."""
+    statuses: [AssetStatus!]
+    tag: String
+  ): AssetConnection!
+}
+
+type StoredFile {
+  contentType: String!
+
+  """Size in bytes (an integer; Float only to exceed 2^31)."""
+  sizeBytes: Float!
+}
+
+type Thumbnail {
+  file: StoredFile!
+  height: Int!
+
+  """Camera preset of the render, e.g. "front", "three-quarter"."""
+  view: String!
+  width: Int!
+}
+
+type UploadPartUrl {
+  expiresAt: DateTime!
+
+  """1-based, as in S3."""
+  partNumber: Int!
+
+  """
+  Presigned PUT URL for this part; send the ETag header back on completion.
+  """
+  url: String!
+}
+
+type UploadSession {
+  assetId: ID!
+  assetVersionId: ID!
+
+  """Every part except the last has exactly this size (bytes)."""
+  partSizeBytes: Float!
+  parts: [UploadPartUrl!]!
+}"
+`;

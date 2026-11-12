@@ -8,12 +8,17 @@ import type { Asset } from './domain/asset.interface';
 import { AssetVersionStatus } from './domain/asset-version-status.enum';
 import type { VersionUpload } from './domain/version-upload.interface';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
+import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 import type { CatalogService } from '../catalog/catalog.service';
 import type { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
 import { UploadService } from './upload.service';
 
 const MIB = 1024 * 1024;
+
+const ASSET_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000a1';
+const VERSION_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000b1';
+const MISSING_VERSION_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000ff';
 
 describe('UploadService', () => {
   const tx = { tx: true };
@@ -31,17 +36,17 @@ describe('UploadService', () => {
   let service: UploadService;
 
   const uploading: VersionUpload = {
-    versionId: 'version-1',
-    assetId: 'asset-1',
+    versionId: VERSION_ID,
+    assetId: ASSET_ID,
     number: 1,
     status: AssetVersionStatus.UPLOADING,
-    originalKey: 'originals/asset-1/version-1.glb',
+    originalKey: `originals/${ASSET_ID}/${VERSION_ID}.glb`,
     sizeBytes: 20 * MIB,
     contentType: 'model/gltf-binary',
     uploadId: 'upload-1',
     partSizeBytes: 16 * MIB,
   };
-  const assetView = { id: 'asset-1' } as Asset;
+  const assetView = { id: ASSET_ID } as Asset;
   const twoParts = [
     {
       partNumber: 2,
@@ -213,15 +218,15 @@ describe('UploadService', () => {
 
   describe('getPartUrls', () => {
     it('re-signs all parts for an empty list and each requested part once', async () => {
-      await expect(service.getPartUrls('version-1', [])).resolves.toHaveLength(2);
+      await expect(service.getPartUrls(VERSION_ID, [])).resolves.toHaveLength(2);
 
-      const parts = await service.getPartUrls('version-1', [2, 2]);
+      const parts = await service.getPartUrls(VERSION_ID, [2, 2]);
 
       expect(parts.map((part) => part.partNumber)).toEqual([2]);
     });
 
     it('rejects part numbers outside the upload', async () => {
-      await expect(service.getPartUrls('version-1', [3])).rejects.toThrow(
+      await expect(service.getPartUrls(VERSION_ID, [3])).rejects.toThrow(
         InvalidUploadRequestException,
       );
     });
@@ -259,7 +264,7 @@ describe('UploadService', () => {
       ];
 
       for (const parts of attempts) {
-        await expect(service.complete('version-1', parts)).rejects.toThrow(
+        await expect(service.complete(VERSION_ID, parts)).rejects.toThrow(
           InvalidUploadRequestException,
         );
       }
@@ -267,7 +272,7 @@ describe('UploadService', () => {
     });
 
     it('assembles the parts in order and records the uploaded event once', async () => {
-      await expect(service.complete('version-1', twoParts)).resolves.toBe(assetView);
+      await expect(service.complete(VERSION_ID, twoParts)).resolves.toBe(assetView);
 
       expect(storage.completeMultipartUpload).toHaveBeenCalledWith(
         uploading.originalKey,
@@ -284,14 +289,14 @@ describe('UploadService', () => {
         ],
       );
       expect(versionsRepository.markUploaded).toHaveBeenCalledWith(
-        'version-1',
+        VERSION_ID,
         expect.any(Number),
         tx,
       );
       expect(outboxRepository.append).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'asset.uploaded',
-          key: 'asset-1',
+          key: ASSET_ID,
           topic: 'asset.events.v1',
         }),
         tx,
@@ -304,7 +309,7 @@ describe('UploadService', () => {
         status: AssetVersionStatus.UPLOADED,
       });
 
-      await expect(service.complete('version-1', twoParts)).resolves.toBe(assetView);
+      await expect(service.complete(VERSION_ID, twoParts)).resolves.toBe(assetView);
       expect(storage.completeMultipartUpload).not.toHaveBeenCalled();
       expect(outboxRepository.append).not.toHaveBeenCalled();
     });
@@ -312,7 +317,7 @@ describe('UploadService', () => {
     it('finishes the database half when storage already completed the upload', async () => {
       storage.completeMultipartUpload.mockRejectedValue(new StorageUploadNotFoundException());
 
-      await service.complete('version-1', twoParts);
+      await service.complete(VERSION_ID, twoParts);
 
       expect(versionsRepository.markUploaded).toHaveBeenCalled();
       expect(outboxRepository.append).toHaveBeenCalled();
@@ -321,7 +326,7 @@ describe('UploadService', () => {
     it('records no event when a concurrent call won the transition', async () => {
       versionsRepository.markUploaded.mockResolvedValue(false);
 
-      await service.complete('version-1', twoParts);
+      await service.complete(VERSION_ID, twoParts);
 
       expect(outboxRepository.append).not.toHaveBeenCalled();
     });
@@ -329,7 +334,7 @@ describe('UploadService', () => {
     it('rejects parts that storage does not accept', async () => {
       storage.completeMultipartUpload.mockRejectedValue(new StoragePartsRejectedException());
 
-      await expect(service.complete('version-1', twoParts)).rejects.toThrow(
+      await expect(service.complete(VERSION_ID, twoParts)).rejects.toThrow(
         InvalidUploadRequestException,
       );
     });
@@ -340,7 +345,7 @@ describe('UploadService', () => {
         contentType: null,
       });
 
-      await expect(service.complete('version-1', twoParts)).rejects.toThrow(
+      await expect(service.complete(VERSION_ID, twoParts)).rejects.toThrow(
         InvalidUploadRequestException,
       );
       expect(versionsRepository.markUploaded).not.toHaveBeenCalled();
@@ -349,16 +354,25 @@ describe('UploadService', () => {
 
   describe('abort', () => {
     it('frees the storage parts and removes a never-published asset', async () => {
-      await service.abort('version-1');
+      await service.abort(VERSION_ID);
 
       expect(storage.abortMultipartUpload).toHaveBeenCalledWith(uploading.originalKey, 'upload-1');
-      expect(assetsRepository.deleteById).toHaveBeenCalledWith('asset-1', tx);
+      expect(assetsRepository.deleteById).toHaveBeenCalledWith(ASSET_ID, tx);
+    });
+
+    it('rejects a malformed version id before querying, in every upload RPC', async () => {
+      await expect(service.abort('42')).rejects.toThrow(InvalidAssetVersionIdException);
+      await expect(service.complete('42', twoParts)).rejects.toThrow(
+        InvalidAssetVersionIdException,
+      );
+      await expect(service.getPartUrls('42', [])).rejects.toThrow(InvalidAssetVersionIdException);
+      expect(versionsRepository.findUploadById).not.toHaveBeenCalled();
     });
 
     it('succeeds for an unknown version (idempotent)', async () => {
       versionsRepository.findUploadById.mockResolvedValue(null);
 
-      await expect(service.abort('missing')).resolves.toBeUndefined();
+      await expect(service.abort(MISSING_VERSION_ID)).resolves.toBeUndefined();
     });
 
     it('refuses to abort a completed upload', async () => {
@@ -367,7 +381,7 @@ describe('UploadService', () => {
         status: AssetVersionStatus.UPLOADED,
       });
 
-      await expect(service.abort('version-1')).rejects.toThrow(UploadNotInProgressException);
+      await expect(service.abort(VERSION_ID)).rejects.toThrow(UploadNotInProgressException);
     });
   });
 });

@@ -13,6 +13,7 @@ import {
 import { AssetProtoMapper } from '../catalog/asset-proto.mapper';
 import type { StoredObject } from './domain/stored-object.interface';
 import type { ProcessingOutcome } from './domain/processing-outcome.type';
+import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidProcessingResultException } from './exceptions/invalid-processing-result.exception';
 import { ProcessingService } from './processing.service';
 import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.exception';
@@ -108,7 +109,10 @@ export class ProcessingController implements Pick<
 
   /** Maps the domain exceptions of the processing RPCs to gRPC status codes; unknown errors become INTERNAL. */
   private toRpcException(error: unknown): unknown {
-    if (error instanceof InvalidProcessingResultException) {
+    if (
+      error instanceof InvalidAssetVersionIdException ||
+      error instanceof InvalidProcessingResultException
+    ) {
       return new RpcException({
         code: status.INVALID_ARGUMENT,
         message: error.message,
