@@ -1,9 +1,14 @@
 import { Writable } from 'node:stream';
 import pino from 'pino';
-import { buildLoggerParams, REDACTED_PATHS } from './logger-params';
+import { REDACTED_PATHS } from './logger.constants';
+import { buildLoggerParams } from './logger-params';
 
 function pinoOptions(pretty: boolean): pino.LoggerOptions {
-  const params = buildLoggerParams({ serviceName: 'asset-service', level: 'info', pretty });
+  const params = buildLoggerParams({
+    serviceName: 'asset-service',
+    level: 'info',
+    pretty,
+  });
 
   return params.pinoHttp as pino.LoggerOptions;
 }
@@ -38,7 +43,15 @@ describe('buildLoggerParams', () => {
 
   it('masks secrets on the redacted paths', () => {
     const line = captureLine(pinoOptions(false), (logger) => {
-      logger.info({ credentials: { password: 'hunter2', secretAccessKey: 'abc' } }, 'connect');
+      logger.info(
+        {
+          credentials: {
+            password: 'hunter2',
+            secretAccessKey: 'abc',
+          },
+        },
+        'connect',
+      );
     });
 
     expect(JSON.stringify(line)).not.toContain('hunter2');

@@ -1,10 +1,14 @@
 import 'reflect-metadata';
 import { Type } from 'class-transformer';
 import { IsInt, IsString, IsUrl, Max, Min } from 'class-validator';
-import { ConfigValidationException, validateConfig } from './validate-config';
+import { ConfigValidationException } from './config-validation.exception';
+import { validateConfig } from './validate-config';
 
 class ExampleEnv {
-  @IsUrl({ require_tld: false, protocols: ['postgres'] })
+  @IsUrl({
+    require_tld: false,
+    protocols: ['postgres'],
+  })
   DATABASE_URL!: string;
 
   @Type(() => Number)

@@ -9,7 +9,10 @@ describe('proto timestamp conversion', () => {
   });
 
   it('keeps nanos non-negative for instants before the epoch', () => {
-    expect(toProtoTimestamp(-1)).toEqual({ seconds: -1, nanos: 999_000_000 });
+    expect(toProtoTimestamp(-1)).toEqual({
+      seconds: -1,
+      nanos: 999_000_000,
+    });
   });
 
   it('round-trips milliseconds without loss', () => {
@@ -19,7 +22,12 @@ describe('proto timestamp conversion', () => {
   });
 
   it('drops precision below one millisecond', () => {
-    expect(fromProtoTimestamp({ seconds: 10, nanos: 1_999_999 })).toBe(10_001);
+    expect(
+      fromProtoTimestamp({
+        seconds: 10,
+        nanos: 1_999_999,
+      }),
+    ).toBe(10_001);
   });
 
   it('rejects values that are not integer milliseconds', () => {
