@@ -45,7 +45,7 @@ import type { PresignedPart } from './domain/presigned-part.interface';
  * missing half or returns the already-finished result.
  */
 @Injectable()
-export class UploadService {
+export class AssetUploadService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,

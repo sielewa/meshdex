@@ -15,7 +15,7 @@ import { GIT_TIMEOUT_MS } from './runs.constants';
  * Experiments page is a later decision; a file is the input either way.
  */
 @Injectable()
-export class RunRecorderService {
+export class RunsService {
   start(): RunProbe {
     return new RunProbe();
   }

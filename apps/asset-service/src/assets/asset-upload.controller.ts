@@ -16,7 +16,7 @@ import {
 } from '@meshdex/proto/asset/v1';
 import { toProtoTimestamp } from '@meshdex/shared';
 import { AssetProtoMapper } from '../catalog/asset-proto.mapper';
-import { UploadService } from './upload.service';
+import { AssetUploadService } from './asset-upload.service';
 import type { PresignedPart } from './domain/presigned-part.interface';
 import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.exception';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
@@ -29,12 +29,12 @@ import { UploadNotInProgressException } from './exceptions/upload-not-in-progres
  * other controllers; `implements Pick<...>` keeps each method checked against the contract.
  */
 @Controller()
-export class UploadController implements Pick<
+export class AssetUploadController implements Pick<
   AssetServiceController,
   'initiateUpload' | 'getUploadPartUrls' | 'completeUpload' | 'abortUpload'
 > {
   constructor(
-    private readonly uploadService: UploadService,
+    private readonly uploadService: AssetUploadService,
     private readonly assetProtoMapper: AssetProtoMapper,
   ) {}
 

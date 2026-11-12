@@ -5,9 +5,9 @@ import type { RetryPolicy } from './domain/retry-policy.interface';
 
 /** Bounded concurrency and retries, shared by `fetch` and `import`. */
 @Injectable()
-export class TaskRunnerService {
+export class TasksService {
   constructor(
-    @InjectPinoLogger(TaskRunnerService.name)
+    @InjectPinoLogger(TasksService.name)
     private readonly logger: PinoLogger,
   ) {}
 

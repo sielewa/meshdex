@@ -20,7 +20,7 @@ import { UnsafeCachePathException } from './exceptions/unsafe-cache-path.excepti
  * verified, so an interrupted run leaves at most a `.part` file that the next run overwrites.
  */
 @Injectable()
-export class ModelCacheService {
+export class CacheService {
   constructor(
     @Inject(cacheConfig.KEY)
     private readonly config: ConfigType<typeof cacheConfig>,

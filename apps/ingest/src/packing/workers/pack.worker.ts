@@ -1,14 +1,14 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import type { PinoLogger } from 'nestjs-pino';
-import { ModelCacheService } from '../../cache/model-cache.service';
+import { CacheService } from '../../cache/cache.service';
 import type { PackRequest } from '../domain/pack-request.interface';
 import type { PackResponse } from '../domain/pack-response.type';
 import type { PackWorkerData } from '../domain/pack-worker-data.interface';
-import { ModelPackerService } from '../model-packer.service';
+import { PackingService } from '../packing.service';
 
 /**
  * Worker thread entry point (`ingest import --pack-in-workers`), like `main.ts` an exception
- * to the one-class-per-file rule. It runs the same `ModelPackerService` as the main thread,
+ * to the one-class-per-file rule. It runs the same `PackingService` as the main thread,
  * outside Nest's DI: a worker is a separate JavaScript environment with its own module graph,
  * so it builds only what packing needs. Reading files, parsing JSON and copying buffers then
  * happen here, and the main thread's event loop stays free for uploads.
@@ -28,7 +28,7 @@ const logger = {
   warn: (text: string) => warnings.push(text),
   error: (text: string) => warnings.push(text),
 } as unknown as PinoLogger;
-const packer = new ModelPackerService(new ModelCacheService({ dir: cacheDir }), logger);
+const packer = new PackingService(new CacheService({ dir: cacheDir }), logger);
 
 /** The pool sends one request at a time to a worker, so `warnings` belongs to this request. */
 async function handle(request: PackRequest): Promise<void> {

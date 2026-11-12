@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { CachedFile } from '../cache/domain/cached-file.interface';
 import { UnsafeCachePathException } from '../cache/exceptions/unsafe-cache-path.exception';
-import { ModelCacheService } from '../cache/model-cache.service';
+import { CacheService } from '../cache/cache.service';
 import type { PolyhavenModel } from '../clients/polyhaven/domain/polyhaven-model.interface';
 import type { PolyhavenPort } from '../clients/polyhaven/domain/polyhaven-port.interface';
 import type { RemoteFile } from '../clients/polyhaven/domain/remote-file.interface';
@@ -11,7 +11,7 @@ import type { TextureResolution } from '../clients/polyhaven/domain/texture-reso
 import { PolyhavenRequestException } from '../clients/polyhaven/exceptions/polyhaven-request.exception';
 import { POLYHAVEN } from '../clients/polyhaven/polyhaven.tokens';
 import type { RetryPolicy } from '../tasks/domain/retry-policy.interface';
-import { TaskRunnerService } from '../tasks/task-runner.service';
+import { TasksService } from '../tasks/tasks.service';
 import type { FetchSummary } from './domain/fetch-summary.interface';
 import type { ModelFetchResult } from './domain/model-fetch-result.interface';
 import type { FetchArgs } from './dto/fetch.args';
@@ -47,8 +47,8 @@ export class FetchService {
   constructor(
     @Inject(POLYHAVEN)
     private readonly polyhaven: PolyhavenPort,
-    private readonly cache: ModelCacheService,
-    private readonly tasks: TaskRunnerService,
+    private readonly cache: CacheService,
+    private readonly tasks: TasksService,
     @InjectPinoLogger(FetchService.name)
     private readonly logger: PinoLogger,
   ) {}

@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ModelCacheService } from './model-cache.service';
+import { CacheService } from './cache.service';
 
 /** The local model cache shared by `fetch` (writes) and `import` (reads). */
 @Module({
   providers: [
-    ModelCacheService,
+    CacheService,
   ],
   exports: [
-    ModelCacheService,
+    CacheService,
   ],
 })
 export class CacheModule {}

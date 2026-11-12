@@ -3,17 +3,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PinoLogger } from 'nestjs-pino';
 import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
-import { ModelCacheService } from '../cache/model-cache.service';
-import { RunRecorderService } from '../runs/run-recorder.service';
-import { TaskRunnerService } from '../tasks/task-runner.service';
-import type { GlbUpload } from './domain/glb-upload.interface';
-import type { UploadedAsset } from './domain/uploaded-asset.interface';
+import { CacheService } from '../cache/cache.service';
+import { RunsService } from '../runs/runs.service';
+import { TasksService } from '../tasks/tasks.service';
+import type { GlbUpload } from '../upload/domain/glb-upload.interface';
+import type { UploadedAsset } from '../upload/domain/uploaded-asset.interface';
 import type { ImportArgs } from './dto/import.args';
 import { ImportService } from './import.service';
 import { ImportStateService } from './import-state.service';
-import type { ModelPackerService } from './model-packer.service';
-import type { ModelUploaderService } from './model-uploader.service';
-import type { WorkerPackerService } from './worker-packer.service';
+import type { PackingService } from '../packing/packing.service';
+import type { UploadService } from '../upload/upload.service';
+import type { WorkerPackingService } from '../packing/worker-packing.service';
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -43,7 +43,7 @@ class Pipeline {
 
       return new Uint8Array(manifest.modelId.length);
     },
-  } as unknown as ModelPackerService;
+  } as unknown as PackingService;
 
   readonly uploader = {
     upload: async (upload: GlbUpload): Promise<UploadedAsset> => {
@@ -61,7 +61,7 @@ class Pipeline {
         assetVersionId: `version-${upload.fileName}`,
       };
     },
-  } as unknown as ModelUploaderService;
+  } as unknown as UploadService;
 }
 
 const logger = {
@@ -72,7 +72,7 @@ const logger = {
 
 describe('ImportService', () => {
   let dir: string;
-  let cache: ModelCacheService;
+  let cache: CacheService;
   let pipeline: Pipeline;
   let service: ImportService;
   const signal = new AbortController().signal;
@@ -86,7 +86,7 @@ describe('ImportService', () => {
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'ingest-import-'));
-    cache = new ModelCacheService({ dir });
+    cache = new CacheService({ dir });
     pipeline = new Pipeline();
     service = newService();
   });
@@ -120,7 +120,7 @@ describe('ImportService', () => {
         },
       };
     },
-  } as unknown as WorkerPackerService;
+  } as unknown as WorkerPackingService;
 
   function newService(): ImportService {
     return new ImportService(
@@ -129,8 +129,8 @@ describe('ImportService', () => {
       workerPacker,
       pipeline.uploader,
       new ImportStateService(logger),
-      new TaskRunnerService(logger),
-      new RunRecorderService(),
+      new TasksService(logger),
+      new RunsService(),
       { dir },
       logger,
     );

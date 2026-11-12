@@ -5,9 +5,9 @@ import { NodeIO } from '@gltf-transform/core';
 import type { PinoLogger } from 'nestjs-pino';
 import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
 import { UnsafeCachePathException } from '../cache/exceptions/unsafe-cache-path.exception';
-import { ModelCacheService } from '../cache/model-cache.service';
+import { CacheService } from '../cache/cache.service';
 import { UnsupportedGltfException } from './exceptions/unsupported-gltf.exception';
-import { ModelPackerService } from './model-packer.service';
+import { PackingService } from './packing.service';
 
 const logger = {
   debug: jest.fn(),
@@ -51,15 +51,15 @@ function gltf(overrides: Record<string, unknown> = {}): Record<string, unknown> 
   };
 }
 
-describe('ModelPackerService', () => {
+describe('PackingService', () => {
   let dir: string;
-  let cache: ModelCacheService;
-  let packer: ModelPackerService;
+  let cache: CacheService;
+  let packer: PackingService;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'ingest-pack-'));
-    cache = new ModelCacheService({ dir });
-    packer = new ModelPackerService(cache, logger);
+    cache = new CacheService({ dir });
+    packer = new PackingService(cache, logger);
   });
 
   afterEach(async () => {

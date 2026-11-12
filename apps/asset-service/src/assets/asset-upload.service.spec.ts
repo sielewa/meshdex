@@ -12,7 +12,7 @@ import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-versi
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 import type { CatalogService } from '../catalog/catalog.service';
 import type { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
-import { UploadService } from './upload.service';
+import { AssetUploadService } from './asset-upload.service';
 
 const MIB = 1024 * 1024;
 
@@ -20,7 +20,7 @@ const ASSET_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000a1';
 const VERSION_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000b1';
 const MISSING_VERSION_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000ff';
 
-describe('UploadService', () => {
+describe('AssetUploadService', () => {
   const tx = { tx: true };
   let storage: { [K in keyof ObjectStorage]: jest.Mock };
   let assetsRepository: { create: jest.Mock; touch: jest.Mock; deleteById: jest.Mock };
@@ -33,7 +33,7 @@ describe('UploadService', () => {
   let tagsRepository: { linkToAsset: jest.Mock };
   let outboxRepository: { append: jest.Mock };
   let catalogService: { getAsset: jest.Mock };
-  let service: UploadService;
+  let service: AssetUploadService;
 
   const uploading: VersionUpload = {
     versionId: VERSION_ID,
@@ -96,7 +96,7 @@ describe('UploadService', () => {
       urlTtlSeconds: 3600,
     };
 
-    service = new UploadService(
+    service = new AssetUploadService(
       db,
       storage,
       config,

@@ -4,12 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import type { PinoLogger } from 'nestjs-pino';
-import { ModelCacheService } from '../cache/model-cache.service';
+import { CacheService } from '../cache/cache.service';
 import type { ModelFileSet } from '../clients/polyhaven/domain/model-file-set.interface';
 import type { PolyhavenModel } from '../clients/polyhaven/domain/polyhaven-model.interface';
 import type { PolyhavenPort } from '../clients/polyhaven/domain/polyhaven-port.interface';
 import { PolyhavenRequestException } from '../clients/polyhaven/exceptions/polyhaven-request.exception';
-import { TaskRunnerService } from '../tasks/task-runner.service';
+import { TasksService } from '../tasks/tasks.service';
 import { FetchService } from './fetch.service';
 
 /** In-memory Poly Haven: every model has a .gltf and a .bin; downloads are counted. */
@@ -94,15 +94,15 @@ const logger = {
   debug: jest.fn(),
 } as unknown as PinoLogger;
 const signal = new AbortController().signal;
-const tasks = new TaskRunnerService(logger);
+const tasks = new TasksService(logger);
 
 describe('FetchService', () => {
   let dir: string;
-  let cache: ModelCacheService;
+  let cache: CacheService;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'ingest-fetch-'));
-    cache = new ModelCacheService({ dir });
+    cache = new CacheService({ dir });
     // Full jitter with random() = 0 → retries without waiting.
     jest.spyOn(Math, 'random').mockReturnValue(0);
   });

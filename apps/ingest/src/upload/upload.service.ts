@@ -8,7 +8,7 @@ import type { PresignedUploadPort } from '../clients/object-storage/domain/presi
 import { PartUploadException } from '../clients/object-storage/exceptions/part-upload.exception';
 import { PRESIGNED_UPLOAD } from '../clients/object-storage/object-storage.tokens';
 import type { RetryPolicy } from '../tasks/domain/retry-policy.interface';
-import { TaskRunnerService } from '../tasks/task-runner.service';
+import { TasksService } from '../tasks/tasks.service';
 import type { GlbUpload } from './domain/glb-upload.interface';
 import type { UploadedAsset } from './domain/uploaded-asset.interface';
 import {
@@ -16,7 +16,7 @@ import {
   PART_RETRY_ATTEMPTS,
   PART_RETRY_BASE_DELAY_MS,
   PART_RETRY_MAX_DELAY_MS,
-} from './import.constants';
+} from './upload.constants';
 
 /**
  * Turns a packed GLB into an asset through the same upload flow as the browser
@@ -33,7 +33,7 @@ import {
  * picks it up.
  */
 @Injectable()
-export class ModelUploaderService {
+export class UploadService {
   private readonly partRetryPolicy: RetryPolicy = {
     attempts: PART_RETRY_ATTEMPTS,
     baseDelayMs: PART_RETRY_BASE_DELAY_MS,
@@ -47,8 +47,8 @@ export class ModelUploaderService {
     private readonly assetService: AssetServicePort,
     @Inject(PRESIGNED_UPLOAD)
     private readonly storage: PresignedUploadPort,
-    private readonly tasks: TaskRunnerService,
-    @InjectPinoLogger(ModelUploaderService.name)
+    private readonly tasks: TasksService,
+    @InjectPinoLogger(UploadService.name)
     private readonly logger: PinoLogger,
   ) {}
 

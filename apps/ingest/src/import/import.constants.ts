@@ -12,7 +12,7 @@ export const SOURCE_TAG = 'polyhaven';
 /** Poly Haven lists asset packs as categories like `collection: the_shed`; the tag keeps the name. */
 export const COLLECTION_CATEGORY_PREFIX = /^collection:\s*/i;
 
-export const GLB_CONTENT_TYPE = 'model/gltf-binary';
+/** Imported files are named `<model id>.glb`; asset-service requires the extension. */
 export const GLB_EXTENSION = '.glb';
 
 /**
@@ -22,11 +22,3 @@ export const GLB_EXTENSION = '.glb';
 export const MAX_TITLE_LENGTH = 200;
 export const MAX_TAGS_PER_ASSET = 20;
 export const MAX_TAG_LENGTH = 50;
-
-/** Retries of one part PUT (transient errors, or an expired URL that is signed again). */
-export const PART_RETRY_ATTEMPTS = 3;
-export const PART_RETRY_BASE_DELAY_MS = 250;
-export const PART_RETRY_MAX_DELAY_MS = 4_000;
-
-/** Compiled worker entry next to `worker-packer.service.js` (in `workers/`). */
-export const PACK_WORKER_FILE = 'pack.worker.js';

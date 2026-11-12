@@ -1,5 +1,5 @@
 import type { PinoLogger } from 'nestjs-pino';
-import { TaskRunnerService } from './task-runner.service';
+import { TasksService } from './tasks.service';
 
 const logger = { debug: jest.fn() } as unknown as PinoLogger;
 const policy = {
@@ -9,8 +9,8 @@ const policy = {
   isRetryable: (error: unknown) => error instanceof Error && error.message === 'transient',
 };
 
-describe('TaskRunnerService', () => {
-  const tasks = new TaskRunnerService(logger);
+describe('TasksService', () => {
+  const tasks = new TasksService(logger);
   const signal = new AbortController().signal;
 
   describe('forEach', () => {

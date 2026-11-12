@@ -5,10 +5,10 @@ import { AssetVersionsRepository } from './infrastructure/asset-versions.reposit
 import { AssetsRepository } from './infrastructure/assets.repository';
 import { OutboxRepository } from './infrastructure/outbox.repository';
 import { TagsRepository } from './infrastructure/tags.repository';
-import { ProcessingController } from './processing.controller';
-import { ProcessingService } from './processing.service';
-import { UploadController } from './upload.controller';
-import { UploadService } from './upload.service';
+import { AssetProcessingController } from './asset-processing.controller';
+import { AssetProcessingService } from './asset-processing.service';
+import { AssetUploadController } from './asset-upload.controller';
+import { AssetUploadService } from './asset-upload.service';
 
 /** Owner of the asset version lifecycle writes (ADR 005): upload and processing. */
 @Module({
@@ -17,12 +17,12 @@ import { UploadService } from './upload.service';
     CatalogModule,
   ],
   controllers: [
-    UploadController,
-    ProcessingController,
+    AssetUploadController,
+    AssetProcessingController,
   ],
   providers: [
-    UploadService,
-    ProcessingService,
+    AssetUploadService,
+    AssetProcessingService,
     AssetsRepository,
     AssetVersionsRepository,
     TagsRepository,

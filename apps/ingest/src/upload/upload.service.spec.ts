@@ -7,8 +7,8 @@ import type { UploadSession } from '../clients/asset-service/domain/upload-sessi
 import { AssetServiceRequestException } from '../clients/asset-service/exceptions/asset-service-request.exception';
 import type { PresignedUploadPort } from '../clients/object-storage/domain/presigned-upload-port.interface';
 import { PartUploadException } from '../clients/object-storage/exceptions/part-upload.exception';
-import { TaskRunnerService } from '../tasks/task-runner.service';
-import { ModelUploaderService } from './model-uploader.service';
+import { TasksService } from '../tasks/tasks.service';
+import { UploadService } from './upload.service';
 
 const PART_SIZE = 4;
 
@@ -93,7 +93,7 @@ class FakeStorage implements PresignedUploadPort {
   }
 }
 
-describe('ModelUploaderService', () => {
+describe('UploadService', () => {
   const logger = {
     debug: jest.fn(),
     warn: jest.fn(),
@@ -101,7 +101,7 @@ describe('ModelUploaderService', () => {
   const signal = new AbortController().signal;
   let assetService: FakeAssetService;
   let storage: FakeStorage;
-  let uploader: ModelUploaderService;
+  let uploader: UploadService;
   const upload = {
     title: 'Chair',
     tags: ['polyhaven'],
@@ -112,12 +112,7 @@ describe('ModelUploaderService', () => {
   beforeEach(() => {
     assetService = new FakeAssetService();
     storage = new FakeStorage();
-    uploader = new ModelUploaderService(
-      assetService,
-      storage,
-      new TaskRunnerService(logger),
-      logger,
-    );
+    uploader = new UploadService(assetService, storage, new TasksService(logger), logger);
     // Full jitter with random() = 0 → retries without waiting.
     jest.spyOn(Math, 'random').mockReturnValue(0);
   });

@@ -15,19 +15,19 @@ import type { StoredObject } from './domain/stored-object.interface';
 import type { ProcessingOutcome } from './domain/processing-outcome.type';
 import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidProcessingResultException } from './exceptions/invalid-processing-result.exception';
-import { ProcessingService } from './processing.service';
+import { AssetProcessingService } from './asset-processing.service';
 import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.exception';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
 import { ProcessingStateConflictException } from './exceptions/processing-state-conflict.exception';
 
 /** Processing RPCs of `meshdex.asset.v1.AssetService`, called by the processing worker. */
 @Controller()
-export class ProcessingController implements Pick<
+export class AssetProcessingController implements Pick<
   AssetServiceController,
   'startProcessing' | 'completeProcessing'
 > {
   constructor(
-    private readonly processingService: ProcessingService,
+    private readonly processingService: AssetProcessingService,
     private readonly assetProtoMapper: AssetProtoMapper,
   ) {}
 

@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { RunRecorderService } from './run-recorder.service';
+import { RunsService } from './runs.service';
 
 /** Measuring and recording command runs for benchmarks. */
 @Module({
   providers: [
-    RunRecorderService,
+    RunsService,
   ],
   exports: [
-    RunRecorderService,
+    RunsService,
   ],
 })
 export class RunsModule {}

@@ -4,15 +4,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
-import { ModelCacheService } from '../cache/model-cache.service';
+import { CacheService } from '../cache/cache.service';
 import { cacheConfig } from '../config/config.namespaces';
 import type { RunMeasurements } from '../runs/domain/run-measurements.interface';
-import { RunRecorderService } from '../runs/run-recorder.service';
+import { RunsService } from '../runs/runs.service';
 import { RUN_RECORD_VERSION } from '../runs/runs.constants';
 import { BoundedQueue } from '../tasks/bounded-queue';
-import { TaskRunnerService } from '../tasks/task-runner.service';
-import type { GlbUpload } from './domain/glb-upload.interface';
-import type { ModelPacker } from './domain/model-packer.interface';
+import { TasksService } from '../tasks/tasks.service';
+import type { GlbUpload } from '../upload/domain/glb-upload.interface';
+import type { ModelPacker } from '../packing/domain/model-packer.interface';
 import type { ImportRunOptions } from './domain/import-run-options.interface';
 import type { ImportRunResult } from './domain/import-run-result.interface';
 import type { ImportSummary } from './domain/import-summary.interface';
@@ -28,9 +28,9 @@ import {
   SOURCE_TAG,
 } from './import.constants';
 import { ImportStateService } from './import-state.service';
-import { ModelPackerService } from './model-packer.service';
-import { ModelUploaderService } from './model-uploader.service';
-import { WorkerPackerService } from './worker-packer.service';
+import { PackingService } from '../packing/packing.service';
+import { UploadService } from '../upload/upload.service';
+import { WorkerPackingService } from '../packing/worker-packing.service';
 
 /**
  * `ingest import`: cached models → assets in asset-service (ADR 013), as a two-stage pipeline.
@@ -52,13 +52,13 @@ import { WorkerPackerService } from './worker-packer.service';
 @Injectable()
 export class ImportService {
   constructor(
-    private readonly cache: ModelCacheService,
-    private readonly packer: ModelPackerService,
-    private readonly workerPacker: WorkerPackerService,
-    private readonly uploader: ModelUploaderService,
+    private readonly cache: CacheService,
+    private readonly packer: PackingService,
+    private readonly workerPacker: WorkerPackingService,
+    private readonly uploader: UploadService,
     private readonly state: ImportStateService,
-    private readonly tasks: TaskRunnerService,
-    private readonly recorder: RunRecorderService,
+    private readonly tasks: TasksService,
+    private readonly recorder: RunsService,
     @Inject(cacheConfig.KEY)
     private readonly cacheSettings: ConfigType<typeof cacheConfig>,
     @InjectPinoLogger(ImportService.name)

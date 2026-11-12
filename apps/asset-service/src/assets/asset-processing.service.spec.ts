@@ -8,7 +8,7 @@ import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-versi
 import { InvalidProcessingResultException } from './exceptions/invalid-processing-result.exception';
 import { ProcessingStateConflictException } from './exceptions/processing-state-conflict.exception';
 import type { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
-import { ProcessingService } from './processing.service';
+import { AssetProcessingService } from './asset-processing.service';
 
 const VERSION_ID = '019a7a5e-8b1c-7c3d-9e4f-0000000000b1';
 
@@ -42,7 +42,7 @@ const succeeded: ProcessingOutcome = {
   outputs,
 };
 
-describe('ProcessingService', () => {
+describe('AssetProcessingService', () => {
   let versions: {
     markProcessing: jest.Mock;
     markReady: jest.Mock;
@@ -50,7 +50,7 @@ describe('ProcessingService', () => {
     findUploadById: jest.Mock;
   };
   let catalog: { getAssetVersion: jest.Mock };
-  let service: ProcessingService;
+  let service: AssetProcessingService;
   const view = { id: VERSION_ID } as AssetVersion;
   const inStatus = (status: AssetVersionStatus): void => {
     versions.findUploadById.mockResolvedValue({
@@ -67,7 +67,7 @@ describe('ProcessingService', () => {
       findUploadById: jest.fn(),
     };
     catalog = { getAssetVersion: jest.fn().mockResolvedValue(view) };
-    service = new ProcessingService(
+    service = new AssetProcessingService(
       versions as unknown as AssetVersionsRepository,
       catalog as unknown as CatalogService,
     );

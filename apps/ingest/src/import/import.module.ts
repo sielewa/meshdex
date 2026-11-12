@@ -1,30 +1,28 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '../cache/cache.module';
-import { AssetServiceClientModule } from '../clients/asset-service/asset-service-client.module';
-import { ObjectStorageClientModule } from '../clients/object-storage/object-storage-client.module';
+import { PackingModule } from '../packing/packing.module';
 import { RunsModule } from '../runs/runs.module';
 import { TasksModule } from '../tasks/tasks.module';
+import { UploadModule } from '../upload/upload.module';
 import { ImportService } from './import.service';
 import { ImportStateService } from './import-state.service';
-import { ModelPackerService } from './model-packer.service';
-import { ModelUploaderService } from './model-uploader.service';
-import { WorkerPackerService } from './worker-packer.service';
 
-/** `ingest import`: local model cache → GLB → assets in asset-service. */
+/**
+ * `ingest import`: picks cached models, runs them through packing → upload as a pipeline,
+ * remembers what was imported and measures the run. The work itself is done by
+ * `PackingModule` and `UploadModule`.
+ */
 @Module({
   imports: [
     CacheModule,
     TasksModule,
-    AssetServiceClientModule,
-    ObjectStorageClientModule,
     RunsModule,
+    PackingModule,
+    UploadModule,
   ],
   providers: [
     ImportService,
     ImportStateService,
-    ModelPackerService,
-    ModelUploaderService,
-    WorkerPackerService,
   ],
   exports: [
     ImportService,

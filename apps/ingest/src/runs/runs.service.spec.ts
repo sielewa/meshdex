@@ -2,10 +2,10 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RunProbe } from './run-probe';
-import { RunRecorderService } from './run-recorder.service';
+import { RunsService } from './runs.service';
 
-describe('RunRecorderService', () => {
-  const recorder = new RunRecorderService();
+describe('RunsService', () => {
+  const recorder = new RunsService();
   let dir: string;
 
   beforeEach(async () => {

@@ -10,7 +10,7 @@ import type { PackResponse } from './domain/pack-response.type';
 import type { PackWorkerData } from './domain/pack-worker-data.interface';
 import type { PackerPool } from './domain/packer-pool.interface';
 import { ModelPackingException } from './exceptions/model-packing.exception';
-import { PACK_WORKER_FILE } from './import.constants';
+import { PACK_WORKER_FILE } from './packing.constants';
 
 /**
  * Packing in worker threads (`--pack-in-workers`), the experiment of ADR 013's pipeline: the
@@ -18,11 +18,11 @@ import { PACK_WORKER_FILE } from './import.constants';
  * the pipeline's pack concurrency is also the number of threads.
  */
 @Injectable()
-export class WorkerPackerService {
+export class WorkerPackingService {
   constructor(
     @Inject(cacheConfig.KEY)
     private readonly cacheSettings: ConfigType<typeof cacheConfig>,
-    @InjectPinoLogger(WorkerPackerService.name)
+    @InjectPinoLogger(WorkerPackingService.name)
     private readonly logger: PinoLogger,
   ) {}
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { CacheIntegrityException } from './exceptions/cache-integrity.exception';
 import { UnsafeCachePathException } from './exceptions/unsafe-cache-path.exception';
-import { ModelCacheService } from './model-cache.service';
+import { CacheService } from './cache.service';
 
 const content = Buffer.from('glTF bytes '.repeat(1000));
 const expected = {
@@ -14,13 +14,13 @@ const expected = {
   md5: createHash('md5').update(content).digest('hex'),
 };
 
-describe('ModelCacheService', () => {
+describe('CacheService', () => {
   let dir: string;
-  let cache: ModelCacheService;
+  let cache: CacheService;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'ingest-cache-'));
-    cache = new ModelCacheService({ dir });
+    cache = new CacheService({ dir });
   });
 
   afterEach(async () => {
@@ -95,7 +95,7 @@ describe('ModelCacheService', () => {
     await writeFile(join(dir, 'import-state.jsonl'), '');
 
     expect(await cache.listModelIds()).toEqual(['ArmChair_01', 'Table_01']);
-    expect(await new ModelCacheService({ dir: join(dir, 'missing') }).listModelIds()).toEqual([]);
+    expect(await new CacheService({ dir: join(dir, 'missing') }).listModelIds()).toEqual([]);
   });
 
   it('reads back the manifest it wrote and returns null when there is none', async () => {

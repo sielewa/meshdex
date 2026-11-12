@@ -19,7 +19,7 @@ import { AssetVersionsRepository } from './infrastructure/asset-versions.reposit
  * state; only a *conflicting* step (e.g. FAILED after READY) is an error.
  */
 @Injectable()
-export class ProcessingService {
+export class AssetProcessingService {
   constructor(
     private readonly assetVersionsRepository: AssetVersionsRepository,
     private readonly catalogService: CatalogService,

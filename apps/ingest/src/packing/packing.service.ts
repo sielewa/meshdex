@@ -4,7 +4,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
-import { ModelCacheService } from '../cache/model-cache.service';
+import { CacheService } from '../cache/cache.service';
 import { UnsupportedGltfException } from './exceptions/unsupported-gltf.exception';
 
 /**
@@ -18,12 +18,12 @@ import { UnsupportedGltfException } from './exceptions/unsupported-gltf.exceptio
  * pipeline bounds how many models that is.
  */
 @Injectable()
-export class ModelPackerService {
+export class PackingService {
   private readonly io: NodeIO;
 
   constructor(
-    private readonly cache: ModelCacheService,
-    @InjectPinoLogger(ModelPackerService.name)
+    private readonly cache: CacheService,
+    @InjectPinoLogger(PackingService.name)
     private readonly logger: PinoLogger,
   ) {
     // Every official Khronos/EXT extension (materials such as transmission, texture transforms…)
