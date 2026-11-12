@@ -28,13 +28,18 @@ export function ModelViewer({ url, onRetry }: { url: string; onRetry: () => void
         >
           <Suspense fallback={null}>
             {/* `environment={null}`: drei's presets are HDR files from a public CDN. */}
-            <Stage environment={null} intensity={0.6} adjustCamera={1.4}>
+            {/* adjustCamera: margin around the model's bounds when framing it (1 = edge to edge). */}
+            <Stage environment={null} intensity={0.6} adjustCamera={1.1}>
               <GltfModel url={url} />
             </Stage>
           </Suspense>
           <ambientLight intensity={0.5} />
           <directionalLight position={[5, 8, 5]} intensity={1.2} />
-          <OrbitControls makeDefault />
+          {/*
+            Slower than the defaults (1.0): a small drag spun the model too far, and one wheel
+            notch jumped from the framed view to right up close.
+          */}
+          <OrbitControls makeDefault rotateSpeed={0.4} zoomSpeed={0.2} />
         </Canvas>
         <LoadProgress />
       </div>
