@@ -1,11 +1,13 @@
 import {
   CONFIGURATION_OPTIONS,
+  NUMERIC_CONFIGURATION_OPTIONS,
   WORKLOAD_OPTIONS,
 } from '@/features/experiments/experiments.constants';
 import type { BenchmarkRun } from '@/features/experiments/lib/benchmark-run.schema';
 import type {
   ConfigurationField,
   Machine,
+  NumericConfigurationOption,
   RunConfiguration,
   Workload,
 } from '@/features/experiments/types/workload';
@@ -36,9 +38,30 @@ export function groupRuns(runs: readonly BenchmarkRun[]): Workload[] {
 
   for (const workload of workloads.values()) {
     workload.differences = findDifferences(workload.configurations);
+
+    const swept = sweptOption(workload);
+
+    // A sweep reads along its option (1, 2, 4, 8 uploaders), not in recording order.
+    if (swept !== null) {
+      workload.configurations.sort((a, b) => a.options[swept] - b.options[swept]);
+    }
   }
 
   return [...workloads.values()].sort(compareWorkloads);
+}
+
+/**
+ * The numeric option a workload sweeps, when its configurations differ in that option alone
+ * (same code, same other settings); `null` for any other comparison.
+ */
+export function sweptOption(workload: Workload): NumericConfigurationOption | null {
+  const [only, ...rest] = workload.differences;
+
+  return rest.length === 0 && only !== undefined && isNumericOption(only) ? only : null;
+}
+
+function isNumericOption(field: ConfigurationField): field is NumericConfigurationOption {
+  return (NUMERIC_CONFIGURATION_OPTIONS as readonly string[]).includes(field);
 }
 
 function workloadKey({ record }: BenchmarkRun): string {

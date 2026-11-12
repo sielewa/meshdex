@@ -76,4 +76,29 @@ describe('WorkloadSection', () => {
         .map((cell) => cell.textContent),
     ).toEqual(['786 (762–811)', '965 (786–997)']);
   });
+
+  it('draws a sweep of one option along its values, best median printed', () => {
+    const [workload] = groupRuns(
+      [1, 2, 4, 8].flatMap((uploaders, index) =>
+        [0, 1].map((repeat) =>
+          run({
+            startedAt: `2026-11-13T09:0${String(index)}:0${String(repeat)}Z`,
+            wallMs: 2000 / uploaders + repeat,
+            options: { uploadConcurrency: uploaders },
+          }),
+        ),
+      ),
+    );
+
+    if (workload === undefined) {
+      throw new Error('expected one workload');
+    }
+
+    render(<WorkloadSection workload={workload} />);
+    const wallTime = screen.getByRole('img', { name: /^Wall time by uploaders\./ });
+
+    expect(wallTime.getAttribute('aria-label')).toContain('8 uploaders: median 251 ms');
+    expect(within(wallTime).getByText('251')).toBeDefined();
+    expect(screen.queryByRole('list', { name: 'Configurations' })).toBeNull();
+  });
 });

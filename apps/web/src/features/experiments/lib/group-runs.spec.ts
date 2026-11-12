@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBenchmarkRun as run } from '@/features/experiments/lib/benchmark-run.fixture';
-import { groupRuns } from '@/features/experiments/lib/group-runs';
+import { groupRuns, sweptOption } from '@/features/experiments/lib/group-runs';
 
 describe('groupRuns', () => {
   it('compares configurations of the same work and names what differs between them', () => {
@@ -87,5 +87,37 @@ describe('groupRuns', () => {
       '2026-11-12T20:00:01Z',
       '2026-11-12T20:00:02Z',
     ]);
+  });
+
+  it('orders a sweep of one numeric option by its value, not by recording order', () => {
+    const [workload] = groupRuns(
+      [4, 1, 8, 2].map((uploaders, index) =>
+        run({
+          startedAt: `2026-11-13T09:00:0${String(index)}Z`,
+          options: { uploadConcurrency: uploaders },
+        }),
+      ),
+    );
+
+    expect(workload && sweptOption(workload)).toBe('uploadConcurrency');
+    expect(workload?.configurations.map((c) => c.options.uploadConcurrency)).toEqual([1, 2, 4, 8]);
+  });
+
+  it('does not treat a comparison across commits or of a flag as a sweep', () => {
+    const [acrossCommits] = groupRuns([
+      run({ startedAt: '2026-11-13T09:00:01Z', options: { uploadConcurrency: 1 } }),
+      run({
+        startedAt: '2026-11-13T09:00:02Z',
+        options: { uploadConcurrency: 2 },
+        environment: { gitCommit: 'bbbbbbb' },
+      }),
+    ]);
+    const [flag] = groupRuns([
+      run({ startedAt: '2026-11-13T09:00:01Z' }),
+      run({ startedAt: '2026-11-13T09:00:02Z', options: { packInWorkers: true } }),
+    ]);
+
+    expect(acrossCommits && sweptOption(acrossCommits)).toBeNull();
+    expect(flag && sweptOption(flag)).toBeNull();
   });
 });

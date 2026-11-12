@@ -1,5 +1,6 @@
 import type {
   CONFIGURATION_OPTIONS,
+  NUMERIC_CONFIGURATION_OPTIONS,
   WORKLOAD_OPTIONS,
 } from '@/features/experiments/experiments.constants';
 import type {
@@ -9,6 +10,7 @@ import type {
 
 export type WorkloadOption = (typeof WORKLOAD_OPTIONS)[number];
 export type ConfigurationOption = (typeof CONFIGURATION_OPTIONS)[number];
+export type NumericConfigurationOption = (typeof NUMERIC_CONFIGURATION_OPTIONS)[number];
 
 /** A configuration property that can differ between configurations of one workload. */
 export type ConfigurationField = ConfigurationOption | 'node' | 'gitCommit';

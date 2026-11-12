@@ -25,7 +25,8 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/gateway/schema.graphql",
-        "$TURBO_ROOT$/docs/benchmarks/runs/**"
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
@@ -34,7 +35,8 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/gateway/schema.graphql",
-        "$TURBO_ROOT$/docs/benchmarks/runs/**"
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
       ]
     },
     "@meshdex/web#lint": {
@@ -42,7 +44,8 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/gateway/schema.graphql",
-        "$TURBO_ROOT$/docs/benchmarks/runs/**"
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
       ]
     },
     "@meshdex/web#test": {
@@ -50,7 +53,8 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/gateway/schema.graphql",
-        "$TURBO_ROOT$/docs/benchmarks/runs/**"
+        "$TURBO_ROOT$/docs/benchmarks/runs/**",
+        "$TURBO_ROOT$/docs/benchmarks/experiments.json"
       ],
       "outputs": ["coverage/**"]
     }

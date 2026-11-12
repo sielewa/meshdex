@@ -1,0 +1,33 @@
+{
+  "experiments": [
+    {
+      "id": "ingest-packing-thread",
+      "title": "Packing on the main thread vs in worker threads",
+      "question": "Does moving glTF to GLB packing off the main thread make ingest import faster, and what does it cost?",
+      "answer": "No: the import is limited by uploads, so worker threads only add about 0.2 s of start-up, 60-115 % more CPU and about 140 MB of memory; their one gain is a calmer event loop.",
+      "report": "ingest-import.md",
+      "runs": [
+        "2026-11-12T20-38-01-239Z-import-1k50-main.json",
+        "2026-11-12T20-38-04-275Z-import-1k50-workers.json",
+        "2026-11-12T20-38-07-525Z-import-1k50-workers.json",
+        "2026-11-12T20-38-10-828Z-import-1k50-main.json",
+        "2026-11-12T20-38-13-928Z-import-1k50-main.json",
+        "2026-11-12T20-38-17-018Z-import-1k50-workers.json",
+        "2026-11-12T20-38-20-277Z-import-1k50-workers.json",
+        "2026-11-12T20-38-23-426Z-import-1k50-main.json",
+        "2026-11-12T20-38-26-529Z-import-1k50-main.json",
+        "2026-11-12T20-38-29-595Z-import-1k50-workers.json",
+        "2026-11-12T20-38-38-887Z-import-4k10-main.json",
+        "2026-11-12T20-38-41-753Z-import-4k10-workers.json",
+        "2026-11-12T20-38-44-816Z-import-4k10-workers.json",
+        "2026-11-12T20-38-47-937Z-import-4k10-main.json",
+        "2026-11-12T20-38-50-827Z-import-4k10-main.json",
+        "2026-11-12T20-38-53-806Z-import-4k10-workers.json",
+        "2026-11-12T20-38-56-892Z-import-4k10-workers.json",
+        "2026-11-12T20-39-00-020Z-import-4k10-main.json",
+        "2026-11-12T20-39-02-925Z-import-4k10-main.json",
+        "2026-11-12T20-39-05-816Z-import-4k10-workers.json"
+      ]
+    }
+  ]
+}

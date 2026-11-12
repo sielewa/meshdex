@@ -15,6 +15,13 @@ export const CONFIGURATION_OPTIONS = [
   'queueSize',
 ] as const;
 
+/** Configuration options with numeric values: one of them varying alone makes a sweep. */
+export const NUMERIC_CONFIGURATION_OPTIONS = [
+  'packConcurrency',
+  'uploadConcurrency',
+  'queueSize',
+] as const;
+
 /**
  * Series colours (categorical slots of the data-viz palette, dark steps, validated against the
  * card surface #171717: every adjacent pair clears the colour-blindness check). Assigned by a
