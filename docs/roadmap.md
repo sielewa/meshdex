@@ -18,9 +18,11 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 
 - [x] Monorepo, lint/format, `docker compose up` with Postgres, Redpanda, S3 emulator (SeaweedFS)
 - [x] `packages/proto`: `meshdex/asset/v1/asset.proto`, `meshdex/ml/v1/ml.proto`; buf lint + generate (ts-proto, NestJS types)
-- [ ] `asset-service`: CreateAsset, GetAsset(s), ListAssets, UpdateStatus; Drizzle schema + migrations
+- [x] `asset-service`: upload RPCs (CreateAsset became InitiateUpload/CompleteUpload), GetAsset, BatchGetAssets, ListAssets (keyset pagination, tag/status filters), StartProcessing/CompleteProcessing (idempotent, replaces UpdateStatus); Drizzle schema + migrations
+- [ ] `asset-service` integration tests with Testcontainers (turn the local end-to-end check into an automated test)
 - [ ] `gateway`: GraphQL schema (code-first) for assets; calls asset-service over gRPC
-- [ ] Presigned multipart upload flow
+- [x] Presigned multipart upload flow (asset-service side: initiate, re-sign parts, complete, abort; outbox event on completion)
+- [ ] Stale-uploads reconciler: periodic job for versions stuck in UPLOADING (client vanished) — HEAD the object, then mark uploaded (+ outbox event) or abort and delete
 - **Done when:** a GLB can be uploaded and listed via GraphQL.
 
 ## Stage 2 — Processing pipeline
@@ -64,7 +66,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 
 ## Stage 7 — Cloud & operations
 
-- [ ] Terraform: **AWS Budget alert first**, then S3, CloudFront, ECR, EC2 with k3s ([ADR 001](adr/001-k3s-on-ec2-instead-of-eks.md)), IAM least privilege
+- [ ] Terraform: **AWS Budget alert first**, then S3 (with an `AbortIncompleteMultipartUpload` lifecycle rule and CORS for the web origin), CloudFront, ECR, EC2 with k3s ([ADR 001](adr/001-k3s-on-ec2-instead-of-eks.md)), IAM least privilege
 - [ ] Deploy the Stage 3 Helm charts to k3s on EC2 unchanged (only values differ)
 - [ ] OpenTelemetry → Grafana dashboards (screenshots in README)
 - [ ] k6 load test; GitLab CI: lint, test, buf breaking, build changed services only, push images

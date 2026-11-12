@@ -18,19 +18,31 @@ apps/<service>/src/
     schema/           one file per table (`assets.table.ts`) + `index.ts`; shared by the
                       service's modules (ADR 005)
   <feature>/
-    <feature>.module.ts / .service.ts / .constants.ts
+    <feature>.module.ts / .service.ts / .constants.ts / .tokens.ts (DI injection tokens)
     <feature>.controller.ts   transport entry — gRPC `@GrpcMethod` (asset-service),
                               `<feature>.resolver.ts` (gateway), `<feature>.consumer.ts` (worker, Kafka)
-    domain/          interfaces, enums, ports (`asset.interface.ts`, `asset-status.enum.ts`,
-                     `object-storage-port.interface.ts`)
-    infrastructure/  this module's Drizzle repositories, named after the table they query
-                     (`assets.repository.ts`), adapters implementing ports (S3, gRPC clients)
+    <name>.mapper.ts          injectable mapper class (domain <-> transport) when several
+                              controllers need it, e.g. `AssetProtoMapper`
+    domain/          declarations only, one per file: `<name>.interface.ts`, `<name>.enum.ts`,
+                     `<name>.type.ts` (unions/aliases), ports `<name>-port.interface.ts`.
+                     No functions, no constants.
+    infrastructure/  classes only: Drizzle repositories named after the table they query
+                     (`assets.repository.ts`) and adapters implementing ports (S3, gRPC clients)
     exceptions/      `export class AssetNotFoundException extends Error {}`
     listeners/       in-process `@OnEvent('asset.status-changed')` handlers
     jobs/            `@Cron(...)` / interval loops (e.g. outbox relay)
     events/          event classes
     dto/             class-validator DTOs (gateway inputs); gRPC messages use ts-proto generated types
 ```
+
+**Code lives where it is used.** These rules apply to every app and package:
+
+- **Files with a class contain only that class** (services, controllers, repositories, adapters, modules, mappers): no interfaces, type aliases, constants or helper functions next to it.
+- **Logic used by one class is a `private` method of that class** — no helper functions in separate files. Logic needed by several classes becomes an injectable class (e.g. `AssetProtoMapper`); a few lines needed by two repositories may simply be a private method in each.
+- Types go to `domain/` (one per file), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
+- A contract subset is written inline: `implements Pick<AssetServiceController, 'getAsset' | …>`.
+- Each controller maps its own errors in a `private toRpcException(error)`, listing exactly the exceptions its service can throw.
+- Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), and `packages/*` libraries whose exported functions are their public API.
 
 ## Layers and errors
 
@@ -80,8 +92,13 @@ apps/<service>/src/
 
 ## Style
 
-- **Formatting is Prettier's job** (`singleQuote`, `trailingComma: all`, `printWidth: 100`, 2-space indent). Never hand-format against it; `pnpm format` before handing over.
-- **ESLint checks code quality only** (`eslint.config.js`: typescript-eslint `strictTypeChecked` with type-aware rules, `no-console`, `eqeqeq`, `curly`, explicit types on exported APIs). No `eslint-disable` without a comment saying why.
+- **Formatting is Prettier's job** (`singleQuote`, `trailingComma: all`, `printWidth: 100`, 2-space indent), plus two house rules enforced by ESLint (`@stylistic`), which Prettier can't express:
+  - **object literals with 3+ properties: one property per line** (Prettier then keeps them expanded);
+  - **NestJS modules (`*.module.ts`): one item per line in every array** — `controllers`, `providers`, `imports`, `exports`. Module files are excluded from Prettier so it doesn't collapse those arrays.
+
+  Before handing over: `eslint --fix`, then `pnpm format`.
+
+- **ESLint checks code quality** (`eslint.config.js`: typescript-eslint `strictTypeChecked` with type-aware rules, `no-console`, `eqeqeq`, `curly`, explicit types on exported APIs). No `eslint-disable` without a comment saying why.
 - No `import type` for classes injected by NestJS DI: constructor parameter types must stay runtime imports (`emitDecoratorMetadata`).
 - Constructor DI with `private readonly`.
 - Guard clauses with early `return`/`throw`; blank line after an `if` block and before the final `return`.
