@@ -1,3 +1,5 @@
+import type { StoredObject } from './stored-object.interface';
+
 export interface NewVersionUpload {
   id: string;
   assetId: string;
@@ -9,4 +11,5 @@ export interface NewVersionUpload {
   uploadId: string;
   partSizeBytes: number;
   createdAt: number;
+  sourcePreview: StoredObject | null;
 }

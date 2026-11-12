@@ -27,6 +27,9 @@ export class AssetVersionsRepository {
       originalContentType: version.contentType,
       uploadId: version.uploadId,
       partSizeBytes: version.partSizeBytes,
+      sourcePreviewKey: version.sourcePreview?.key ?? null,
+      sourcePreviewSizeBytes: version.sourcePreview?.sizeBytes ?? null,
+      sourcePreviewContentType: version.sourcePreview?.contentType ?? null,
       createdAt,
       updatedAt: createdAt,
     });
@@ -44,17 +47,34 @@ export class AssetVersionsRepository {
         contentType: assetVersions.originalContentType,
         uploadId: assetVersions.uploadId,
         partSizeBytes: assetVersions.partSizeBytes,
+        sourcePreviewKey: assetVersions.sourcePreviewKey,
+        sourcePreviewSizeBytes: assetVersions.sourcePreviewSizeBytes,
+        sourcePreviewContentType: assetVersions.sourcePreviewContentType,
       })
       .from(assetVersions)
       .where(eq(assetVersions.id, versionId))
       .limit(1);
 
-    return row
-      ? {
-          ...row,
-          status: this.parseStatus(row.status),
-        }
-      : null;
+    if (!row) {
+      return null;
+    }
+
+    const { sourcePreviewKey, sourcePreviewSizeBytes, sourcePreviewContentType, ...upload } = row;
+
+    return {
+      ...upload,
+      status: this.parseStatus(row.status),
+      sourcePreview:
+        sourcePreviewKey !== null &&
+        sourcePreviewSizeBytes !== null &&
+        sourcePreviewContentType !== null
+          ? {
+              key: sourcePreviewKey,
+              sizeBytes: sourcePreviewSizeBytes,
+              contentType: sourcePreviewContentType,
+            }
+          : null,
+    };
   }
 
   /**

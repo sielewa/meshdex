@@ -16,4 +16,6 @@ export interface AssetVersion {
   failureReason: string | null;
   createdAt: number;
   processedAt: number | null;
+  /** Public image supplied with the upload (ADR 017). */
+  sourcePreview: StoredObject | null;
 }

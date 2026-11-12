@@ -9,6 +9,7 @@ import { AssetVersionStatus } from './domain/asset-version-status.enum';
 import type { VersionUpload } from './domain/version-upload.interface';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
 import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
+import { SourcePreviewMissingException } from './exceptions/source-preview-missing.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 import type { CatalogService } from '../catalog/catalog.service';
 import type { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
@@ -45,6 +46,7 @@ describe('AssetUploadService', () => {
     contentType: 'model/gltf-binary',
     uploadId: 'upload-1',
     partSizeBytes: 16 * MIB,
+    sourcePreview: null,
   };
   const assetView = { id: ASSET_ID } as Asset;
   const twoParts = [
@@ -67,6 +69,8 @@ describe('AssetUploadService', () => {
       completeMultipartUpload: jest.fn().mockResolvedValue(undefined),
       abortMultipartUpload: jest.fn().mockResolvedValue(undefined),
       presignDownload: jest.fn(),
+      presignPut: jest.fn().mockResolvedValue('https://s3/preview'),
+      deleteObject: jest.fn().mockResolvedValue(undefined),
       headObject: jest.fn().mockResolvedValue({
         sizeBytes: 20 * MIB,
         contentType: null,
@@ -115,6 +119,7 @@ describe('AssetUploadService', () => {
       fileName: 'chair.GLB',
       contentType: 'model/gltf-binary',
       sizeBytes: 40 * MIB,
+      sourcePreview: null,
     };
 
     it('starts the storage upload, records asset, version and tags, and signs every part', async () => {
@@ -383,6 +388,114 @@ describe('AssetUploadService', () => {
       });
 
       await expect(service.abort(VERSION_ID)).rejects.toThrow(UploadNotInProgressException);
+    });
+  });
+
+  describe('source preview (ADR 017)', () => {
+    const input = {
+      title: 'Alarm clock',
+      tags: [],
+      fileName: 'alarm_clock_01.glb',
+      contentType: 'model/gltf-binary',
+      sizeBytes: 20 * MIB,
+      sourcePreview: {
+        contentType: 'image/webp',
+        sizeBytes: 150_000,
+      },
+    };
+    const previewKey = `public/previews/${ASSET_ID}/${VERSION_ID}.webp`;
+    const withPreview: VersionUpload = {
+      ...uploading,
+      sourcePreview: {
+        key: previewKey,
+        sizeBytes: 150_000,
+        contentType: 'image/webp',
+      },
+    };
+
+    /** HEAD answers for the original and the image separately. */
+    function storedObjects(preview: { sizeBytes: number } | null): void {
+      storage.headObject.mockImplementation((key: string) =>
+        Promise.resolve(
+          key === previewKey
+            ? preview && { ...preview, contentType: 'image/webp' }
+            : { sizeBytes: 20 * MIB, contentType: null },
+        ),
+      );
+    }
+
+    it('stores the declared image under the public prefix and signs one PUT for it', async () => {
+      const upload = await service.initiate(input);
+      const key = `public/previews/${upload.assetId}/${upload.versionId}.webp`;
+
+      expect(versionsRepository.createUploading).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourcePreview: {
+            key,
+            sizeBytes: 150_000,
+            contentType: 'image/webp',
+          },
+        }),
+        tx,
+      );
+      expect(storage.presignPut).toHaveBeenCalledWith(key, 'image/webp', 3600);
+      expect(upload.sourcePreviewUpload?.url).toBe('https://s3/preview');
+    });
+
+    it('signs nothing extra when no image is declared', async () => {
+      const upload = await service.initiate({ ...input, sourcePreview: null });
+
+      expect(storage.presignPut).not.toHaveBeenCalled();
+      expect(upload.sourcePreviewUpload).toBeNull();
+    });
+
+    it.each([
+      ['an SVG (it can carry scripts)', { contentType: 'image/svg+xml', sizeBytes: 1000 }],
+      ['a prototype key passed off as a type', { contentType: 'constructor', sizeBytes: 1000 }],
+      ['an empty image', { contentType: 'image/png', sizeBytes: 0 }],
+      ['an image above 2 MB', { contentType: 'image/png', sizeBytes: 2_000_001 }],
+    ])('rejects %s before touching storage', async (_case, sourcePreview) => {
+      await expect(service.initiate({ ...input, sourcePreview })).rejects.toThrow(
+        InvalidUploadRequestException,
+      );
+      expect(storage.createMultipartUpload).not.toHaveBeenCalled();
+    });
+
+    it('completes once the declared image is stored', async () => {
+      versionsRepository.findUploadById.mockResolvedValue(withPreview);
+      storedObjects({ sizeBytes: 150_000 });
+
+      await expect(service.complete(VERSION_ID, twoParts)).resolves.toBe(assetView);
+      expect(versionsRepository.markUploaded).toHaveBeenCalled();
+    });
+
+    it('refuses to complete without the declared image, before assembling the parts', async () => {
+      versionsRepository.findUploadById.mockResolvedValue(withPreview);
+      storedObjects(null);
+
+      await expect(service.complete(VERSION_ID, twoParts)).rejects.toThrow(
+        SourcePreviewMissingException,
+      );
+      expect(storage.completeMultipartUpload).not.toHaveBeenCalled();
+      expect(versionsRepository.markUploaded).not.toHaveBeenCalled();
+    });
+
+    it('rejects an image whose size differs from the declared one', async () => {
+      versionsRepository.findUploadById.mockResolvedValue(withPreview);
+      storedObjects({ sizeBytes: 99 });
+
+      await expect(service.complete(VERSION_ID, twoParts)).rejects.toThrow(
+        InvalidUploadRequestException,
+      );
+      expect(storage.completeMultipartUpload).not.toHaveBeenCalled();
+    });
+
+    it('deletes the public image when the upload is aborted', async () => {
+      versionsRepository.findUploadById.mockResolvedValue(withPreview);
+
+      await service.abort(VERSION_ID);
+
+      expect(storage.deleteObject).toHaveBeenCalledWith(previewKey);
     });
   });
 });

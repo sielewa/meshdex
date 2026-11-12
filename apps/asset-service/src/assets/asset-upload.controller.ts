@@ -22,6 +22,7 @@ import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.ex
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
 import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
+import { SourcePreviewMissingException } from './exceptions/source-preview-missing.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 
 /**
@@ -47,6 +48,12 @@ export class AssetUploadController implements Pick<
         fileName: request.fileName,
         contentType: request.contentType,
         sizeBytes: request.sizeBytes,
+        sourcePreview: request.sourcePreview
+          ? {
+              contentType: request.sourcePreview.contentType,
+              sizeBytes: request.sourcePreview.sizeBytes,
+            }
+          : null,
       });
 
       return {
@@ -54,7 +61,12 @@ export class AssetUploadController implements Pick<
         assetVersionId: upload.versionId,
         partSizeBytes: upload.partSizeBytes,
         parts: upload.parts.map((part) => this.toProtoPart(part)),
-        sourcePreviewUpload: undefined,
+        sourcePreviewUpload: upload.sourcePreviewUpload
+          ? {
+              url: upload.sourcePreviewUpload.url,
+              expiresAt: toProtoTimestamp(upload.sourcePreviewUpload.expiresAt),
+            }
+          : undefined,
       };
     } catch (error) {
       throw this.toRpcException(error);
@@ -124,7 +136,10 @@ export class AssetUploadController implements Pick<
       });
     }
 
-    if (error instanceof UploadNotInProgressException) {
+    if (
+      error instanceof UploadNotInProgressException ||
+      error instanceof SourcePreviewMissingException
+    ) {
       return new RpcException({
         code: status.FAILED_PRECONDITION,
         message: error.message,

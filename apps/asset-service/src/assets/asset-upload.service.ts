@@ -14,10 +14,12 @@ import {
   ASSET_UPLOADED_EVENT,
   GLB_CONTENT_TYPE,
   GLB_EXTENSION,
+  MAX_SOURCE_PREVIEW_SIZE_BYTES,
   MAX_TAG_LENGTH,
   MAX_TAGS_PER_ASSET,
   MAX_TITLE_LENGTH,
   MAX_UPLOAD_PARTS,
+  SOURCE_PREVIEW_EXTENSIONS,
 } from './assets.constants';
 import type { Asset } from './domain/asset.interface';
 import { AssetVersionStatus } from './domain/asset-version-status.enum';
@@ -25,6 +27,7 @@ import type { VersionUpload } from './domain/version-upload.interface';
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
 import { InvalidAssetVersionIdException } from './exceptions/invalid-asset-version-id.exception';
 import { InvalidUploadRequestException } from './exceptions/invalid-upload-request.exception';
+import { SourcePreviewMissingException } from './exceptions/source-preview-missing.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 import { CatalogService } from '../catalog/catalog.service';
 import { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
@@ -33,7 +36,10 @@ import { OutboxRepository } from './infrastructure/outbox.repository';
 import { TagsRepository } from './infrastructure/tags.repository';
 import type { InitiateUploadInput } from './domain/initiate-upload-input.interface';
 import type { InitiatedUpload } from './domain/initiated-upload.interface';
+import type { ImageUpload } from './domain/image-upload.interface';
 import type { PresignedPart } from './domain/presigned-part.interface';
+import type { PresignedUrl } from './domain/presigned-url.interface';
+import type { StoredObject } from './domain/stored-object.interface';
 
 /**
  * Upload lifecycle of asset versions (UPLOADING -> UPLOADED). File bytes go from
@@ -68,11 +74,17 @@ export class AssetUploadService {
     const title = this.validateTitle(input.title);
     const tagNames = this.normalizeTagNames(input.tags);
     this.validateFile(input);
+    this.validateSourcePreview(input.sourcePreview);
 
     const partSizeBytes = this.config.partSizeBytes;
     const assetId = uuidv7();
     const versionId = uuidv7();
     const originalKey = this.originalObjectKey(assetId, versionId);
+    const sourcePreview = input.sourcePreview && {
+      key: this.sourcePreviewKey(assetId, versionId, input.sourcePreview.contentType),
+      sizeBytes: input.sourcePreview.sizeBytes,
+      contentType: input.sourcePreview.contentType,
+    };
     const now = Date.now();
 
     const uploadId = await this.storage.createMultipartUpload(originalKey, input.contentType);
@@ -98,6 +110,7 @@ export class AssetUploadService {
           uploadId,
           partSizeBytes,
           createdAt: now,
+          sourcePreview,
         },
         tx,
       );
@@ -114,6 +127,7 @@ export class AssetUploadService {
       versionId,
       partSizeBytes,
       parts: await this.signParts(originalKey, uploadId, partNumbers),
+      sourcePreviewUpload: sourcePreview && (await this.signSourcePreview(sourcePreview)),
     };
   }
 
@@ -142,6 +156,12 @@ export class AssetUploadService {
       parts,
       this.countParts(upload.sizeBytes, upload.partSizeBytes),
     );
+
+    // Checked before the parts are assembled: assembling can't be undone, while a missing
+    // image is something the client can still upload and then retry this call.
+    if (upload.sourcePreview) {
+      await this.verifyStoredSourcePreview(upload.versionId, upload.sourcePreview);
+    }
 
     try {
       await this.storage.completeMultipartUpload(
@@ -214,6 +234,11 @@ export class AssetUploadService {
       await this.storage.abortMultipartUpload(upload.originalKey, upload.uploadId);
     }
 
+    // The image sits under the public prefix: left behind, it would stay readable.
+    if (upload.sourcePreview) {
+      await this.storage.deleteObject(upload.sourcePreview.key);
+    }
+
     await this.db.transaction(async (tx) => {
       // A first version means the asset itself was never published: remove it entirely.
       if (upload.number === 1) {
@@ -240,6 +265,36 @@ export class AssetUploadService {
         expiresAt,
       })),
     );
+  }
+
+  /** The image URL lives as long as the part URLs: one small PUT right after InitiateUpload. */
+  private async signSourcePreview(sourcePreview: StoredObject): Promise<PresignedUrl> {
+    const ttlSeconds = this.config.urlTtlSeconds;
+
+    return {
+      url: await this.storage.presignPut(sourcePreview.key, sourcePreview.contentType, ttlSeconds),
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    };
+  }
+
+  /** The image must be stored as declared; its Content-Type was fixed by the signed URL. */
+  private async verifyStoredSourcePreview(
+    versionId: string,
+    sourcePreview: StoredObject,
+  ): Promise<void> {
+    const stored = await this.storage.headObject(sourcePreview.key);
+
+    if (!stored) {
+      throw new SourcePreviewMissingException(
+        `Source preview of version ${versionId} has not been uploaded`,
+      );
+    }
+
+    if (stored.sizeBytes !== sourcePreview.sizeBytes) {
+      throw new InvalidUploadRequestException(
+        `Source preview has ${String(stored.sizeBytes)} bytes, declared ${String(sourcePreview.sizeBytes)}`,
+      );
+    }
   }
 
   /** The assembled object must match what the client declared before uploading. */
@@ -292,6 +347,29 @@ export class AssetUploadService {
 
     if (this.countParts(input.sizeBytes, this.config.partSizeBytes) > MAX_UPLOAD_PARTS) {
       throw new InvalidUploadRequestException('File needs more parts than object storage allows');
+    }
+  }
+
+  private validateSourcePreview(sourcePreview: ImageUpload | null): void {
+    if (!sourcePreview) {
+      return;
+    }
+
+    // hasOwn, not `in`: "constructor" or "toString" must not pass as an image type.
+    if (!Object.hasOwn(SOURCE_PREVIEW_EXTENSIONS, sourcePreview.contentType)) {
+      throw new InvalidUploadRequestException(
+        `Source preview must be one of ${Object.keys(SOURCE_PREVIEW_EXTENSIONS).join(', ')}`,
+      );
+    }
+
+    if (
+      !Number.isSafeInteger(sourcePreview.sizeBytes) ||
+      sourcePreview.sizeBytes < 1 ||
+      sourcePreview.sizeBytes > MAX_SOURCE_PREVIEW_SIZE_BYTES
+    ) {
+      throw new InvalidUploadRequestException(
+        `Source preview size must be between 1 and ${String(MAX_SOURCE_PREVIEW_SIZE_BYTES)} bytes`,
+      );
     }
   }
 
@@ -375,6 +453,11 @@ export class AssetUploadService {
   /** The version id keeps versions of one asset apart. */
   private originalObjectKey(assetId: string, versionId: string): string {
     return `originals/${assetId}/${versionId}.glb`;
+  }
+
+  /** Under `public/`, the one prefix readable without credentials (ADR 017). */
+  private sourcePreviewKey(assetId: string, versionId: string, contentType: string): string {
+    return `public/previews/${assetId}/${versionId}.${SOURCE_PREVIEW_EXTENSIONS[contentType] ?? 'bin'}`;
   }
 
   /**

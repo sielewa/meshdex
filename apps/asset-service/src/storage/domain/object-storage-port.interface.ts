@@ -35,6 +35,15 @@ export interface ObjectStorage {
    */
   presignDownload(key: string, expiresInSeconds: number): Promise<string>;
 
+  /**
+   * Signs a single-request PUT URL; the Content-Type is part of the signature, so the
+   * client must send exactly `contentType` and the object is stored with it.
+   */
+  presignPut(key: string, contentType: string, expiresInSeconds: number): Promise<string>;
+
   /** Returns null when the object doesn't exist. */
   headObject(key: string): Promise<ObjectMetadata | null>;
+
+  /** Deletes an object. Idempotent: a missing object is not an error. */
+  deleteObject(key: string): Promise<void>;
 }
