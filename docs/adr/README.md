@@ -18,6 +18,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 010 | [Media URLs for stored files](010-media-urls-for-stored-files.md)                                   | accepted              |
 | 011 | [GraphQL schema file as the contract artifact](011-graphql-schema-file-as-contract.md)              | accepted (amends 009) |
 | 012 | [Web app data fetching and API access](012-web-data-fetching-and-api-access.md)                     | accepted              |
+| 013 | [Ingest source and pipeline](013-ingest-source-and-pipeline.md)                                     | accepted              |
 
 ## Pending decisions
 
