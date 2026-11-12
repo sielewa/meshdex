@@ -3,6 +3,7 @@ import type { AssetPage } from './asset-page.interface';
 import type { CompletedPart } from './completed-part.interface';
 import type { InitiateUploadCommand } from './initiate-upload-command.interface';
 import type { ListAssetsQuery } from './list-assets-query.interface';
+import type { OriginalDownloadUrl } from './original-download-url.interface';
 import type { UploadPartUrl } from './upload-part-url.interface';
 import type { UploadSession } from './upload-session.interface';
 
@@ -20,4 +21,9 @@ export interface AssetServicePort {
   getUploadPartUrls(assetVersionId: string, partNumbers: number[]): Promise<UploadPartUrl[]>;
   completeUpload(assetVersionId: string, parts: CompletedPart[]): Promise<Asset>;
   abortUpload(assetVersionId: string): Promise<void>;
+  /**
+   * Download URLs of the versions whose original is fully stored, in request order; the
+   * others are simply missing. At most 100 ids.
+   */
+  getOriginalDownloadUrls(versionIds: readonly string[]): Promise<OriginalDownloadUrl[]>;
 }

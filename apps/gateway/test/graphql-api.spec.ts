@@ -267,6 +267,98 @@ describe('GraphQL API', () => {
     ]);
   });
 
+  it('signs download URLs only when selected, batching all versions of a request', async () => {
+    fake.respond('batchGetAssets', {
+      assets: [protoAsset(ids[0] ?? '', 'Chair'), protoAsset(ids[1] ?? '', 'Table')],
+    });
+    fake.respond('getOriginalDownloadUrls', {
+      urls: [
+        {
+          assetVersionId: `${ids[0] ?? ''}-v1`,
+          url: 'http://localhost:8333/meshdex-assets/originals/chair.glb?X-Amz-Signature=abc',
+          expiresAt: {
+            seconds: 1_794_475_800,
+            nanos: 0,
+          },
+        },
+      ],
+    });
+
+    const result = await graphql(
+      `
+        query ($a: ID!, $b: ID!) {
+          a: asset(id: $a) {
+            currentVersion {
+              originalDownloadUrl {
+                url
+                expiresAt
+              }
+            }
+          }
+          b: asset(id: $b) {
+            currentVersion {
+              originalDownloadUrl {
+                url
+              }
+            }
+          }
+        }
+      `,
+      {
+        a: ids[0],
+        b: ids[1],
+      },
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data).toEqual({
+      a: {
+        currentVersion: {
+          originalDownloadUrl: {
+            url: 'http://localhost:8333/meshdex-assets/originals/chair.glb?X-Amz-Signature=abc',
+            expiresAt: '2026-11-12T09:30:00.000Z',
+          },
+        },
+      },
+      b: { currentVersion: { originalDownloadUrl: null } },
+    });
+    expect(fake.requests('getOriginalDownloadUrls')).toEqual([
+      {
+        assetVersionIds: [`${ids[0] ?? ''}-v1`, `${ids[1] ?? ''}-v1`],
+      },
+    ]);
+
+    fake.respond('listAssets', {
+      assets: [protoAsset(ids[0] ?? '')],
+      nextPageToken: '',
+    });
+    await graphql('{ assets { nodes { currentVersion { number } } } }');
+
+    expect(fake.handler('getOriginalDownloadUrls')).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the asset when only its download URL fails', async () => {
+    fake.respond('batchGetAssets', { assets: [protoAsset(ids[0] ?? '', 'Chair')] });
+    fake.fail('getOriginalDownloadUrls', status.UNAVAILABLE, 'restarting');
+
+    const result = await graphql(
+      '{ asset(id: "' +
+        (ids[0] ?? '') +
+        '") { title currentVersion { originalDownloadUrl { url } } } }',
+    );
+
+    expect(result.data).toEqual({
+      asset: {
+        title: 'Chair',
+        currentVersion: { originalDownloadUrl: null },
+      },
+    });
+    expect(result.errors?.[0]).toMatchObject({
+      path: ['asset', 'currentVersion', 'originalDownloadUrl'],
+      extensions: { code: 'SERVICE_UNAVAILABLE' },
+    });
+  });
+
   it('passes upload input through and returns presigned part URLs', async () => {
     fake.respond('initiateUpload', {
       assetId: ids[0],

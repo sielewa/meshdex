@@ -47,6 +47,11 @@ type AssetVersion {
   """The file as uploaded."""
   original: StoredFile!
 
+  """
+  Short-lived link to the uploaded file; null until the upload is complete.
+  """
+  originalDownloadUrl: SignedUrl
+
   """Set when READY or FAILED."""
   processedAt: DateTime
 
@@ -133,6 +138,12 @@ type Query {
     statuses: [AssetStatus!]
     tag: String
   ): AssetConnection!
+}
+
+type SignedUrl {
+  """Ask again for a fresh URL after this instant."""
+  expiresAt: DateTime!
+  url: String!
 }
 
 type StoredFile {

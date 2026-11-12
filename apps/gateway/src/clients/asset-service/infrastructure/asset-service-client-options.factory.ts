@@ -22,8 +22,14 @@ import {
  */
 @Injectable()
 export class AssetServiceClientOptionsFactory implements ClientsModuleOptionsFactory {
-  /** Only read (or only re-sign URLs): safe to repeat after a lost response. */
-  private readonly readMethods = ['GetAsset', 'BatchGetAssets', 'ListAssets', 'GetUploadPartUrls'];
+  /** Only read (or only sign URLs): safe to repeat after a lost response. */
+  private readonly readMethods = [
+    'GetAsset',
+    'BatchGetAssets',
+    'ListAssets',
+    'GetUploadPartUrls',
+    'GetOriginalDownloadUrls',
+  ];
 
   /**
    * Change state but are idempotent in asset-service: repeating CompleteUpload returns the
