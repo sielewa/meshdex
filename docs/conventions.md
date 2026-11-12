@@ -138,6 +138,31 @@ apps/<service>/src/
 - Integration tests (Testcontainers: Postgres, Redpanda, S3 emulator) live in the app's `test/` directory. A downstream gRPC service is replaced by a real gRPC server on a random port loaded from the same `.proto` (`gateway/test/support/fake-asset-service-server.ts`), so the client's loader options, deadlines and retries are exercised over the network.
 - Test names are English sentences describing behaviour (`it('writes the asset and its outbox event in one transaction')`).
 
+## web (Next.js)
+
+Data fetching, API access and testing follow [ADR 012](adr/012-web-data-fetching-and-api-access.md).
+
+```
+apps/web/src/
+  app/                 routes only: layout.tsx, page.tsx, loading.tsx, error.tsx — thin; a page
+                       prefetches its data and renders feature components
+  features/<feature>/  components (one per file), `<feature>.queries.ts` (GraphQL documents +
+                       TanStack `queryOptions` factories shared by server prefetch and client hooks)
+  graphql/             executeGraphql, error type, endpoint context; `gql/` is generated
+  config/              runtime environment (zod schema + server-only accessor)
+  lib/                 framework glue (QueryClient factories)
+  instrumentation.ts   startup hook; Node-only checks in instrumentation-node.ts (an invalid
+                       environment exits the process: Next.js only logs errors thrown there)
+```
+
+- **Server by default.** Components are server components unless they need state, effects or browser APIs; `'use client'` goes on the smallest leaf that needs it. Modules that must never reach the browser import `'server-only'`.
+- **Data:** a page prefetches with `getServerQueryClient()` and wraps client components in `HydrationBoundary`; client components call `useQuery`/`useInfiniteQuery` with the same `queryOptions` factory and the endpoint from `useGatewayEndpoint()`. Query keys never contain the endpoint (server and browser share the cache entry).
+- **GraphQL:** operations are written with `graphql()` from `@/graphql/gql` in the feature's `*.queries.ts`; run `pnpm --filter @meshdex/web codegen` after adding one. Results are generated types — no hand-written copies of API shapes.
+- **Configuration** is read at runtime on the server (`getServerEnv()`), never through `NEXT_PUBLIC_*` (build-time inlining would bind the image to one environment).
+- **Files and names:** kebab-case file names, named exports (Next.js route files are the exception: they need a default export), one exported component or hook per file, imports through the `@/` alias.
+- **No calls to third parties:** telemetry stays disabled, no `next/font/google`, no external scripts.
+- **Tests:** Vitest specs next to the file (`*.spec.ts(x)`), Testing Library for components (query by role/text, not by class names).
+
 ## ml-service (Python)
 
 Same layering: gRPC servicer (transport, maps domain exceptions to gRPC status) → service → repository; config read once from env with pydantic-settings and validated at startup (ADR 007); structured JSON logs with trace ids; type hints everywhere; pytest.

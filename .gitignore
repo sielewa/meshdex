@@ -55,3 +55,6 @@ logs/
 
 # Generated code (regenerated from .proto on build)
 packages/proto/gen/
+# GraphQL types generated from apps/gateway/schema.graphql, and Next.js' type stubs
+apps/web/src/graphql/gql/
+apps/web/next-env.d.ts
