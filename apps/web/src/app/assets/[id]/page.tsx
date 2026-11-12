@@ -2,7 +2,6 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { z } from 'zod';
 import { getServerEnv } from '@/config/server-env';
 import { AssetView } from '@/features/assets/components/asset-view';
 import { assetQueryOptions } from '@/features/assets/api/assets.queries';
@@ -27,14 +26,13 @@ async function prefetchAsset(id: string): Promise<AssetPageQuery | undefined> {
     .catch(() => undefined);
 }
 
-/** Malformed ids and assets that don't exist are a real 404, not an empty page. */
+/**
+ * The id is a UUID here (`layout.tsx`). An asset that doesn't exist renders the not-found
+ * page; the response is already streaming behind `loading.tsx`, so Next.js sends it with
+ * status 200 and `noindex` (a soft 404).
+ */
 export default async function AssetPage({ params }: Props): Promise<ReactNode> {
   const { id } = await params;
-
-  if (!z.uuid().safeParse(id).success) {
-    notFound();
-  }
-
   const data = await prefetchAsset(id);
 
   if (data && !data.asset) {
