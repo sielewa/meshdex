@@ -33,7 +33,11 @@ apps/<service>/src/
     jobs/            `@Cron(...)` / interval loops (e.g. outbox relay)
     events/          event classes
     dto/             class-validator DTOs (gateway inputs); gRPC messages use ts-proto generated types
+    models/          GraphQL object types (gateway): `@ObjectType('Asset') class AssetModel`;
+                     `<name>.registration.ts` registers a domain enum with `registerEnumType`
 ```
+
+**Clients of other services** (gateway, worker) live in `src/clients/<service>/` — e.g. `gateway/src/clients/asset-service/` with `asset-service-client.module.ts`, the port in `domain/` and the gRPC adapter in `infrastructure/`. A client module only connects and translates the contract; it holds no data and no business rules, and is not named like a feature so it can't be mistaken for a copy of the service. Feature modules are named after what they expose (gateway: `assets/` for asset queries, `uploads/` for upload mutations); their transport entry is a resolver.
 
 **Code lives where it is used.** These rules apply to every app and package:
 
@@ -42,12 +46,13 @@ apps/<service>/src/
 - Types go to `domain/` (one per file), constants to `<feature>.constants.ts`, DI tokens to `<feature>.tokens.ts`.
 - A contract subset is written inline: `implements Pick<AssetServiceController, 'getAsset' | …>`.
 - Each controller maps its own errors in a `private toRpcException(error)`, listing exactly the exceptions its service can throw.
-- Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), and `packages/*` libraries whose exported functions are their public API.
+- Exceptions: `main.ts` (entry point), `config/config.namespaces.ts` (`registerAs` definitions), `*.registration.ts` (schema registration side effects such as `registerEnumType`), test helpers in `test/support/`, and `packages/*` libraries whose exported functions are their public API.
 
 ## Layers and errors
 
 - **Thin transport layer:** controller/resolver/consumer maps input → calls the service → maps output and errors. No business logic there.
-- **Services never throw transport errors** (no `RpcException`, `GraphQLError`, HTTP exceptions). They throw domain exceptions (`extends Error`, message = text safe for the client). The transport layer maps them with `instanceof` checks, usually through a shared `private toRpcException(error)`: asset-service → gRPC status (`NOT_FOUND`, `INVALID_ARGUMENT`, `FAILED_PRECONDITION`, …); gateway → maps gRPC status to a GraphQL error with `extensions.code`. Unknown errors are rethrown as they are.
+- **Services never throw transport errors** (no `RpcException`, `GraphQLError`, HTTP exceptions). They throw domain exceptions (`extends Error`, message = text safe for the client). The transport layer maps them with `instanceof` checks, usually through a shared `private toRpcException(error)`: asset-service → gRPC status (`NOT_FOUND`, `INVALID_ARGUMENT`, `FAILED_PRECONDITION`, …). The gateway maps in two steps: its gRPC adapter turns status codes into domain exceptions, and each resolver turns those into GraphQL errors with `extensions.code` in a `private toGraphQLError(error)` ([ADR 009](adr/009-graphql-api-conventions.md)). Unknown errors are rethrown as they are (the gateway masks them as `INTERNAL_SERVER_ERROR` and logs them once in `formatError`).
+- **Gateway resolvers** call the client port directly (there is no business logic to put in a service), carry `@UseFilters(GraphqlExceptionFilter)` so NestJS doesn't log expected client errors, and return domain objects typed as the GraphQL model class, so the compiler checks the domain shape against the schema. Per-request state (DataLoaders) lives in the GraphQL context, never in REQUEST-scoped providers.
 - **External systems behind ports:** an injection token + interface in `domain/`, adapter in `infrastructure/`, picked by a `useFactory` from config and exported by the module (e.g. `OBJECT_STORAGE_PORT` → S3 adapter; AWS vs. local emulator is only a different endpoint). Unit tests use fakes of the port.
 - **Reads anywhere, aggregate writes in one place** (ADR 005): any module may read a table through its own repository, but writes that change an aggregate's state (e.g. asset version status transitions) go through the module responsible for that lifecycle.
 - **Repositories** only touch the DB and return domain interfaces; "not found" is `null` (`?? null`), never an exception. Method names: `findById`, `findAllByX`, `existsX`, `create`, `updateX`, `markX`, `deleteByX`. Writes that are part of a transaction take the transaction as the last parameter (`tx`).
@@ -86,7 +91,7 @@ apps/<service>/src/
 
 - Health: liveness + readiness; readiness turns false while dependencies (DB, broker) are unavailable or during shutdown.
 - **Graceful shutdown** on SIGTERM (`app.enableShutdownHooks()`): stop accepting/consuming, finish in-flight work, commit Kafka offsets, close DB pools and the producer, then exit.
-- Every outgoing gRPC call has a **deadline**. Retries only for idempotent operations, with backoff and jitter.
+- Every outgoing gRPC call has a **deadline**. Retries only for idempotent operations, with backoff and jitter. Both are declared per method in the client's gRPC **service config** (`channelOptions['grpc.service_config']`, see `AssetServiceClientOptionsFactory`), which grpc-js enforces on every call, so no call site can forget them. Durations use the object form `{ seconds, nanos }`: grpc-js misreads fractional strings such as `"2.5s"`.
 - Mutating RPCs that can be retried are idempotent (idempotency key or a state check in the `WHERE` clause).
 - No transactions across services; cross-service consistency comes from the outbox + idempotent consumers.
 
@@ -96,7 +101,7 @@ apps/<service>/src/
   - **object literals with 3+ properties: one property per line** (Prettier then keeps them expanded);
   - **NestJS modules (`*.module.ts`): one item per line in every array** — `controllers`, `providers`, `imports`, `exports`. Module files are excluded from Prettier so it doesn't collapse those arrays.
 
-  Before handing over: `eslint --fix`, then `pnpm format`.
+  Before handing over: `eslint --fix`, then `pnpm format` — always from the repo root: Prettier reads `.prettierignore` only from its working directory, so run inside an app it reformats `*.module.ts` too.
 
 - **ESLint checks code quality** (`eslint.config.js`: typescript-eslint `strictTypeChecked` with type-aware rules, `no-console`, `eqeqeq`, `curly`, explicit types on exported APIs). No `eslint-disable` without a comment saying why.
 - No `import type` for classes injected by NestJS DI: constructor parameter types must stay runtime imports (`emitDecoratorMetadata`).
@@ -130,7 +135,7 @@ apps/<service>/src/
 
 - Unit specs next to the file (`assets.service.spec.ts`). Build the class directly with `jest.fn()` fakes cast `as unknown as X` — no Nest `TestingModule` for unit tests.
 - NestJS 12 is ESM-only, so every app's `test` script runs Jest with `NODE_OPTIONS=--experimental-vm-modules` (ADR 008).
-- Integration tests (Testcontainers: Postgres, Redpanda, S3 emulator) live in the app's `test/` directory.
+- Integration tests (Testcontainers: Postgres, Redpanda, S3 emulator) live in the app's `test/` directory. A downstream gRPC service is replaced by a real gRPC server on a random port loaded from the same `.proto` (`gateway/test/support/fake-asset-service-server.ts`), so the client's loader options, deadlines and retries are exercised over the network.
 - Test names are English sentences describing behaviour (`it('writes the asset and its outbox event in one transaction')`).
 
 ## ml-service (Python)

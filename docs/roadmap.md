@@ -20,7 +20,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 - [x] `packages/proto`: `meshdex/asset/v1/asset.proto`, `meshdex/ml/v1/ml.proto`; buf lint + generate (ts-proto, NestJS types)
 - [x] `asset-service`: upload RPCs (CreateAsset became InitiateUpload/CompleteUpload), GetAsset, BatchGetAssets, ListAssets (keyset pagination, tag/status filters), StartProcessing/CompleteProcessing (idempotent, replaces UpdateStatus); Drizzle schema + migrations
 - [ ] `asset-service` integration tests with Testcontainers (turn the local end-to-end check into an automated test)
-- [ ] `gateway`: GraphQL schema (code-first) for assets; calls asset-service over gRPC
+- [x] `gateway`: GraphQL schema (code-first) for assets ([ADR 009](adr/009-graphql-api-conventions.md)); calls asset-service over gRPC with deadlines/retries in the service config; DataLoader batching; HTTP health probes
 - [x] Presigned multipart upload flow (asset-service side: initiate, re-sign parts, complete, abort; outbox event on completion)
 - [ ] Stale-uploads reconciler: periodic job for versions stuck in UPLOADING (client vanished) — HEAD the object, then mark uploaded (+ outbox event) or abort and delete
 - **Done when:** a GLB can be uploaded and listed via GraphQL.
