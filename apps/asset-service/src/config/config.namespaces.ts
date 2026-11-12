@@ -45,6 +45,10 @@ export const uploadConfig = registerAs('upload', () => ({
   urlTtlSeconds: assetServiceEnv().UPLOAD_URL_TTL_SECONDS,
 }));
 
+export const downloadConfig = registerAs('download', () => ({
+  urlTtlSeconds: assetServiceEnv().DOWNLOAD_URL_TTL_SECONDS,
+}));
+
 export const loggerConfig = registerAs('logger', () => ({
   level: assetServiceEnv().LOG_LEVEL,
   pretty: assetServiceEnv().LOG_PRETTY,
@@ -55,5 +59,6 @@ export const allConfigNamespaces = [
   databaseConfig,
   s3Config,
   uploadConfig,
+  downloadConfig,
   loggerConfig,
 ];

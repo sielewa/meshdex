@@ -29,6 +29,12 @@ export interface ObjectStorage {
   /** Frees stored parts. Idempotent: an unknown upload is not an error. */
   abortMultipartUpload(key: string, uploadId: string): Promise<void>;
 
+  /**
+   * Signs a GET URL for a stored object; signing is local (no network call), so signing
+   * many URLs costs no storage requests. The URL doesn't check that the object exists.
+   */
+  presignDownload(key: string, expiresInSeconds: number): Promise<string>;
+
   /** Returns null when the object doesn't exist. */
   headObject(key: string): Promise<ObjectMetadata | null>;
 }

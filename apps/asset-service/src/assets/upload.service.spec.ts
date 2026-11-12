@@ -66,6 +66,7 @@ describe('UploadService', () => {
       ),
       completeMultipartUpload: jest.fn().mockResolvedValue(undefined),
       abortMultipartUpload: jest.fn().mockResolvedValue(undefined),
+      presignDownload: jest.fn(),
       headObject: jest.fn().mockResolvedValue({
         sizeBytes: 20 * MIB,
         contentType: null,
