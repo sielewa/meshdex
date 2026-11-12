@@ -79,7 +79,7 @@ Wall time, CPU time, RSS and event-loop delay p99 don't overlap between the mode
 
 ## Next
 
-- Sweep upload concurrency U (and queue size Q) to see where the upload stage stops scaling.
+- ~~Sweep upload concurrency U~~: done, [ingest-upload-concurrency.md](ingest-upload-concurrency.md). A sweep of queue size Q is still open.
 - A byte budget for the pipeline before importing models of hundreds of MB.
 - Repeat the measurement inside kind with CPU and memory limits (Stage 4).
 

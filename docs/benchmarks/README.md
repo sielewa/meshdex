@@ -9,6 +9,7 @@ Measured performance of Meshdex, with the raw data behind every number ([ADR 014
 ## Reports
 
 - [Ingest import: packing on the main thread vs in worker threads](ingest-import.md) (2026-11-12)
+- [Ingest import: upload concurrency](ingest-upload-concurrency.md) (2026-11-12)
 
 ## Recording a run
 

@@ -28,6 +28,35 @@
         "2026-11-12T20-39-02-925Z-import-4k10-main.json",
         "2026-11-12T20-39-05-816Z-import-4k10-workers.json"
       ]
+    },
+    {
+      "id": "ingest-upload-concurrency",
+      "title": "Upload concurrency of ingest import",
+      "question": "How does import throughput grow with the number of models uploaded in parallel, and where does it stop paying off?",
+      "answer": "It grows with diminishing returns: 1 to 8 uploaders take the import from 40 to 88 MB/s (2.2 times), each doubling helping less (1.49, 1.27, 1.17 times) as every upload slows down on storage shared with the rest of the stack; the default of 4 stays until the sweep is repeated against storage over a network.",
+      "report": "ingest-upload-concurrency.md",
+      "runs": [
+        "2026-11-12T22-54-26-677Z-import-1k50-u1.json",
+        "2026-11-12T22-54-30-595Z-import-1k50-u2.json",
+        "2026-11-12T22-54-33-925Z-import-1k50-u4.json",
+        "2026-11-12T22-54-36-999Z-import-1k50-u8.json",
+        "2026-11-12T22-54-40-194Z-import-1k50-u1.json",
+        "2026-11-12T22-54-44-217Z-import-1k50-u8.json",
+        "2026-11-12T22-54-47-223Z-import-1k50-u4.json",
+        "2026-11-12T22-54-50-429Z-import-1k50-u2.json",
+        "2026-11-12T22-54-53-916Z-import-1k50-u4.json",
+        "2026-11-12T22-54-57-107Z-import-1k50-u8.json",
+        "2026-11-12T22-55-00-157Z-import-1k50-u1.json",
+        "2026-11-12T22-55-04-095Z-import-1k50-u2.json",
+        "2026-11-12T22-55-07-492Z-import-1k50-u4.json",
+        "2026-11-12T22-55-10-744Z-import-1k50-u2.json",
+        "2026-11-12T22-55-14-205Z-import-1k50-u1.json",
+        "2026-11-12T22-55-18-050Z-import-1k50-u8.json",
+        "2026-11-12T22-55-21-069Z-import-1k50-u1.json",
+        "2026-11-12T22-55-25-128Z-import-1k50-u2.json",
+        "2026-11-12T22-55-28-527Z-import-1k50-u4.json",
+        "2026-11-12T22-55-31-684Z-import-1k50-u8.json"
+      ]
     }
   ]
 }
