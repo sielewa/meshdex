@@ -7,6 +7,7 @@ import { useGatewayEndpoint } from '@/graphql/use-gateway-endpoint';
 import { AssetDetails } from '@/features/assets/components/asset-details';
 import { assetQueryOptions } from '@/features/assets/api/assets.queries';
 import { previewImageUrl } from '@/features/assets/lib/preview-image-url';
+import { FADE_DURATION_MS } from '@/components/model-viewer/model-viewer.constants';
 
 /**
  * three.js and the viewer are a separate chunk, fetched only when this page renders, and
@@ -16,7 +17,15 @@ const ModelViewer = dynamic(
   () => import('@/components/model-viewer/model-viewer').then((module) => module.ModelViewer),
   {
     ssr: false,
-    loading: () => <p className="p-6 text-sm text-neutral-400">Loading viewer…</p>,
+    // While the viewer chunk downloads: the same thin bar at the bottom edge as the model's
+    // own progress, so the loading indicator never moves or changes its look.
+    loading: () => (
+      <div
+        role="progressbar"
+        aria-label="Loading viewer"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-1 animate-pulse bg-neutral-700"
+      />
+    ),
   },
 );
 
@@ -59,15 +68,20 @@ export function AssetView({ id }: { id: string }): ReactNode {
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900">
-        {posterUrl && !modelLoaded && (
+        {posterUrl && (
           // The model's picture from the first paint, while three.js (a separate chunk) and the
-          // GLB download; removed once the model is in the scene, since the canvas is
-          // transparent. A plain <img>: a public, already-sized WebP (ADR 017); decorative.
+          // GLB download. When the model is framed, the image fades out as the canvas fades in
+          // (same duration), so the picture turns into the model instead of blinking away. A
+          // plain <img>: a public, already-sized WebP (ADR 017); decorative, the page names it.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={posterUrl}
             alt=""
-            className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-50"
+            className="pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity ease-out"
+            style={{
+              opacity: modelLoaded ? 0 : 1,
+              transitionDuration: `${String(FADE_DURATION_MS)}ms`,
+            }}
           />
         )}
         {downloadUrl ? (
