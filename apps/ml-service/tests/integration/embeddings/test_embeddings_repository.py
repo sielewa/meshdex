@@ -41,39 +41,50 @@ def _vector(seed: int) -> Vector:
 
 
 def _version(
-    asset_id: UUID, number: int, keys: tuple[str, ...] = ("a.webp",), seed: int = 0
+    asset_id: UUID, number: int, names: tuple[str, ...] = ("a.webp",), seed: int = 0
 ) -> VersionEmbeddings:
+    """Image keys contain the version id, like real ones (public/previews/<asset>/<version>.webp),
+    so stored keys show which version the rows belong to."""
+    version_id = uuid.uuid4()
+
     return VersionEmbeddings(
         asset_id=asset_id,
-        asset_version_id=uuid.uuid4(),
+        asset_version_id=version_id,
         version_number=number,
         images=[
-            ImageEmbedding(image_key=key, vector=_vector(seed + index))
-            for index, key in enumerate(keys)
+            ImageEmbedding(image_key=f"{version_id}/{name}", vector=_vector(seed + index))
+            for index, name in enumerate(names)
         ],
     )
 
 
-def _stored_rows(pool: Pool, asset_id: UUID) -> list[tuple[object, ...]]:
+def _keys(version: VersionEmbeddings) -> list[str]:
+    return sorted(image.image_key for image in version.images)
+
+
+def _stored_rows(pool: Pool, asset_id: UUID) -> list[tuple[str, PgVector]]:
     with pool.connection() as connection:
-        return connection.execute(
-            "SELECT asset_version_id, image_key, embedding FROM embeddings "
-            "WHERE asset_id = %s ORDER BY image_key",
+        rows = connection.execute(
+            "SELECT image_key, embedding FROM embeddings WHERE asset_id = %s ORDER BY image_key",
             (asset_id,),
         ).fetchall()
 
+    return [(str(key), vector) for key, vector in rows]
+
+
+def _stored_keys(pool: Pool, asset_id: UUID) -> list[str]:
+    return [key for key, _ in _stored_rows(pool, asset_id)]
+
 
 def test_stores_every_image_of_a_version(repository: EmbeddingsRepository, pool: Pool) -> None:
-    version = _version(uuid.uuid4(), 1, keys=("front.webp", "side.webp"))
+    version = _version(uuid.uuid4(), 1, names=("front.webp", "side.webp"))
 
     applied = repository.save_versions(MODEL, [version])
 
     assert applied == {version.asset_version_id}
     rows = _stored_rows(pool, version.asset_id)
-    assert [row[1] for row in rows] == ["front.webp", "side.webp"]
-    stored_vector = rows[0][2]
-    assert isinstance(stored_vector, PgVector)
-    np.testing.assert_allclose(stored_vector.to_numpy(), version.images[0].vector, rtol=1e-6)
+    assert [key for key, _ in rows] == _keys(version)
+    np.testing.assert_allclose(rows[0][1].to_numpy(), version.images[0].vector, rtol=1e-6)
     assert repository.find_embedded_version_ids(MODEL) == {version.asset_version_id}
 
 
@@ -81,16 +92,14 @@ def test_a_newer_version_replaces_the_previous_embeddings(
     repository: EmbeddingsRepository, pool: Pool
 ) -> None:
     asset_id = uuid.uuid4()
-    first = _version(asset_id, 1, keys=("old-1.webp", "old-2.webp"))
-    second = _version(asset_id, 2, keys=("new.webp",))
+    first = _version(asset_id, 1, names=("old-1.webp", "old-2.webp"))
+    second = _version(asset_id, 2, names=("new.webp",))
     repository.save_versions(MODEL, [first])
 
     applied = repository.save_versions(MODEL, [second])
 
     assert applied == {second.asset_version_id}
-    assert [(row[0], row[1]) for row in _stored_rows(pool, asset_id)] == [
-        (second.asset_version_id, "new.webp")
-    ]
+    assert _stored_keys(pool, asset_id) == _keys(second)
     assert repository.find_embedded_version_ids(MODEL) == {second.asset_version_id}
 
 
@@ -102,19 +111,19 @@ def test_an_older_version_is_ignored(repository: EmbeddingsRepository, pool: Poo
     applied = repository.save_versions(MODEL, [_version(asset_id, 1)])
 
     assert applied == set()
-    assert [row[0] for row in _stored_rows(pool, asset_id)] == [newer.asset_version_id]
+    assert _stored_keys(pool, asset_id) == _keys(newer)
 
 
 def test_repeating_a_write_replaces_it_without_duplicates(
     repository: EmbeddingsRepository, pool: Pool
 ) -> None:
-    version = _version(uuid.uuid4(), 1, keys=("a.webp", "b.webp"))
+    version = _version(uuid.uuid4(), 1, names=("a.webp", "b.webp"))
     repository.save_versions(MODEL, [version])
 
     applied = repository.save_versions(MODEL, [version])
 
     assert applied == {version.asset_version_id}
-    assert len(_stored_rows(pool, version.asset_id)) == 2
+    assert _stored_keys(pool, version.asset_id) == _keys(version)
 
 
 def test_a_batch_with_two_versions_of_one_asset_keeps_the_newer(
@@ -126,7 +135,7 @@ def test_a_batch_with_two_versions_of_one_asset_keeps_the_newer(
     applied = repository.save_versions(MODEL, [newer, older])
 
     assert applied == {newer.asset_version_id}
-    assert [row[0] for row in _stored_rows(pool, asset_id)] == [newer.asset_version_id]
+    assert _stored_keys(pool, asset_id) == _keys(newer)
 
 
 def test_models_are_stored_separately(repository: EmbeddingsRepository) -> None:
@@ -144,14 +153,14 @@ def test_concurrent_writes_of_one_asset_end_with_the_newest_version(
     repository: EmbeddingsRepository, pool: Pool
 ) -> None:
     asset_id = uuid.uuid4()
-    versions = [_version(asset_id, number, keys=("a.webp", "b.webp")) for number in range(1, 9)]
+    versions = [_version(asset_id, number, names=("a.webp", "b.webp")) for number in range(1, 9)]
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         list(executor.map(lambda version: repository.save_versions(MODEL, [version]), versions))
 
     # Whatever the interleaving: only the newest version's rows, never a mix of two versions.
-    assert {row[0] for row in _stored_rows(pool, asset_id)} == {versions[-1].asset_version_id}
-    assert len(_stored_rows(pool, asset_id)) == 2
+    assert _stored_keys(pool, asset_id) == _keys(versions[-1])
+    assert repository.find_embedded_version_ids(MODEL) == {versions[-1].asset_version_id}
 
 
 def test_search_ranks_assets_by_their_best_matching_image(
@@ -200,3 +209,38 @@ def test_search_through_the_hnsw_index_returns_more_than_its_default_40_rows(
 
     assert len(hits) == 100
     assert len({hit.asset_id for hit in hits}) == 100
+
+
+def test_removing_an_embedded_version_removes_its_vectors(
+    repository: EmbeddingsRepository, pool: Pool
+) -> None:
+    version = _version(uuid.uuid4(), 1, names=("a.webp", "b.webp"))
+    repository.save_versions(MODEL, [version])
+
+    with pool.connection() as connection:
+        connection.execute(
+            "DELETE FROM embedded_versions WHERE model = %s AND asset_id = %s",
+            (MODEL, version.asset_id),
+        )
+
+    assert _stored_keys(pool, version.asset_id) == []
+
+
+def test_vectors_are_stored_inside_rows_not_in_toast(
+    repository: EmbeddingsRepository, pool: Pool
+) -> None:
+    """Guards migration 003's STORAGE PLAIN: a 512-d vector exceeds the TOAST threshold."""
+    repository.save_versions(MODEL, [_version(uuid.uuid4(), 1, seed=i) for i in range(50)])
+
+    with pool.connection() as connection:
+        storage, toast_bytes = connection.execute(
+            """
+            SELECT attribute.attstorage, pg_relation_size(class.reltoastrelid)
+            FROM pg_class AS class
+            JOIN pg_attribute AS attribute ON attribute.attrelid = class.oid
+            WHERE class.relname = 'embeddings' AND attribute.attname = 'embedding'
+            """
+        ).fetchone() or (None, None)
+
+    assert storage == "p"
+    assert toast_bytes == 0

@@ -1,4 +1,4 @@
-"""Tables `embeddings` and `embedded_versions` (migrations 001, 002)."""
+"""Tables `embedded_versions` (002) and its child `embeddings` (003)."""
 
 from collections.abc import Sequence
 from uuid import UUID
@@ -22,15 +22,16 @@ _CLAIM_VERSIONS = """
     RETURNING asset_id
 """
 
+# Served by the primary key's leading columns (model, asset_id).
 _DELETE_PREVIOUS = "DELETE FROM embeddings WHERE model = %s AND asset_id = ANY(%s)"
 
 # Binary COPY: the whole batch streams to Postgres as one statement with vectors sent as raw
-# float32, no SQL text to build or parse per row.
+# float32, no SQL text to build or parse per row. Each row's foreign key is checked against the
+# embedded_versions row claimed just before, in the same transaction (an index lookup per row).
 _COPY_EMBEDDINGS = """
-    COPY embeddings (asset_id, asset_version_id, version_number, image_key, model, embedding)
-    FROM STDIN WITH (FORMAT BINARY)
+    COPY embeddings (model, asset_id, image_key, embedding) FROM STDIN WITH (FORMAT BINARY)
 """
-_COPY_TYPES = ["uuid", "uuid", "int4", "text", "text", "vector"]
+_COPY_TYPES = ["text", "uuid", "text", "vector"]
 
 # Nearest images by cosine distance, then the best image per asset. The inner query is what the
 # HNSW index serves (ORDER BY distance LIMIT n); it fetches more rows than hits requested, because
@@ -90,16 +91,7 @@ class EmbeddingsRepository:
                 copy.set_types(_COPY_TYPES)
                 for version in applied:
                     for image in version.images:
-                        copy.write_row(
-                            (
-                                version.asset_id,
-                                version.asset_version_id,
-                                version.version_number,
-                                image.image_key,
-                                model,
-                                image.vector,
-                            )
-                        )
+                        copy.write_row((model, version.asset_id, image.image_key, image.vector))
 
         return {version.asset_version_id for version in applied}
 
