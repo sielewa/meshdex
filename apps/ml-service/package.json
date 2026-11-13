@@ -3,9 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "generate": "uv run python scripts/generate_proto.py",
     "lint": "uv run ruff check . && uv run ruff format --check .",
-    "typecheck": "uv run mypy",
-    "test": "uv run pytest",
+    "typecheck": "pnpm run generate && uv run mypy",
+    "test": "pnpm run generate && uv run pytest",
     "db:migrate": "uv run python -m ml_service migrate"
+  },
+  "devDependencies": {
+    "@meshdex/proto": "workspace:*"
   }
 }

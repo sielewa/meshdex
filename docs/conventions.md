@@ -196,7 +196,11 @@ apps/ml-service/
                       `extra={...}`, never formatted into the message
     database/         pool, migration runner
     migrations/       NNN_name.sql; an applied migration is never edited, a change is a new file
+    gen/              generated from packages/proto by scripts/generate_proto.py (gitignored);
+                      imported as `ml_service.gen.meshdex.ml.v1`, used only by servicers and
+                      clients, which map messages to domain types
     <feature>/        same split as the Node services: servicer, service, repository, domain types
+  scripts/            dev tooling run through package.json (`generate`)
   tests/
     unit/             no I/O; settings tests chdir to a temp dir so a developer's .env can't leak in
     integration/      Testcontainers (pgvector image from compose), one fresh database per test

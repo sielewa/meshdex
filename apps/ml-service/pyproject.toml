@@ -49,7 +49,7 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "PT", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 # BaseSettings fields come from the environment, not from __init__ arguments.
 plugins = ["pydantic.mypy"]
 # Generated gRPC code is type-checked through its .pyi stubs, not its .py sources.
@@ -58,3 +58,8 @@ exclude = ['^src/ml_service/gen/.*\.py$']
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--import-mode=importlib", "--strict-markers"]
+
+[[tool.mypy.overrides]]
+# grpcio-tools ships no type information; only scripts/generate_proto.py imports it.
+module = ["grpc_tools", "grpc_tools.*"]
+ignore_missing_imports = true
