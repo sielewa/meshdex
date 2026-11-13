@@ -7,11 +7,14 @@ pgvector versions as local development.
 import os
 import uuid
 from collections.abc import Iterator
+from importlib.resources import files
 
 import psycopg
 import pytest
 from psycopg import sql
 from testcontainers.community.postgres import PostgresContainer
+
+from ml_service.database.migration_runner import MigrationRunner, load_migrations
 
 POSTGRES_IMAGE = "pgvector/pgvector:0.8.7-pg18-trixie"
 
@@ -47,6 +50,15 @@ def database_url(postgres: PostgresContainer) -> str:
         connection.execute("CREATE EXTENSION vector")
 
     return url
+
+
+@pytest.fixture
+def migrated_database_url(database_url: str) -> str:
+    """A fresh database with the service's migrations applied."""
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        MigrationRunner(connection).run(load_migrations(files("ml_service") / "migrations"))
+
+    return database_url
 
 
 @pytest.fixture
