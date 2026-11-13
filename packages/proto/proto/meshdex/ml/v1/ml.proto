@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package meshdex.ml.v1;
 
-// EmbeddingService turns asset thumbnails into CLIP embeddings and answers
+// EmbeddingService turns images of assets (rendered thumbnails, or the source
+// preview supplied with the upload, ADR 017) into CLIP embeddings and answers
 // natural-language search queries against them (pgvector).
 //
 // Image bytes never travel over gRPC: callers pass object storage keys and the
@@ -12,7 +13,7 @@ package meshdex.ml.v1;
 //
 // Ids are UUIDv7 strings (ADR 003).
 service EmbeddingService {
-  // Computes and stores embeddings for one asset version's thumbnails.
+  // Computes and stores embeddings for the images of one asset version.
   // Idempotent: repeating it replaces the stored embeddings; a call for an
   // older version than the one already stored is ignored.
   rpc EmbedAsset(EmbedAssetRequest) returns (EmbedAssetResponse);
@@ -27,7 +28,10 @@ message EmbedAssetRequest {
   // Per-asset version number; protects against out-of-order delivery
   // (an older version arriving after a newer one must not overwrite it).
   int32 version_number = 3;
-  // Object storage keys of the rendered thumbnails (PNG/WebP).
+  // Object storage keys of images showing this version (PNG, JPEG or WebP):
+  // the worker's rendered thumbnails, or the source preview until thumbnails
+  // exist (ADR 017). The field name predates source previews; it is kept
+  // because renaming a field breaks JSON clients and `buf breaking`.
   repeated string thumbnail_keys = 4;
 }
 
