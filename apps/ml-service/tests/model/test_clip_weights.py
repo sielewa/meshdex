@@ -42,8 +42,10 @@ def test_loads_the_configured_model(clip: ClipModel) -> None:
 
 def test_matches_images_to_their_captions(clip: ClipModel) -> None:
     colors = {"red": (220, 20, 20), "green": (20, 180, 20), "blue": (20, 40, 220)}
-    pixels = torch.stack(
-        [clip.preprocess(Image.new("RGB", (256, 256), rgb)) for rgb in colors.values()]
+    pixels = torch.from_numpy(
+        np.stack(
+            [clip.image_transform(Image.new("RGB", (256, 256), rgb)) for rgb in colors.values()]
+        )
     )
     captions = [f"a plain {name} square" for name in colors]
 
