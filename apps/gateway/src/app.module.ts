@@ -11,6 +11,7 @@ import { DateTimeScalar } from './graphql/date-time.scalar';
 import { GraphqlOptionsFactory } from './graphql/graphql-options.factory';
 import { GraphqlValidationPipe } from './graphql/graphql-validation.pipe';
 import { HealthModule } from './health/health.module';
+import { SearchModule } from './search/search.module';
 import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { UploadsModule } from './uploads/uploads.module';
     HealthModule,
     AssetsModule,
     UploadsModule,
+    SearchModule,
   ],
   providers: [
     DateTimeScalar,

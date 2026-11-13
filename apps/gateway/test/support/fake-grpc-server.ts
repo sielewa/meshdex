@@ -12,29 +12,54 @@ import { loadSync } from '@grpc/proto-loader';
 type Callback = (error: { code: number; details: string } | null, response?: unknown) => void;
 type Handler = (request: Record<string, unknown>, callback: Callback) => void;
 
+/** A service of `packages/proto`: its .proto file and its fully qualified name. */
+export interface FakeServiceDefinition {
+  /** Path inside `@meshdex/proto/proto/`, e.g. `meshdex/asset/v1/asset.proto`. */
+  protoFile: string;
+  /** e.g. `meshdex.asset.v1.AssetService`. */
+  service: string;
+}
+
+export const ASSET_SERVICE: FakeServiceDefinition = {
+  protoFile: 'meshdex/asset/v1/asset.proto',
+  service: 'meshdex.asset.v1.AssetService',
+};
+
+export const EMBEDDING_SERVICE: FakeServiceDefinition = {
+  protoFile: 'meshdex/ml/v1/ml.proto',
+  service: 'meshdex.ml.v1.EmbeddingService',
+};
+
 /**
- * A real gRPC server for `meshdex.asset.v1.AssetService`, loaded from the same .proto with
- * asset-service's loader options, so tests exercise the gateway's real client (loader
- * options, service config, error codes) over the network. Every method is a jest mock;
- * unconfigured methods answer UNIMPLEMENTED instead of hanging until the deadline.
+ * A real gRPC server for one service of `packages/proto`, loaded from the same .proto with the
+ * services' loader options, so tests exercise the gateway's real clients (loader options,
+ * service config, error codes) over the network. Every method is a jest mock; unconfigured
+ * methods answer UNIMPLEMENTED instead of hanging until the deadline.
  */
-export class FakeAssetServiceServer {
+export class FakeGrpcServer {
   readonly handlers: Record<string, jest.Mock<undefined, Parameters<Handler>>> = {};
   private readonly server = new Server();
 
+  constructor(private readonly definition: FakeServiceDefinition) {}
+
   /** Binds to a random local port and returns the `host:port` to connect to. */
   async start(): Promise<string> {
-    const definition = loadPackageDefinition(
-      loadSync(require.resolve('@meshdex/proto/proto/meshdex/asset/v1/asset.proto'), {
+    const loaded = loadPackageDefinition(
+      loadSync(require.resolve(`@meshdex/proto/proto/${this.definition.protoFile}`), {
         keepCase: false,
         longs: Number,
         defaults: true,
         oneofs: true,
       }),
     );
-    const meshdex = definition.meshdex as GrpcObject;
-    const v1 = (meshdex.asset as GrpcObject).v1 as GrpcObject;
-    const service = (v1.AssetService as ServiceClientConstructor).service;
+    // Walks the package path: meshdex → asset → v1 → AssetService.
+    const names = this.definition.service.split('.');
+    const serviceName = names.pop() ?? '';
+    const namespace = names.reduce<GrpcObject>(
+      (object, name) => object[name] as GrpcObject,
+      loaded,
+    );
+    const service = (namespace[serviceName] as ServiceClientConstructor).service;
     const implementation: UntypedServiceImplementation = {};
 
     for (const definitionOfMethod of Object.values(service)) {
@@ -103,7 +128,7 @@ export class FakeAssetServiceServer {
     const handler = this.handlers[method];
 
     if (!handler) {
-      throw new Error(`AssetService has no method ${method}`);
+      throw new Error(`${this.definition.service} has no method ${method}`);
     }
 
     return handler;

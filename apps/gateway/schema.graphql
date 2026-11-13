@@ -20,6 +20,23 @@ type AssetConnection {
   pageInfo: PageInfo!
 }
 
+type AssetSearchHit {
+  asset: Asset!
+
+  """
+  Cosine similarity in [-1, 1], higher is closer; comparable only within one model.
+  """
+  score: Float!
+}
+
+type AssetSearchResult {
+  """Best match first."""
+  hits: [AssetSearchHit!]!
+
+  """Model that ranked the hits, e.g. "ViT-B-32/laion2b_s34b_b79k"."""
+  model: String!
+}
+
 """
 Lifecycle of an asset version: UPLOADING → UPLOADED → PROCESSING → READY | FAILED.
 """
@@ -143,6 +160,17 @@ type Query {
     statuses: [AssetStatus!]
     tag: String
   ): AssetConnection!
+
+  """
+  Assets ranked by how well their images match a natural-language query (CLIP), best first.
+  """
+  searchAssets(
+    """1–100."""
+    first: Int! = 20
+
+    """e.g. "rusty industrial barrel"; 1–500 characters."""
+    query: String!
+  ): AssetSearchResult!
 }
 
 type SignedUrl {

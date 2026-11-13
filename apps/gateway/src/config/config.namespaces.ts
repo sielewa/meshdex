@@ -36,6 +36,11 @@ export const assetServiceConfig = registerAs('assetService', () => ({
   writeTimeoutMs: gatewayEnv().ASSET_SERVICE_WRITE_TIMEOUT_MS,
 }));
 
+export const mlServiceConfig = registerAs('mlService', () => ({
+  url: gatewayEnv().ML_SERVICE_URL,
+  searchTimeoutMs: gatewayEnv().ML_SERVICE_SEARCH_TIMEOUT_MS,
+}));
+
 export const mediaConfig = registerAs('media', () => ({
   baseUrl: gatewayEnv().MEDIA_BASE_URL,
 }));
@@ -49,6 +54,7 @@ export const allConfigNamespaces = [
   httpConfig,
   graphqlConfig,
   assetServiceConfig,
+  mlServiceConfig,
   mediaConfig,
   loggerConfig,
 ];

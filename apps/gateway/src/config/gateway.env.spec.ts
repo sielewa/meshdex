@@ -9,6 +9,8 @@ const validEnv = {
   ASSET_SERVICE_URL: 'localhost:50051',
   ASSET_SERVICE_READ_TIMEOUT_MS: '2000',
   ASSET_SERVICE_WRITE_TIMEOUT_MS: '15000',
+  ML_SERVICE_URL: 'localhost:50052',
+  ML_SERVICE_SEARCH_TIMEOUT_MS: '2000',
   MEDIA_BASE_URL: 'http://localhost:8333/meshdex-assets',
   LOG_LEVEL: 'info',
   LOG_PRETTY: 'false',
@@ -22,6 +24,7 @@ describe('GatewayEnv', () => {
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000', 'https://meshdex.example']);
     expect(env.GRAPHQL_INTROSPECTION).toBe(true);
     expect(env.ASSET_SERVICE_READ_TIMEOUT_MS).toBe(2000);
+    expect(env.ML_SERVICE_SEARCH_TIMEOUT_MS).toBe(2000);
   });
 
   it('rejects a CORS origin without a protocol', () => {

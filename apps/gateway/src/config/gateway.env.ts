@@ -52,6 +52,20 @@ export class GatewayEnv {
   @Max(120_000)
   ASSET_SERVICE_WRITE_TIMEOUT_MS!: number;
 
+  /** host:port of ml-service's gRPC server. */
+  @IsString()
+  ML_SERVICE_URL!: string;
+
+  /**
+   * Deadline of SearchAssets, retries included: one CLIP text embedding (~15 ms warm on a
+   * GPU, more on CPU) plus an HNSW query.
+   */
+  @Type(() => Number)
+  @IsInt()
+  @Min(50)
+  @Max(60_000)
+  ML_SERVICE_SEARCH_TIMEOUT_MS!: number;
+
   /**
    * Base URL of public files (ADR 010, 017): CloudFront in the cloud, the S3 emulator's bucket
    * path locally. A file's URL is this plus its key, so a missing trailing slash is added.

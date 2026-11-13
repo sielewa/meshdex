@@ -8,13 +8,13 @@ import { GraphQLSchemaHost } from '@nestjs/graphql';
 import { printSchema } from 'graphql';
 import { AssetVersionStatus } from '@meshdex/proto/asset/v1';
 import { AppModule } from '../src/app.module';
-import { FakeAssetServiceServer } from './support/fake-asset-service-server';
+import { ASSET_SERVICE, EMBEDDING_SERVICE, FakeGrpcServer } from './support/fake-grpc-server';
 import { protoAsset } from './support/proto-asset.fixture';
 
 /**
  * The whole gateway as it runs in production — HTTP, GraphQL schema, validation, per-request
- * DataLoader, resolvers, gRPC client with its service config, error formatting — against a
- * fake asset-service gRPC server.
+ * DataLoader, resolvers, gRPC clients with their service configs, error formatting — against
+ * fake asset-service and ml-service gRPC servers.
  */
 
 interface GraphqlResponse {
@@ -37,7 +37,8 @@ const SCHEMA_FILE_HEADER = [
 ].join('\n');
 
 describe('GraphQL API', () => {
-  const fake = new FakeAssetServiceServer();
+  const fake = new FakeGrpcServer(ASSET_SERVICE);
+  const ml = new FakeGrpcServer(EMBEDDING_SERVICE);
   let app: INestApplication;
   let baseUrl: string;
 
@@ -65,6 +66,8 @@ describe('GraphQL API', () => {
       ASSET_SERVICE_URL: await fake.start(),
       ASSET_SERVICE_READ_TIMEOUT_MS: '2000',
       ASSET_SERVICE_WRITE_TIMEOUT_MS: '2000',
+      ML_SERVICE_URL: await ml.start(),
+      ML_SERVICE_SEARCH_TIMEOUT_MS: '2000',
       MEDIA_BASE_URL: 'http://media.test/bucket/',
       LOG_LEVEL: 'fatal',
       LOG_PRETTY: 'false',
@@ -81,10 +84,12 @@ describe('GraphQL API', () => {
   afterAll(async () => {
     await app.close();
     await fake.stop();
+    await ml.stop();
   });
 
   beforeEach(() => {
     fake.reset();
+    ml.reset();
   });
 
   /**
@@ -164,6 +169,94 @@ describe('GraphQL API', () => {
       b: { title: 'Table' },
       again: { title: 'Chair' },
       missing: null,
+    });
+  });
+
+  it('searches in ml-service and loads the hits in rank order with one BatchGetAssets', async () => {
+    ml.respond('searchAssets', {
+      hits: [
+        { assetId: ids[1], score: 0.5 },
+        { assetId: missingId, score: 0.4 },
+        { assetId: ids[0], score: 0.25 },
+      ],
+      model: 'ViT-B-32/laion2b_s34b_b79k',
+    });
+    fake.respond('batchGetAssets', {
+      assets: [protoAsset(ids[1] ?? '', 'Table'), protoAsset(ids[0] ?? '', 'Chair')],
+      notFoundAssetIds: [missingId],
+    });
+
+    const result = await graphql(`
+      {
+        searchAssets(query: "wooden furniture", first: 3) {
+          model
+          hits {
+            score
+            asset {
+              id
+              title
+            }
+          }
+        }
+      }
+    `);
+
+    expect(result.errors).toBeUndefined();
+    expect(ml.requests('searchAssets')).toEqual([{ query: 'wooden furniture', limit: 3 }]);
+    expect(fake.requests('batchGetAssets')).toEqual([{ assetIds: [ids[1], missingId, ids[0]] }]);
+    // The asset deleted since it was embedded is left out; the ranking is kept.
+    expect(result.data).toEqual({
+      searchAssets: {
+        model: 'ViT-B-32/laion2b_s34b_b79k',
+        hits: [
+          { score: 0.5, asset: { id: ids[1], title: 'Table' } },
+          { score: 0.25, asset: { id: ids[0], title: 'Chair' } },
+        ],
+      },
+    });
+  });
+
+  it('asks ml-service for 20 hits by default and skips asset-service when there are none', async () => {
+    ml.respond('searchAssets', { hits: [], model: 'm' });
+
+    const result = await graphql('{ searchAssets(query: "spaceship") { hits { score } } }');
+
+    expect(result.data).toEqual({ searchAssets: { hits: [] } });
+    expect(ml.requests('searchAssets')).toEqual([{ query: 'spaceship', limit: 20 }]);
+    expect(fake.handler('batchGetAssets')).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized searches before calling ml-service', async () => {
+    const tooMany = await graphql('{ searchAssets(query: "chair", first: 101) { model } }');
+    const tooLong = await graphql('query ($q: String!) { searchAssets(query: $q) { model } }', {
+      q: 'x'.repeat(501),
+    });
+
+    expect(tooMany.errors?.[0]).toMatchObject({
+      message: 'first must not be greater than 100',
+      extensions: { code: 'BAD_USER_INPUT' },
+    });
+    expect(tooLong.errors?.[0]).toMatchObject({
+      message: 'query must be shorter than or equal to 500 characters',
+      extensions: { code: 'BAD_USER_INPUT' },
+    });
+    expect(ml.handler('searchAssets')).not.toHaveBeenCalled();
+  });
+
+  it('maps ml-service failures to BAD_USER_INPUT and SERVICE_UNAVAILABLE', async () => {
+    ml.fail('searchAssets', status.INVALID_ARGUMENT, 'query must not be empty');
+    const blank = await graphql('{ searchAssets(query: "   ") { model } }');
+
+    ml.fail('searchAssets', status.UNAVAILABLE, 'connection refused');
+    const down = await graphql('{ searchAssets(query: "chair") { model } }');
+
+    expect(blank.errors?.[0]).toMatchObject({
+      message: 'query must not be empty',
+      extensions: { code: 'BAD_USER_INPUT' },
+    });
+    expect(down.errors?.[0]).toMatchObject({
+      message: 'ml-service is unavailable',
+      extensions: { code: 'SERVICE_UNAVAILABLE' },
     });
   });
 
