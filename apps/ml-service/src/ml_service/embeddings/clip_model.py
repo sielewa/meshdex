@@ -10,6 +10,7 @@ of the float32 one, so moving batches between processes and to the GPU costs a q
 """
 
 import os
+import threading
 
 # Never download at runtime (ADR 018). Set before open_clip imports huggingface_hub, which reads
 # the variable once at import. An exported value still wins.
@@ -57,7 +58,12 @@ class ImageTransform:
 
 
 class ClipModel:
-    """A loaded CLIP model in inference mode."""
+    """A loaded CLIP model in inference mode.
+
+    Thread-safe: one call runs the model at a time (ADR 019). Concurrent calls on one device
+    wouldn't be faster, and torch on mps isn't documented as thread-safe. torch releases the GIL
+    inside its kernels, so threads waiting here don't block the rest of the process.
+    """
 
     def __init__(
         self,
@@ -72,6 +78,7 @@ class ClipModel:
         self._model = model.eval()
         self._tokenizer = tokenizer
         self._device = device
+        self._lock = threading.Lock()
         self.image_transform, mean, std = _split_preprocess(preprocess)
         # Shaped to broadcast over (n, 3, height, width), kept on the model's device.
         self._mean = torch.tensor(mean, device=device).view(1, 3, 1, 1)
@@ -82,7 +89,7 @@ class ClipModel:
 
     def embed_images(self, pixels: torch.Tensor) -> Embeddings:
         """Embeds a batch from `image_transform`: uint8, shape (n, height, width, 3)."""
-        with torch.inference_mode():
+        with self._lock, torch.inference_mode():
             # Same arithmetic as torchvision's ToTensor + Normalize, on the device.
             batch = pixels.to(self._device).permute(0, 3, 1, 2).float().div_(255)
             batch = batch.sub_(self._mean).div_(self._std)
@@ -91,7 +98,7 @@ class ClipModel:
         return self._to_numpy(features)
 
     def embed_texts(self, texts: Sequence[str]) -> Embeddings:
-        with torch.inference_mode():
+        with self._lock, torch.inference_mode():
             tokens = self._tokenizer(list(texts)).to(self._device)
             features = self._model.encode_text(tokens, normalize=True)
 

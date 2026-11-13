@@ -204,6 +204,8 @@ apps/ml-service/
     clients/<service>/  gRPC clients of other services: channel with deadlines and retries in
                       the service config, mapping to the client's own domain types
     storage/          object storage adapter (boto3); picklable, one client per process
+    server/           gRPC server (ADR 019): servicers (transport only: messages <-> domain,
+                      domain exceptions -> status codes), health, start-up and shutdown
   scripts/            dev tooling run through package.json (`generate`)
   tests/
     unit/             no I/O; settings tests chdir to a temp dir so a developer's .env can't leak in

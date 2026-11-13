@@ -9,6 +9,7 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.44.2",
     "grpcio>=1.85.1",
+    "grpcio-health-checking>=1.85.1",
     "numpy>=2.5.4",
     "open-clip-torch>=4.2.2",
     "pgvector>=0.5.1",
@@ -33,6 +34,7 @@ dev = [
     "ruff>=0.17.5",
     "testcontainers[postgres]>=4.15.0",
     "types-grpcio>=1.85.0.20261028",
+    "types-grpcio-health-checking>=1.85.0.20261029",
     "types-protobuf>=7.35.1.20260906",
 ]
 

@@ -25,6 +25,21 @@ class DatabaseSettings(BaseSettings):
     pool_max: int = Field(default=10, ge=1)
 
 
+class GrpcServerSettings(BaseSettings):
+    """The service's own gRPC server (ADR 019)."""
+
+    model_config = SettingsConfigDict(env_prefix="GRPC_", env_file=ENV_FILE, extra="ignore")
+
+    # host:port to listen on, as in asset-service.
+    url: str = Field(min_length=1)
+    # Threads running requests; DATABASE_POOL_MAX must cover them.
+    max_workers: int = Field(default=8, ge=1)
+    # Requests in progress at once; more are refused with RESOURCE_EXHAUSTED, not queued.
+    max_concurrent_rpcs: int = Field(default=32, ge=1)
+    # Seconds in-flight requests get to finish after SIGTERM.
+    shutdown_grace_s: float = Field(default=10, gt=0)
+
+
 class AssetServiceSettings(BaseSettings):
     """asset-service, called over gRPC (same variable names as in the gateway and ingest)."""
 

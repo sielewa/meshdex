@@ -2,6 +2,7 @@
 normalisation, batching, the split preprocessing."""
 
 import pickle
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -117,3 +118,15 @@ def test_refuses_a_pretrained_tag_open_clip_does_not_know(tmp_path: Path) -> Non
 
     with pytest.raises(UnknownPretrainedTagError, match="unknown_tag"):
         load_clip_model(settings)
+
+
+def test_concurrent_calls_from_server_threads_give_the_same_vectors(clip: ClipModel) -> None:
+    """The gRPC server calls the model from several threads; the lock serialises them."""
+    texts = [f"query {index}" for index in range(16)]
+    expected = [clip.embed_texts([text])[0] for text in texts]
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        actual = list(pool.map(lambda text: clip.embed_texts([text])[0], texts))
+
+    for got, want in zip(actual, expected, strict=True):
+        np.testing.assert_allclose(got, want, atol=1e-6)

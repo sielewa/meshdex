@@ -122,6 +122,63 @@ def _reindex(args: argparse.Namespace) -> int:
     return 1 if result.failures else 0
 
 
+def _serve() -> int:
+    import signal
+    import threading
+    from types import FrameType
+
+    from ml_service.config import ClipSettings, DatabaseSettings, GrpcServerSettings
+    from ml_service.database.pool import create_pool
+    from ml_service.embeddings.clip_model import load_clip_model
+    from ml_service.embeddings.embeddings_repository import EmbeddingsRepository
+    from ml_service.search.search_service import SearchService
+    from ml_service.server.embedding_servicer import EmbeddingServicer
+    from ml_service.server.grpc_server import GrpcServer
+
+    database_settings = DatabaseSettings()
+    clip_settings = ClipSettings()
+    server_settings = GrpcServerSettings()
+    if database_settings.pool_max < server_settings.max_workers:
+        # Threads beyond the pool would wait for a connection inside requests (ADR 019).
+        logger.error(
+            "DATABASE_POOL_MAX must be at least GRPC_MAX_WORKERS",
+            extra={
+                "pool_max": database_settings.pool_max,
+                "max_workers": server_settings.max_workers,
+            },
+        )
+        return 2
+
+    stopping = threading.Event()
+
+    def _request_stop(signal_number: int, _frame: FrameType | None) -> None:
+        logger.info("Shutdown requested", extra={"signal": signal.Signals(signal_number).name})
+        stopping.set()
+
+    signal.signal(signal.SIGTERM, _request_stop)
+    signal.signal(signal.SIGINT, _request_stop)
+
+    clip = load_clip_model(clip_settings)
+    # The first model call on a device pays one-off set-up (measured on mps: 1.2 s instead of
+    # 15 ms for a search). Paid here, before readiness, not by the first user.
+    clip.embed_texts(["warm-up"])
+    with create_pool(database_settings, application_name="ml-service") as pool:
+        # Fails here, before the port opens and readiness turns on, when the database is down.
+        with pool.connection() as connection:
+            connection.execute("SELECT 1")
+
+        search = SearchService(clip, EmbeddingsRepository(pool))
+        server = GrpcServer(EmbeddingServicer(search), server_settings)
+        server.start()
+        logger.info("gRPC server listening", extra={"url": server_settings.url, "model": clip.name})
+        stopping.wait()
+        server.stop()
+
+    logger.info("Server stopped")
+
+    return 0
+
+
 def _positive(value: str) -> int:
     number = int(value)
     if number < 1:
@@ -142,6 +199,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m ml_service")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("migrate", help="apply pending database migrations")
+    commands.add_parser("serve", help="run the gRPC server (search) until SIGTERM/SIGINT")
     reindex = commands.add_parser(
         "reindex", help="embed every asset version that has no embedding for the model yet"
     )
@@ -178,6 +236,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _migrate()
     if args.command == "reindex":
         return _reindex(args)
+    if args.command == "serve":
+        return _serve()
 
     parser.error(f"unknown command {args.command!r}")
 
