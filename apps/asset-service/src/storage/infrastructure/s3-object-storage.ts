@@ -2,8 +2,10 @@ import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   S3ServiceException,
   UploadPartCommand,
   type S3Client,
@@ -111,6 +113,33 @@ export class S3ObjectStorage implements ObjectStorage {
         Key: key,
       }),
       { expiresIn: expiresInSeconds },
+    );
+  }
+
+  presignPut(key: string, contentType: string, expiresInSeconds: number): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: contentType,
+      }),
+      {
+        expiresIn: expiresInSeconds,
+        // Sign the header instead of leaving it free: a client can't store the image under
+        // another type (e.g. text/html) than the one validated at InitiateUpload.
+        signableHeaders: new Set(['content-type']),
+      },
+    );
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    // S3 answers 204 for a missing key too, so this is idempotent without special cases.
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
     );
   }
 

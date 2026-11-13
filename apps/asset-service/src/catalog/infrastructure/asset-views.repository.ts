@@ -113,6 +113,16 @@ export class AssetViewsRepository {
       failureReason: row.failureReason,
       createdAt: row.createdAt.getTime(),
       processedAt: row.processedAt?.getTime() ?? null,
+      sourcePreview:
+        row.sourcePreviewKey !== null &&
+        row.sourcePreviewSizeBytes !== null &&
+        row.sourcePreviewContentType !== null
+          ? {
+              key: row.sourcePreviewKey,
+              sizeBytes: row.sourcePreviewSizeBytes,
+              contentType: row.sourcePreviewContentType,
+            }
+          : null,
     };
   }
 

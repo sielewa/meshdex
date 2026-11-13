@@ -76,6 +76,7 @@ describe('GrpcAssetServiceAdapter against a gRPC server', () => {
         failureReason: null,
         createdAt: 1_794_474_000_123,
         processedAt: null,
+        sourcePreview: null,
       },
       createdAt: 1_794_474_000_123,
       updatedAt: 1_794_474_300_000,

@@ -70,7 +70,9 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
   }
 
   async initiateUpload(command: InitiateUploadCommand): Promise<UploadSession> {
-    const response = await this.call(this.client.initiateUpload(command));
+    const response = await this.call(
+      this.client.initiateUpload({ ...command, sourcePreview: undefined }),
+    );
 
     return {
       assetId: response.assetId,
@@ -212,6 +214,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
       failureReason: version.failureReason === '' ? null : version.failureReason,
       createdAt: this.toEpochMs(version.createdAt, `${context} createdAt`),
       processedAt: version.processedAt ? fromProtoTimestamp(version.processedAt) : null,
+      sourcePreview: version.sourcePreview ? this.toStoredObject(version.sourcePreview) : null,
     };
   }
 

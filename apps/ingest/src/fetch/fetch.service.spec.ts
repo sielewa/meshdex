@@ -60,6 +60,14 @@ class FakePolyhaven implements PolyhavenPort {
     });
   }
 
+  readonly previewDownloads: string[] = [];
+
+  downloadPreview(url: string): Promise<Readable> {
+    this.previewDownloads.push(url);
+
+    return Promise.resolve(Readable.from([Buffer.from(`webp of ${url}`)]));
+  }
+
   async download(url: string): Promise<Readable> {
     this.downloads.push(url);
     this.inFlight += 1;
@@ -77,7 +85,11 @@ class FakePolyhaven implements PolyhavenPort {
   }
 }
 
-function model(id: string, filesHash: string | null = 'v1'): PolyhavenModel {
+function model(
+  id: string,
+  filesHash: string | null = 'v1',
+  previewUrl: string | null = null,
+): PolyhavenModel {
   return {
     id,
     name: id.replace('_', ' '),
@@ -85,6 +97,7 @@ function model(id: string, filesHash: string | null = 'v1'): PolyhavenModel {
     categories: ['category'],
     authors: ['Author'],
     filesHash,
+    previewUrl,
   };
 }
 
@@ -272,5 +285,76 @@ describe('FetchService', () => {
     );
 
     expect(polyhaven.fileListings).toEqual(['A_01', 'B_01']);
+  });
+
+  describe('preview images (ADR 017)', () => {
+    const v1 = 'https://cdn.example/thumbs/Chair_01.png?width=512&format=webp&v=1';
+    const v2 = 'https://cdn.example/thumbs/Chair_01.png?width=512&format=webp&v=2';
+
+    it('caches the preview with the model and records it in the manifest', async () => {
+      const polyhaven = new FakePolyhaven([model('Chair_01', 'v1', v1)]);
+
+      await new FetchService(polyhaven, cache, tasks, logger).run(
+        { resolution: '1k', concurrency: 1 },
+        signal,
+      );
+
+      expect(await readFile(join(dir, 'Chair_01', '1k', 'preview.webp'), 'utf8')).toBe(
+        `webp of ${v1}`,
+      );
+      expect((await cache.readManifest('Chair_01', '1k'))?.preview).toMatchObject({
+        path: 'preview.webp',
+        contentType: 'image/webp',
+        sourceUrl: v1,
+      });
+    });
+
+    it('adds a preview to a model cached before previews existed, without listing its files', async () => {
+      await new FetchService(new FakePolyhaven([model('Chair_01')]), cache, tasks, logger).run(
+        { resolution: '1k', concurrency: 1 },
+        signal,
+      );
+
+      const withPreview = new FakePolyhaven([model('Chair_01', 'v1', v1)]);
+      const summary = await new FetchService(withPreview, cache, tasks, logger).run(
+        { resolution: '1k', concurrency: 1 },
+        signal,
+      );
+
+      expect(withPreview.fileListings).toEqual([]);
+      expect(withPreview.previewDownloads).toEqual([v1]);
+      expect(summary.modelsFetched).toBe(1);
+      expect((await cache.readManifest('Chair_01', '1k'))?.preview?.sourceUrl).toBe(v1);
+    });
+
+    it('keeps an intact preview and downloads a new render when its URL changes', async () => {
+      const first = new FakePolyhaven([model('Chair_01', 'v1', v1)]);
+      const service = new FetchService(first, cache, tasks, logger);
+
+      await service.run({ resolution: '1k', concurrency: 1 }, signal);
+      const again = await service.run({ resolution: '1k', concurrency: 1 }, signal);
+
+      expect(first.previewDownloads).toEqual([v1]);
+      expect(again.modelsUpToDate).toBe(1);
+
+      const newRender = new FakePolyhaven([model('Chair_01', 'v1', v2)]);
+
+      await new FetchService(newRender, cache, tasks, logger).run(
+        { resolution: '1k', concurrency: 1 },
+        signal,
+      );
+
+      expect(newRender.previewDownloads).toEqual([v2]);
+      expect((await cache.readManifest('Chair_01', '1k'))?.preview?.sourceUrl).toBe(v2);
+    });
+
+    it('records no preview for a model the catalog has no render of', async () => {
+      await new FetchService(new FakePolyhaven([model('Chair_01')]), cache, tasks, logger).run(
+        { resolution: '1k', concurrency: 1 },
+        signal,
+      );
+
+      expect((await cache.readManifest('Chair_01', '1k'))?.preview).toBeNull();
+    });
   });
 });

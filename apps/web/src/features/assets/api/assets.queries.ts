@@ -8,6 +8,20 @@ import {
   DOWNLOAD_URL_EXPIRY_MARGIN_MS,
 } from '@/features/assets/assets.constants';
 
+/** What `previewImageUrl` needs: both kinds of image a version can have (ADR 017). */
+export const previewImageFragment = graphql(`
+  fragment PreviewImage on AssetVersion {
+    thumbnails {
+      file {
+        url
+      }
+    }
+    sourcePreview {
+      url
+    }
+  }
+`);
+
 export const assetsPageDocument = graphql(`
   query AssetsPage($first: Int!, $after: String) {
     assets(first: $first, after: $after) {
@@ -22,6 +36,7 @@ export const assetsPageDocument = graphql(`
           original {
             sizeBytes
           }
+          ...PreviewImage
         }
       }
       pageInfo {
@@ -77,6 +92,7 @@ export const assetPageDocument = graphql(`
           sizeBytes
           contentType
         }
+        ...PreviewImage
         originalDownloadUrl {
           url
           expiresAt

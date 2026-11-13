@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
+  check,
   index,
   integer,
   jsonb,
@@ -44,6 +46,10 @@ export const assetVersions = pgTable(
     thumbnails: jsonb().$type<ThumbnailRecord[]>().notNull().default([]),
     stats: jsonb().$type<ModelStats>(),
     failureReason: text(),
+    /** Image supplied with the upload, under the public prefix (ADR 017); all three or none. */
+    sourcePreviewKey: text(),
+    sourcePreviewSizeBytes: bigint({ mode: 'number' }),
+    sourcePreviewContentType: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     uploadedAt: timestamp({ withTimezone: true }),
@@ -55,5 +61,9 @@ export const assetVersions = pgTable(
     /** Also serves the foreign key on asset_id (its leading column), so deletes of assets don't scan this table. */
     uniqueIndex('asset_versions_asset_id_number_idx').on(table.assetId, table.number),
     index('asset_versions_status_idx').on(table.status),
+    check(
+      'asset_versions_source_preview_complete',
+      sql`(${table.sourcePreviewKey} IS NULL) = (${table.sourcePreviewSizeBytes} IS NULL) AND (${table.sourcePreviewKey} IS NULL) = (${table.sourcePreviewContentType} IS NULL)`,
+    ),
   ],
 );

@@ -22,7 +22,9 @@ service AssetService {
   rpc GetUploadPartUrls(GetUploadPartUrlsRequest) returns (GetUploadPartUrlsResponse);
 
   // Assembles the uploaded parts, moves the version to UPLOADED and records the
-  // `asset.uploaded` event in the outbox in the same transaction.
+  // `asset.uploaded` event in the outbox in the same transaction. A declared
+  // source preview must be stored with its declared size, or the call fails
+  // with FAILED_PRECONDITION.
   rpc CompleteUpload(CompleteUploadRequest) returns (CompleteUploadResponse);
 
   // Cancels an unfinished upload and frees the parts already stored.
@@ -96,6 +98,10 @@ message AssetVersion {
   google.protobuf.Timestamp created_at = 10;
   // Set when READY or FAILED.
   google.protobuf.Timestamp processed_at = 11;
+  // Image supplied with the upload (e.g. the source's own render), stored under
+  // the public `public/` prefix (ADR 017). Shown until thumbnails exist and
+  // embedded for search. Unset when the upload declared none.
+  StoredObject source_preview = 12;
 }
 
 // A file in object storage. Callers turn `key` into a URL (CDN base URL for
@@ -130,6 +136,15 @@ message InitiateUploadRequest {
   // Exact file size; the server derives the part size and part count from it
   // and rejects files above its limit before any byte is uploaded.
   int64 size_bytes = 5;
+  // Optional image uploaded with the model in one PUT (ADR 017).
+  ImageUpload source_preview = 6;
+}
+
+message ImageUpload {
+  // "image/png", "image/jpeg" or "image/webp".
+  string content_type = 1;
+  // Exact size; at most 2 MB.
+  int64 size_bytes = 2;
 }
 
 message InitiateUploadResponse {
@@ -138,6 +153,15 @@ message InitiateUploadResponse {
   // Every part except the last has exactly this size.
   int64 part_size_bytes = 3;
   repeated UploadPartUrl parts = 4;
+  // Set when the request declared `source_preview`: PUT the image here before
+  // CompleteUpload, with the declared Content-Type. Not re-signable: if it
+  // expires, abort and start again.
+  PresignedUrl source_preview_upload = 5;
+}
+
+message PresignedUrl {
+  string url = 1;
+  google.protobuf.Timestamp expires_at = 2;
 }
 
 message UploadPartUrl {

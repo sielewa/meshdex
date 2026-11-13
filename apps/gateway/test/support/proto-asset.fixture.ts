@@ -28,6 +28,7 @@ export function protoAsset(id: string, title = 'Chair'): Asset {
         nanos: 123_000_000,
       },
       processedAt: undefined,
+      sourcePreview: undefined,
     },
     createdAt: {
       seconds: 1_794_474_000,

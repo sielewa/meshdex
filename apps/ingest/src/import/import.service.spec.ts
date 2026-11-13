@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PinoLogger } from 'nestjs-pino';
@@ -229,6 +230,51 @@ describe('ImportService', () => {
       'wooden-chair',
       'tag0',
     ]);
+  });
+
+  it('uploads the cached preview with its model, and none for a model cached without one', async () => {
+    const image = Buffer.from('webp bytes');
+
+    await cacheModel({
+      modelId: 'Chair_01',
+      preview: {
+        path: 'preview.webp',
+        sizeBytes: image.length,
+        md5: createHash('md5').update(image).digest('hex'),
+        contentType: 'image/webp',
+        sourceUrl: 'https://cdn.example/Chair_01.png?v=1',
+      },
+    });
+    await writeFile(join(cache.modelDir('Chair_01', '1k'), 'preview.webp'), image);
+    await cacheModel({ modelId: 'Table_01' });
+
+    await service.run(args, signal);
+
+    const byFile = new Map(pipeline.uploads.map((upload) => [upload.fileName, upload]));
+
+    expect(byFile.get('Chair_01.glb')?.sourcePreview).toEqual({
+      bytes: image,
+      contentType: 'image/webp',
+    });
+    expect(byFile.get('Table_01.glb')?.sourcePreview).toBeNull();
+  });
+
+  it('fails a model whose cached preview changed since fetch, instead of uploading it', async () => {
+    await cacheModel({
+      preview: {
+        path: 'preview.webp',
+        sizeBytes: 3,
+        md5: '0'.repeat(32),
+        contentType: 'image/webp',
+        sourceUrl: 'https://cdn.example/Chair_01.png?v=1',
+      },
+    });
+    await writeFile(join(cache.modelDir('Chair_01', '1k'), 'preview.webp'), 'abc');
+
+    const summary = await service.run(args, signal);
+
+    expect(pipeline.uploads).toEqual([]);
+    expect(summary.failures).toEqual([expect.objectContaining({ modelId: 'Chair_01' })]);
   });
 
   it('records failed models, imports the rest and does not mark failures as imported', async () => {

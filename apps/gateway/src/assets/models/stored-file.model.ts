@@ -1,8 +1,8 @@
 import { Field, Float, ObjectType } from '@nestjs/graphql';
 
 /**
- * A stored file. The storage key stays internal; URLs are added once the media URL
- * strategy is implemented (ADR 010).
+ * A stored file. The storage key stays internal; `url` is resolved by `StoredFileResolver`
+ * for public files only (ADR 010, 017).
  */
 @ObjectType('StoredFile')
 export class StoredFileModel {

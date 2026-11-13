@@ -6,13 +6,39 @@ import { PART_UPLOAD_TIMEOUT_MS } from '../object-storage.constants';
 /**
  * `PresignedUploadPort` with the global `fetch`. The body is a `Uint8Array` view of the packed
  * GLB, so its length is known: fetch sends `Content-Length` instead of chunked encoding, which
- * S3 requires for a presigned PUT, and only the view's bytes are sent, without a copy. No
- * Content-Type is sent: the presigned signature doesn't cover one. URLs are credentials, so
- * they never appear in error messages.
+ * S3 requires for a presigned PUT, and only the view's bytes are sent, without a copy. Parts
+ * carry no Content-Type (their signature covers none); a whole object sends the one its URL
+ * was signed with. URLs are credentials, so they never appear in error messages.
  */
 @Injectable()
 export class HttpPresignedUploadAdapter implements PresignedUploadPort {
   async putPart(url: string, body: Uint8Array, signal: AbortSignal): Promise<string> {
+    const response = await this.put(url, body, {}, signal);
+    const etag = response.headers.get('etag');
+
+    if (etag === null || etag === '') {
+      throw new PartUploadException('Object storage returned no ETag', response.status);
+    }
+
+    return etag;
+  }
+
+  async putObject(
+    url: string,
+    body: Uint8Array,
+    contentType: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await this.put(url, body, { 'content-type': contentType }, signal);
+  }
+
+  /** One PUT with the shared timeout and error mapping; the response is read to the end. */
+  private async put(
+    url: string,
+    body: Uint8Array,
+    headers: Record<string, string>,
+    signal: AbortSignal,
+  ): Promise<Response> {
     const timeout = AbortSignal.timeout(PART_UPLOAD_TIMEOUT_MS);
     let response: Response;
 
@@ -20,6 +46,7 @@ export class HttpPresignedUploadAdapter implements PresignedUploadPort {
       response = await fetch(url, {
         method: 'PUT',
         body,
+        headers,
         signal: AbortSignal.any([signal, timeout]),
       });
     } catch (error) {
@@ -28,7 +55,7 @@ export class HttpPresignedUploadAdapter implements PresignedUploadPort {
       }
 
       throw new PartUploadException(
-        timeout.aborted ? 'Part upload timed out' : 'Network error while uploading a part',
+        timeout.aborted ? 'Upload timed out' : 'Network error while uploading',
         0,
         { cause: error },
       );
@@ -39,17 +66,11 @@ export class HttpPresignedUploadAdapter implements PresignedUploadPort {
 
     if (!response.ok) {
       throw new PartUploadException(
-        `Part upload failed with HTTP ${String(response.status)}`,
+        `Upload failed with HTTP ${String(response.status)}`,
         response.status,
       );
     }
 
-    const etag = response.headers.get('etag');
-
-    if (etag === null || etag === '') {
-      throw new PartUploadException('Object storage returned no ETag', response.status);
-    }
-
-    return etag;
+    return response;
   }
 }

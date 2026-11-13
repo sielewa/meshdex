@@ -122,6 +122,45 @@ describe('CacheService', () => {
     expect(await cache.readManifest('ArmChair_01', '1k')).toEqual(manifest);
     expect(await cache.readManifest('ArmChair_01', '2k')).toBeNull();
   });
+
+  describe('files of unknown size (previews)', () => {
+    it('stores the file and reports the size and MD5 it computed', async () => {
+      const path = join(dir, 'Chair', 'preview.webp');
+
+      await expect(
+        cache.writeBoundedFile(Readable.from([content]), path, 2_000_000),
+      ).resolves.toEqual({
+        sizeBytes: expected.sizeBytes,
+        md5: expected.md5,
+      });
+      await expect(readFile(path)).resolves.toEqual(content);
+    });
+
+    it('stops a download above the limit and leaves no file behind', async () => {
+      const path = join(dir, 'Chair', 'preview.webp');
+
+      await expect(cache.writeBoundedFile(Readable.from([content]), path, 100)).rejects.toThrow(
+        CacheIntegrityException,
+      );
+      await expect(readdir(join(dir, 'Chair'))).resolves.toEqual([]);
+    });
+
+    it('rejects an empty download', async () => {
+      await expect(
+        cache.writeBoundedFile(Readable.from([]), join(dir, 'preview.webp'), 100),
+      ).rejects.toThrow(CacheIntegrityException);
+    });
+
+    it('reads a small file back only while it still matches its recorded MD5', async () => {
+      const path = join(dir, 'preview.webp');
+
+      await writeFile(path, content);
+      await expect(cache.readVerifiedFile(path, expected)).resolves.toEqual(content);
+
+      await writeFile(path, 'tampered');
+      await expect(cache.readVerifiedFile(path, expected)).rejects.toThrow(CacheIntegrityException);
+    });
+  });
 });
 
 function chunks(buffer: Buffer, size: number): Buffer[] {

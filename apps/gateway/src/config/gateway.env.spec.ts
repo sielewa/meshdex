@@ -9,6 +9,7 @@ const validEnv = {
   ASSET_SERVICE_URL: 'localhost:50051',
   ASSET_SERVICE_READ_TIMEOUT_MS: '2000',
   ASSET_SERVICE_WRITE_TIMEOUT_MS: '15000',
+  MEDIA_BASE_URL: 'http://localhost:8333/meshdex-assets',
   LOG_LEVEL: 'info',
   LOG_PRETTY: 'false',
 };
@@ -28,6 +29,21 @@ describe('GatewayEnv', () => {
       validateConfig(GatewayEnv, {
         ...validEnv,
         CORS_ORIGINS: 'localhost:3000',
+      }),
+    ).toThrow(ConfigValidationException);
+  });
+
+  it('ends the media base URL with a slash, so a key can be appended', () => {
+    expect(validateConfig(GatewayEnv, validEnv).MEDIA_BASE_URL).toBe(
+      'http://localhost:8333/meshdex-assets/',
+    );
+  });
+
+  it('rejects a media base URL without a protocol', () => {
+    expect(() =>
+      validateConfig(GatewayEnv, {
+        ...validEnv,
+        MEDIA_BASE_URL: 'cdn.meshdex.example',
       }),
     ).toThrow(ConfigValidationException);
   });

@@ -20,7 +20,8 @@ import {
 
 /**
  * Turns a packed GLB into an asset through the same upload flow as the browser
- * (architecture.md): `InitiateUpload` → parts PUT to presigned URLs → `CompleteUpload`.
+ * (architecture.md): `InitiateUpload` → preview image PUT (when there is one, ADR 017) →
+ * parts PUT to presigned URLs → `CompleteUpload`, which checks that the image arrived.
  *
  * Parts of one model go one after another, each a zero-copy `subarray` of the GLB: the
  * pipeline already runs several models at once, so per-model part concurrency would only
@@ -52,16 +53,44 @@ export class UploadService {
     private readonly logger: PinoLogger,
   ) {}
 
+  /**
+   * The preview's URL can't be signed again (ADR 017), so only transient failures are retried;
+   * an expired URL fails the model, and the re-run starts a new upload.
+   */
+  private readonly previewRetryPolicy: RetryPolicy = {
+    ...this.partRetryPolicy,
+    isRetryable: (error) => error instanceof PartUploadException && error.isTransient,
+  };
+
   async upload(upload: GlbUpload, signal: AbortSignal): Promise<UploadedAsset> {
+    const { sourcePreview } = upload;
     const session = await this.assetService.initiateUpload({
       title: upload.title,
       tags: upload.tags,
       fileName: upload.fileName,
       contentType: GLB_CONTENT_TYPE,
       sizeBytes: upload.glb.byteLength,
+      sourcePreview: sourcePreview && {
+        contentType: sourcePreview.contentType,
+        sizeBytes: sourcePreview.bytes.byteLength,
+      },
     });
 
     try {
+      if (sourcePreview) {
+        const url = session.sourcePreviewUploadUrl;
+
+        if (url === null) {
+          throw new Error('asset-service signed no URL for the declared source preview');
+        }
+
+        await this.tasks.retry(
+          () => this.storage.putObject(url, sourcePreview.bytes, sourcePreview.contentType, signal),
+          this.previewRetryPolicy,
+          signal,
+        );
+      }
+
       const parts = await this.uploadParts(session, upload.glb, signal);
 
       await this.assetService.completeUpload(session.assetVersionId, parts);
