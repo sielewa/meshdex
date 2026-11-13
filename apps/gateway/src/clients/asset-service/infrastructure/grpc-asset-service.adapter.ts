@@ -214,6 +214,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
       failureReason: version.failureReason === '' ? null : version.failureReason,
       createdAt: this.toEpochMs(version.createdAt, `${context} createdAt`),
       processedAt: version.processedAt ? fromProtoTimestamp(version.processedAt) : null,
+      sourcePreview: version.sourcePreview ? this.toStoredObject(version.sourcePreview) : null,
     };
   }
 

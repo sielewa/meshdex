@@ -52,6 +52,20 @@ export class GatewayEnv {
   @Max(120_000)
   ASSET_SERVICE_WRITE_TIMEOUT_MS!: number;
 
+  /**
+   * Base URL of public files (ADR 010, 017): CloudFront in the cloud, the S3 emulator's bucket
+   * path locally. A file's URL is this plus its key, so a missing trailing slash is added.
+   */
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && !value.endsWith('/') ? `${value}/` : value,
+  )
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_tld: false,
+    require_protocol: true,
+  })
+  MEDIA_BASE_URL!: string;
+
   @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
   LOG_LEVEL!: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
 

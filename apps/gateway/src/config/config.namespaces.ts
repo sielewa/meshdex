@@ -36,9 +36,19 @@ export const assetServiceConfig = registerAs('assetService', () => ({
   writeTimeoutMs: gatewayEnv().ASSET_SERVICE_WRITE_TIMEOUT_MS,
 }));
 
+export const mediaConfig = registerAs('media', () => ({
+  baseUrl: gatewayEnv().MEDIA_BASE_URL,
+}));
+
 export const loggerConfig = registerAs('logger', () => ({
   level: gatewayEnv().LOG_LEVEL,
   pretty: gatewayEnv().LOG_PRETTY,
 }));
 
-export const allConfigNamespaces = [httpConfig, graphqlConfig, assetServiceConfig, loggerConfig];
+export const allConfigNamespaces = [
+  httpConfig,
+  graphqlConfig,
+  assetServiceConfig,
+  mediaConfig,
+  loggerConfig,
+];

@@ -65,6 +65,7 @@ describe('GraphQL API', () => {
       ASSET_SERVICE_URL: await fake.start(),
       ASSET_SERVICE_READ_TIMEOUT_MS: '2000',
       ASSET_SERVICE_WRITE_TIMEOUT_MS: '2000',
+      MEDIA_BASE_URL: 'http://media.test/bucket/',
       LOG_LEVEL: 'fatal',
       LOG_PRETTY: 'false',
     });
@@ -163,6 +164,55 @@ describe('GraphQL API', () => {
       b: { title: 'Table' },
       again: { title: 'Chair' },
       missing: null,
+    });
+  });
+
+  it('gives public files a stable media URL and private files none (ADR 010, 017)', async () => {
+    const asset = protoAsset(ids[0] ?? '', 'Alarm clock');
+
+    if (asset.currentVersion) {
+      asset.currentVersion.sourcePreview = {
+        key: `public/previews/${asset.id}/v1.webp`,
+        sizeBytes: 150_000,
+        contentType: 'image/webp',
+      };
+    }
+
+    fake.respond('batchGetAssets', {
+      assets: [asset],
+      notFoundAssetIds: [],
+    });
+
+    const result = await graphql(
+      `
+        query ($id: ID!) {
+          asset(id: $id) {
+            currentVersion {
+              original {
+                url
+              }
+              sourcePreview {
+                url
+                contentType
+              }
+            }
+          }
+        }
+      `,
+      { id: ids[0] },
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data).toEqual({
+      asset: {
+        currentVersion: {
+          original: { url: null },
+          sourcePreview: {
+            url: `http://media.test/bucket/public/previews/${asset.id}/v1.webp`,
+            contentType: 'image/webp',
+          },
+        },
+      },
     });
   });
 

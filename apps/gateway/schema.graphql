@@ -55,6 +55,11 @@ type AssetVersion {
   """Set when READY or FAILED."""
   processedAt: DateTime
 
+  """
+  Image supplied with the upload (e.g. the source's render). Shown until thumbnails exist; null when the upload had none.
+  """
+  sourcePreview: StoredFile
+
   """Set when READY."""
   stats: ModelStats
   status: AssetStatus!
@@ -151,6 +156,9 @@ type StoredFile {
 
   """Size in bytes (an integer; Float only to exceed 2^31)."""
   sizeBytes: Float!
+
+  """Public URL (CDN); null for private files such as the original upload."""
+  url: String
 }
 
 type Thumbnail {

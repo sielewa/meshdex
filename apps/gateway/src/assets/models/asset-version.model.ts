@@ -37,4 +37,11 @@ export class AssetVersionModel {
 
   @Field(() => DateTimeScalar, { nullable: true, description: 'Set when READY or FAILED.' })
   processedAt!: number | null;
+
+  @Field(() => StoredFileModel, {
+    nullable: true,
+    description:
+      "Image supplied with the upload (e.g. the source's render). Shown until thumbnails exist; null when the upload had none.",
+  })
+  sourcePreview!: StoredFileModel | null;
 }
