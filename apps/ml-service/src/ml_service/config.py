@@ -7,7 +7,7 @@ missing or malformed variable stops the command with a message listing every pro
 
 from typing import Literal
 
-from pydantic import Field, PostgresDsn
+from pydantic import Field, FilePath, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Local development reads apps/ml-service/.env (gitignored); in Kubernetes the variables come from
@@ -23,6 +23,22 @@ class DatabaseSettings(BaseSettings):
 
     url: PostgresDsn
     pool_max: int = Field(default=10, ge=1)
+
+
+class ClipSettings(BaseSettings):
+    """The CLIP model: open_clip architecture + pretrained tag, weights from a local file (ADR 018).
+
+    The tag is required even though the weights come from a file: it selects the image
+    preprocessing the weights were trained with and names the model in stored embeddings.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="CLIP_", env_file=ENV_FILE, extra="ignore")
+
+    architecture: str = Field(min_length=1)
+    pretrained: str = Field(min_length=1)
+    # FilePath: must exist, so a missing weights file stops the service at startup.
+    checkpoint_path: FilePath
+    device: Literal["cpu", "mps", "cuda"] = "cpu"
 
 
 class LoggingSettings(BaseSettings):

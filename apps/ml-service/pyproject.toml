@@ -63,3 +63,8 @@ addopts = ["--import-mode=importlib", "--strict-markers"]
 # grpcio-tools ships no type information; only scripts/generate_proto.py imports it.
 module = ["grpc_tools", "grpc_tools.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# open_clip ships no type information; its objects stay behind ClipModel (embeddings/clip_model.py).
+module = ["open_clip", "open_clip.*"]
+ignore_missing_imports = true

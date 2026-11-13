@@ -204,4 +204,6 @@ apps/ml-service/
   tests/
     unit/             no I/O; settings tests chdir to a temp dir so a developer's .env can't leak in
     integration/      Testcontainers (pgvector image from compose), one fresh database per test
+    model/            the real CLIP weights (~600 MB, not in git); skipped with a visible reason
+                      when the file is absent. Unit tests use a small randomly initialised model
 ```

@@ -3,15 +3,54 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ml_service.config import DatabaseSettings, LoggingSettings
+from ml_service.config import ClipSettings, DatabaseSettings, LoggingSettings
+
+VARIABLES = (
+    "DATABASE_URL",
+    "DATABASE_POOL_MAX",
+    "CLIP_ARCHITECTURE",
+    "CLIP_PRETRAINED",
+    "CLIP_CHECKPOINT_PATH",
+    "CLIP_DEVICE",
+    "LOG_LEVEL",
+    "LOG_PRETTY",
+)
 
 
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Runs each test where no `.env` exists and without the developer's variables."""
     monkeypatch.chdir(tmp_path)
-    for name in ("DATABASE_URL", "DATABASE_POOL_MAX", "LOG_LEVEL", "LOG_PRETTY"):
+    for name in VARIABLES:
         monkeypatch.delenv(name, raising=False)
+
+
+def _set_clip_variables(monkeypatch: pytest.MonkeyPatch, checkpoint: Path) -> None:
+    monkeypatch.setenv("CLIP_ARCHITECTURE", "ViT-B-32")
+    monkeypatch.setenv("CLIP_PRETRAINED", "laion2b_s34b_b79k")
+    monkeypatch.setenv("CLIP_CHECKPOINT_PATH", str(checkpoint))
+
+
+def test_reads_clip_settings_with_cpu_as_the_default_device(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkpoint = tmp_path / "weights.safetensors"
+    checkpoint.write_bytes(b"")
+    _set_clip_variables(monkeypatch, checkpoint)
+
+    settings = ClipSettings()
+
+    assert settings.checkpoint_path == checkpoint
+    assert settings.device == "cpu"
+
+
+def test_fails_at_startup_when_the_weights_file_is_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _set_clip_variables(monkeypatch, tmp_path / "missing.safetensors")
+
+    with pytest.raises(ValidationError, match="checkpoint_path"):
+        ClipSettings()
 
 
 def test_reads_database_settings_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
