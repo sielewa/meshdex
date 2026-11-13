@@ -7,7 +7,7 @@ missing or malformed variable stops the command with a message listing every pro
 
 from typing import Literal
 
-from pydantic import Field, FilePath, PostgresDsn
+from pydantic import Field, FilePath, HttpUrl, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Local development reads apps/ml-service/.env (gitignored); in Kubernetes the variables come from
@@ -23,6 +23,35 @@ class DatabaseSettings(BaseSettings):
 
     url: PostgresDsn
     pool_max: int = Field(default=10, ge=1)
+
+
+class AssetServiceSettings(BaseSettings):
+    """asset-service, called over gRPC (same variable names as in the gateway and ingest)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="ASSET_SERVICE_", env_file=ENV_FILE, extra="ignore"
+    )
+
+    # host:port
+    url: str = Field(min_length=1)
+    # Deadline of one read call, retries included.
+    read_timeout_ms: int = Field(default=2000, ge=1)
+
+
+class S3Settings(BaseSettings):
+    """Object storage: SeaweedFS locally, AWS S3 in the cloud (same names as asset-service)."""
+
+    model_config = SettingsConfigDict(env_prefix="S3_", env_file=ENV_FILE, extra="ignore")
+
+    # Unset in AWS: the SDK then uses the regional endpoint.
+    endpoint: HttpUrl | None = None
+    region: str = Field(min_length=1)
+    bucket: str = Field(min_length=1)
+    # Unset in AWS: the SDK then uses the pod's IAM role. SecretStr keeps them out of logs/reprs.
+    access_key_id: SecretStr | None = None
+    secret_access_key: SecretStr | None = None
+    # Path-style URLs (http://host/bucket/key), required by local S3 implementations.
+    force_path_style: bool = False
 
 
 class ClipSettings(BaseSettings):

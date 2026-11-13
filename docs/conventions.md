@@ -199,7 +199,11 @@ apps/ml-service/
     gen/              generated from packages/proto by scripts/generate_proto.py (gitignored);
                       imported as `ml_service.gen.meshdex.ml.v1`, used only by servicers and
                       clients, which map messages to domain types
-    <feature>/        same split as the Node services: servicer, service, repository, domain types
+    <feature>/        same split as the Node services: servicer, service, repository, domain types;
+                      ports (`ports.py`, typing.Protocol) for what the feature needs from outside
+    clients/<service>/  gRPC clients of other services: channel with deadlines and retries in
+                      the service config, mapping to the client's own domain types
+    storage/          object storage adapter (boto3); picklable, one client per process
   scripts/            dev tooling run through package.json (`generate`)
   tests/
     unit/             no I/O; settings tests chdir to a temp dir so a developer's .env can't leak in
