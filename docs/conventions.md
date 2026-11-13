@@ -183,4 +183,21 @@ apps/web/src/
 
 Same layering: gRPC servicer (transport, maps domain exceptions to gRPC status) → service → repository; config read once from env with pydantic-settings and validated at startup (ADR 007); structured JSON logs with trace ids; type hints everywhere; pytest.
 
-Tooling and data access follow [ADR 018](adr/018-ml-service-tooling-data-access-and-reindex-job.md): every command through `uv run`; ruff for lint and format; mypy `--strict`; psycopg 3 with hand-written SQL in repositories; migrations as numbered `migrations/NNN_name.sql` files applied by `python -m ml_service migrate`; object storage through boto3 with the endpoint from config.
+Tooling and data access follow [ADR 018](adr/018-ml-service-tooling-data-access-and-reindex-job.md): every command through `uv run`; ruff for lint and format; mypy `--strict`; psycopg 3 with hand-written SQL in repositories; migrations as numbered `src/ml_service/migrations/NNN_name.sql` files applied by `python -m ml_service migrate`; object storage through boto3 with the endpoint from config.
+
+```
+apps/ml-service/
+  src/ml_service/
+    __main__.py       CLI: `python -m ml_service <command>`; each command loads only the settings
+                      it needs
+    config.py         one pydantic-settings class per namespace (`DatabaseSettings`, …), env prefix
+                      = namespace (`DATABASE_URL`)
+    logs.py           JSON lines shaped like the Node services' pino logs; context through
+                      `extra={...}`, never formatted into the message
+    database/         pool, migration runner
+    migrations/       NNN_name.sql; an applied migration is never edited, a change is a new file
+    <feature>/        same split as the Node services: servicer, service, repository, domain types
+  tests/
+    unit/             no I/O; settings tests chdir to a temp dir so a developer's .env can't leak in
+    integration/      Testcontainers (pgvector image from compose), one fresh database per test
+```

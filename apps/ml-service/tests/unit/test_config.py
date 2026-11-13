@@ -1,0 +1,54 @@
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from ml_service.config import DatabaseSettings, LoggingSettings
+
+
+@pytest.fixture(autouse=True)
+def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Runs each test where no `.env` exists and without the developer's variables."""
+    monkeypatch.chdir(tmp_path)
+    for name in ("DATABASE_URL", "DATABASE_POOL_MAX", "LOG_LEVEL", "LOG_PRETTY"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_reads_database_settings_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgres://ml:secret@localhost:5432/ml")
+    monkeypatch.setenv("DATABASE_POOL_MAX", "4")
+
+    settings = DatabaseSettings()
+
+    assert settings.url.hosts()[0]["host"] == "localhost"
+    assert settings.url.path == "/ml"
+    assert settings.pool_max == 4
+
+
+def test_fails_when_the_database_url_is_missing() -> None:
+    with pytest.raises(ValidationError, match="url"):
+        DatabaseSettings()
+
+
+def test_rejects_a_pool_without_connections(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgres://ml:secret@localhost:5432/ml")
+    monkeypatch.setenv("DATABASE_POOL_MAX", "0")
+
+    with pytest.raises(ValidationError, match="pool_max"):
+        DatabaseSettings()
+
+
+def test_reads_variables_from_a_dotenv_file(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("LOG_LEVEL=debug\nLOG_PRETTY=true\nUNRELATED=1\n")
+
+    settings = LoggingSettings()
+
+    assert settings.level == "debug"
+    assert settings.pretty is True
+
+
+def test_rejects_an_unknown_log_level(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LOG_LEVEL", "verbose")
+
+    with pytest.raises(ValidationError, match="level"):
+        LoggingSettings()

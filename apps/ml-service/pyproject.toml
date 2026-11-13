@@ -1,0 +1,60 @@
+[project]
+name = "ml-service"
+version = "0.1.0"
+description = "CLIP embeddings and text search for Meshdex assets"
+authors = [
+    { name = "Jakub Sielewicz", email = "76447210+sielewa@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.44.2",
+    "grpcio>=1.85.1",
+    "numpy>=2.5.4",
+    "open-clip-torch>=4.2.2",
+    "pgvector>=0.5.1",
+    "pillow>=13.0.0",
+    "protobuf>=7.36.2",
+    "psycopg[binary,pool]>=3.3.9",
+    "pydantic-settings>=2.16.2",
+    "torch>=2.15.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[s3]>=1.44.2",
+    "grpcio-tools>=1.85.1",
+    "mypy>=2.4.1",
+    "mypy-protobuf>=5.1.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+    "testcontainers[postgres]>=4.15.0",
+    "types-grpcio>=1.85.0.20261028",
+    "types-protobuf>=7.35.1.20260906",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["src/ml_service/gen"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, pep8-naming, pyupgrade, bugbear, simplify, pytest style, ruff-specific
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "PT", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+# BaseSettings fields come from the environment, not from __init__ arguments.
+plugins = ["pydantic.mypy"]
+# Generated gRPC code is type-checked through its .pyi stubs, not its .py sources.
+exclude = ['^src/ml_service/gen/.*\.py$']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib", "--strict-markers"]
