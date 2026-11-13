@@ -5,3 +5,5 @@ export const ASSETS_PAGE_SIZE = 24;
  * reuses cached data never hands the viewer a URL about to stop working.
  */
 export const DOWNLOAD_URL_EXPIRY_MARGIN_MS = 60_000;
+/** Edge of the square preview images (ingest requests 512 px renders); used to reserve layout space. */
+export const PREVIEW_IMAGE_SIZE_PX = 512;

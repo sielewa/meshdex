@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GatewayEndpointContext } from '@/graphql/gateway-endpoint-context';
 import { AssetGrid } from '@/features/assets/components/asset-grid';
 
 const endpoint = 'http://gateway.test/graphql';
 
-const asset = (id: string, title: string) => ({
+const asset = (id: string, title: string, previewUrl: string | null = null) => ({
   id,
   title,
   tags: ['chair'],
@@ -15,6 +15,8 @@ const asset = (id: string, title: string) => ({
   currentVersion: {
     number: 1,
     original: { sizeBytes: 20_971_520 },
+    thumbnails: [],
+    sourcePreview: previewUrl === null ? null : { url: previewUrl },
   },
 });
 
@@ -110,6 +112,27 @@ describe('AssetGrid', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(await screen.findByRole('heading', { name: 'Chair' })).toBeDefined();
+  });
+
+  it('shows the preview image on a card, and a placeholder for an asset without one', async () => {
+    stubResponses(
+      page(
+        [asset('1', 'Chair', 'http://media.test/public/previews/1/v1.webp'), asset('2', 'Table')],
+        null,
+      ),
+    );
+    renderGrid();
+
+    const chair = await screen.findByRole('link', { name: /Chair/ });
+    const table = screen.getByRole('link', { name: /Table/ });
+
+    // Decorative image (alt=""): it has no role, so it is found by its element.
+    expect(chair.querySelector('img')?.getAttribute('src')).toBe(
+      'http://media.test/public/previews/1/v1.webp',
+    );
+    expect(chair.querySelector('img')?.getAttribute('loading')).toBe('lazy');
+    expect(table.querySelector('img')).toBeNull();
+    expect(within(table).getByText('No preview yet')).toBeDefined();
   });
 
   it('says so when there are no assets', async () => {

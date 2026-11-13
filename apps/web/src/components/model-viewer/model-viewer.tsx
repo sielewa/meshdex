@@ -11,7 +11,16 @@ import { ViewerErrorBoundary } from '@/components/model-viewer/viewer-error-boun
  * Interactive 3D preview of a GLB. Loaded with `next/dynamic` (no SSR) by the asset page,
  * so three.js is downloaded only by pages that show a model.
  */
-export function ModelViewer({ url, onRetry }: { url: string; onRetry: () => void }): ReactNode {
+export function ModelViewer({
+  url,
+  onRetry,
+  onLoaded,
+}: {
+  url: string;
+  onRetry: () => void;
+  /** Called once the model is loaded and in the scene (e.g. to hide a still image). */
+  onLoaded?: () => void;
+}): ReactNode {
   return (
     <ViewerErrorBoundary onRetry={onRetry}>
       <div className="relative h-full w-full">
@@ -30,7 +39,7 @@ export function ModelViewer({ url, onRetry }: { url: string; onRetry: () => void
             {/* `environment={null}`: drei's presets are HDR files from a public CDN. */}
             {/* adjustCamera: margin around the model's bounds when framing it (1 = edge to edge). */}
             <Stage environment={null} intensity={0.6} adjustCamera={1.1}>
-              <GltfModel url={url} />
+              <GltfModel url={url} onLoaded={onLoaded} />
             </Stage>
           </Suspense>
           <ambientLight intensity={0.5} />

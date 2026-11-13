@@ -30,6 +30,8 @@ const asset = (overrides: Partial<AssetDetail['currentVersion']>): AssetDetail =
       meshCount: 3,
       textureCount: 2,
     },
+    thumbnails: [],
+    sourcePreview: null,
     ...overrides,
   },
 });
