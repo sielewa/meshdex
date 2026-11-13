@@ -23,6 +23,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 015 | [Experiments page: runs bundled at build time, SVG charts](015-experiments-page-build-time-runs-and-svg-charts.md) | accepted              |
 | 016 | [Benchmark experiments defined in a manifest](016-benchmark-experiments-manifest.md)                               | accepted              |
 | 017 | [Source preview images and the public key prefix](017-source-preview-images.md)                                    | accepted              |
+| 018 | [ml-service tooling, data access and the reindex job](018-ml-service-tooling-data-access-and-reindex-job.md)       | accepted              |
 
 ## Pending decisions
 
@@ -31,6 +32,5 @@ To be decided when first needed, then recorded as an ADR and removed from this l
 - Kafka message payload: protobuf (same buf contracts, `buf breaking` covers events) vs. JSON with a schema.
 - Broker in the cloud (Stage 7): Redpanda on k3s (same as local, fits one EC2) vs. Apache Kafka via Strimzi on k3s (JVM, more memory) vs. Amazon MSK (managed, hourly broker cost).
 - CI and primary remote: GitHub + GitHub Actions vs. GitLab CI as primary with a mirror to GitHub (repo is hosted on GitHub; `architecture.md` currently says GitLab CI).
-- Python tooling for `ml-service` (package manager, linter, type checker).
 - Helm layout: one chart per service vs. one shared library chart + per-service values.
 - Infrastructure in kind: plain manifests/StatefulSets vs. operators (e.g. CloudNativePG, Redpanda operator) vs. third-party charts (check image licensing first).

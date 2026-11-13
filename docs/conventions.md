@@ -182,3 +182,5 @@ apps/web/src/
 ## ml-service (Python)
 
 Same layering: gRPC servicer (transport, maps domain exceptions to gRPC status) → service → repository; config read once from env with pydantic-settings and validated at startup (ADR 007); structured JSON logs with trace ids; type hints everywhere; pytest.
+
+Tooling and data access follow [ADR 018](adr/018-ml-service-tooling-data-access-and-reindex-job.md): every command through `uv run`; ruff for lint and format; mypy `--strict`; psycopg 3 with hand-written SQL in repositories; migrations as numbered `migrations/NNN_name.sql` files applied by `python -m ml_service migrate`; object storage through boto3 with the endpoint from config.
