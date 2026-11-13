@@ -24,6 +24,7 @@ One file per decision: `NNN-kebab-case-title.md` with **Context**, **Decision** 
 | 016 | [Benchmark experiments defined in a manifest](016-benchmark-experiments-manifest.md)                               | accepted              |
 | 017 | [Source preview images and the public key prefix](017-source-preview-images.md)                                    | accepted              |
 | 018 | [ml-service tooling, data access and the reindex job](018-ml-service-tooling-data-access-and-reindex-job.md)       | accepted              |
+| 019 | [ml-service gRPC server: threads, one model per process, standard health](019-ml-service-grpc-server.md)           | accepted              |
 
 ## Pending decisions
 

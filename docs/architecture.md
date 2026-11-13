@@ -49,7 +49,7 @@ Meshdex is a 3D asset library with AI search. Users upload 3D models (glTF/GLB).
 4. Outbox relay publishes to Kafka topic `asset.events.v1`.
 5. `processing-worker` consumes, checks `processed_events` (idempotency key = event id), optimizes model, renders N thumbnails, uploads to S3, calls `ml-service.Embed`, reports status back to `asset-service` (gRPC).
 6. Status changes are pushed to `web` (GraphQL subscription or SSE).
-7. Search: `web` → `gateway` → `ml-service.Search(text)` → asset ids → `asset-service.GetAssets` → response.
+7. Search: `web` → `gateway` → `ml-service.SearchAssets(text)` (CLIP text embedding + pgvector HNSW, [ADR 019](adr/019-ml-service-grpc-server.md)) → asset ids with scores → `asset-service.BatchGetAssets` → response in the ranking's order.
 
 ## Microservice patterns
 
