@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "dev": "pnpm run generate && uv run python -m ml_service serve",
     "generate": "uv run python scripts/generate_proto.py",
     "lint": "uv run ruff check . && uv run ruff format --check .",
     "typecheck": "pnpm run generate && uv run mypy",
