@@ -144,12 +144,16 @@ def _cpu_model() -> str:
 
 
 def _git_state() -> tuple[str | None, bool | None]:
-    """The commit the run was measured on, and whether the tree had uncommitted changes."""
+    """The commit the run was measured on, and whether tracked files had uncommitted changes.
+
+    Untracked files don't count, as in ingest: records written earlier in the same sweep are
+    untracked until committed, and would otherwise mark every later run dirty.
+    """
     commit = _command(["git", "rev-parse", "HEAD"])
     if commit is None:
         return None, None
 
-    status = _command(["git", "status", "--porcelain"])
+    status = _command(["git", "status", "--porcelain", "--untracked-files=no"])
 
     return commit, bool(status) if status is not None else None
 

@@ -5,6 +5,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+
+from ml_service.reindex import run_record
 from ml_service.reindex.reindex_service import (
     ReindexFailure,
     ReindexOptions,
@@ -86,3 +89,22 @@ def test_an_unlabelled_run_has_no_label_suffix(tmp_path: Path) -> None:
     path = write_run_record(_record(label=None), tmp_path)
 
     assert path.name == "2026-11-13T13-02-42-963Z-reindex.json"
+
+
+def test_untracked_files_dont_make_the_tree_dirty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Earlier records of the same sweep are untracked; they must not mark later runs dirty."""
+    calls: list[list[str]] = []
+
+    def fake_command(arguments: list[str]) -> str:
+        calls.append(arguments)
+
+        return "abc123" if arguments[1] == "rev-parse" else ""
+
+    monkeypatch.setattr(run_record, "_command", fake_command)
+
+    environment = _record()["environment"]
+
+    assert isinstance(environment, dict)
+    assert environment["gitCommit"] == "abc123"
+    assert environment["gitDirty"] is False
+    assert ["git", "status", "--porcelain", "--untracked-files=no"] in calls
