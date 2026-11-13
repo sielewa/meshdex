@@ -69,13 +69,16 @@ services:
     environment:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set in infra/docker/.env}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set in infra/docker/.env}
+      S3_BUCKET: ${S3_BUCKET:-meshdex-assets}
     # The S3 identity file is generated from env at start, so no credentials live in the repo.
+    # "anonymous" applies to requests without credentials: it may only read the bucket's
+    # public/ prefix (ADR 017), the local stand-in for CloudFront in front of public/*.
     entrypoint: ['/bin/sh', '-c']
     command:
       - |
         mkdir -p /etc/seaweedfs
-        printf '{"identities":[{"name":"meshdex-dev","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' \
-          "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" > /etc/seaweedfs/s3.json
+        printf '{"identities":[{"name":"meshdex-dev","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]},{"name":"anonymous","actions":["Read:%s/public/*"]}]}' \
+          "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" "$$S3_BUCKET" > /etc/seaweedfs/s3.json
         exec weed server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
     ports:
       - '127.0.0.1:${S3_PORT:-8333}:8333'
