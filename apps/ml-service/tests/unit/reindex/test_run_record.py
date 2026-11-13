@@ -64,6 +64,7 @@ def test_records_the_options_and_stage_timings_of_the_run() -> None:
         "numWorkers": 4,
         "prefetchFactor": 2,
         "limit": None,
+        "includeEmbedded": False,
         "device": "mps",
         "model": "ViT-B-32/laion2b_s34b_b79k",
     }

@@ -202,6 +202,41 @@ def test_nothing_pending_does_no_work(clip: ClipModel) -> None:
     assert store.writes == []
 
 
+def test_steady_state_counts_the_batches_after_the_first(clip: ClipModel) -> None:
+    keys = [f"{index}.png" for index in range(5)]
+
+    result = ReindexService(
+        _Catalog([_version(key) for key in keys]), _Store(), clip, _images(*keys)
+    ).run(IN_PROCESS)
+
+    assert result.batches == 3
+    assert result.steady_images == 3
+    assert 0 < result.timings.steady_ms < result.timings.total_ms
+    assert result.steady_images_per_second > 0
+
+
+def test_a_single_batch_has_no_steady_state(clip: ClipModel) -> None:
+    result = ReindexService(_Catalog([_version("a.png")]), _Store(), clip, _images("a.png")).run(
+        IN_PROCESS
+    )
+
+    assert result.steady_images == 0
+    assert result.steady_images_per_second == 0.0
+
+
+def test_include_embedded_re_embeds_versions_that_are_done(clip: ClipModel) -> None:
+    done, pending = _version("done.png"), _version("pending.png")
+    store = _Store(embedded={done.asset_version_id})
+
+    result = ReindexService(
+        _Catalog([done, pending]), store, clip, _images("done.png", "pending.png")
+    ).run(ReindexOptions(batch_size=2, num_workers=0, include_embedded=True))
+
+    assert result.versions_already_embedded == 0
+    assert result.versions_embedded == 2
+    assert set(store.saved) == {done.asset_version_id, pending.asset_version_id}
+
+
 def test_spawned_workers_load_the_same_embeddings_as_the_main_process(clip: ClipModel) -> None:
     """Real worker processes: the dataset, storage adapter and transform must pickle.
 

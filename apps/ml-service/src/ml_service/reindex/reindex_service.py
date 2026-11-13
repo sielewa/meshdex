@@ -31,6 +31,9 @@ class ReindexOptions:
     # Batches each worker keeps ready ahead of the model: the prefetch depth.
     prefetch_factor: int = 2
     limit: int | None = None
+    # Also re-embed versions that already have embeddings for the model: after a change to
+    # preprocessing that keeps the model's name, and for benchmarks that repeat the same work.
+    include_embedded: bool = False
     # Seconds the main process waits for one batch before failing instead of hanging on a
     # stuck worker.
     batch_timeout_s: int = 300
@@ -55,6 +58,11 @@ class ReindexTimings:
     loader_wait_ms: float = 0.0
     model_ms: float = 0.0
     write_ms: float = 0.0
+    # The last call for a batch, which finds the loader exhausted and stops its workers.
+    shutdown_ms: float = 0.0
+    # From the end of the first batch's write to the end of the loop: the pipeline running with
+    # workers started and prefetch filled, the throughput a much larger catalogue would see.
+    steady_ms: float = 0.0
     total_ms: float = 0.0
     worker_fetch_ms: float = 0.0
     worker_decode_ms: float = 0.0
@@ -74,6 +82,8 @@ class ReindexResult:
     images_selected: int = 0
     images_embedded: int = 0
     batches: int = 0
+    # Images embedded by the model after the first batch, i.e. within `timings.steady_ms`.
+    steady_images: int = 0
     failures: list[ReindexFailure] = field(default_factory=list)
     timings: ReindexTimings = field(default_factory=ReindexTimings)
 
@@ -82,6 +92,13 @@ class ReindexResult:
         seconds = self.timings.total_ms / 1000
 
         return self.images_embedded / seconds if seconds > 0 else 0.0
+
+    @property
+    def steady_images_per_second(self) -> float:
+        """0 with a single batch: there is no steady state to measure."""
+        seconds = self.timings.steady_ms / 1000
+
+        return self.steady_images / seconds if seconds > 0 else 0.0
 
 
 class ReindexService:
@@ -117,7 +134,11 @@ class ReindexService:
         DataLoader then works on a known amount of work. Already embedded versions are found
         with one query, not one per version."""
         versions = list(self._catalog.list_current_versions())
-        embedded = self._store.find_embedded_version_ids(self._clip.name)
+        embedded = (
+            set()
+            if options.include_embedded
+            else self._store.find_embedded_version_ids(self._clip.name)
+        )
         result.versions_listed = len(versions)
         selected: list[CatalogVersion] = []
         for version in versions:
@@ -151,11 +172,13 @@ class ReindexService:
         batches: Iterator[ImageBatch] = iter(loader)
 
         loop_started = time.perf_counter()
+        steady_started: float | None = None
         while True:
             waited = time.perf_counter()
             batch = next(batches, None)
             wait_ms = (time.perf_counter() - waited) * 1000
             if batch is None:
+                timings.shutdown_ms = wait_ms
                 break
 
             if result.batches == 0:
@@ -178,6 +201,9 @@ class ReindexService:
                 else None
             )
             timings.model_ms += (time.perf_counter() - model_started) * 1000
+
+            if steady_started is not None:
+                result.steady_images += len(batch.indexes)
 
             for row, index in enumerate(batch.indexes):
                 version_index, key = items[index]
@@ -207,6 +233,9 @@ class ReindexService:
                     if version.asset_version_id in applied
                 )
 
+            if steady_started is None:
+                steady_started = time.perf_counter()
+
             if result.batches % self.LOG_EVERY_BATCHES == 0:
                 logger.info(
                     "Reindex progress",
@@ -215,6 +244,10 @@ class ReindexService:
                         "images_selected": result.images_selected,
                     },
                 )
+
+        # Excludes the shutdown: a larger catalogue would pay it once too, like the start-up.
+        if steady_started is not None and result.batches > 1:
+            timings.steady_ms = (waited - steady_started) * 1000
 
     def _loader(self, keys: list[str], options: ReindexOptions) -> DataLoader[Any]:
         dataset = ImageDataset(keys, self._images, self._clip.image_transform)

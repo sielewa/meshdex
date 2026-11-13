@@ -69,6 +69,7 @@ def _reindex(args: argparse.Namespace) -> int:
         num_workers=args.num_workers,
         prefetch_factor=args.prefetch_factor,
         limit=args.limit,
+        include_embedded=args.all,
     )
 
     started_at = datetime.now(UTC)
@@ -101,7 +102,9 @@ def _reindex(args: argparse.Namespace) -> int:
             "loader_wait_ms": round(timings.loader_wait_ms),
             "model_ms": round(timings.model_ms),
             "write_ms": round(timings.write_ms),
+            "shutdown_ms": round(timings.shutdown_ms),
             "images_per_second": round(result.images_per_second, 1),
+            "steady_images_per_second": round(result.steady_images_per_second, 1),
         },
     )
     if args.record is not None:
@@ -153,6 +156,11 @@ def _parser() -> argparse.ArgumentParser:
         "--prefetch-factor", type=_positive, default=2, help="batches prefetched per worker"
     )
     reindex.add_argument("--limit", type=_positive, default=None, help="at most this many versions")
+    reindex.add_argument(
+        "--all",
+        action="store_true",
+        help="also re-embed versions that already have embeddings for the model",
+    )
     reindex.add_argument(
         "--record", type=Path, default=None, help="directory to write the run record to (ADR 014)"
     )

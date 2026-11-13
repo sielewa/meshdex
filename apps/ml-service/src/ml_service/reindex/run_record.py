@@ -39,6 +39,7 @@ def build_run_record(
             "numWorkers": options.num_workers,
             "prefetchFactor": options.prefetch_factor,
             "limit": options.limit,
+            "includeEmbedded": options.include_embedded,
             "device": device,
             "model": result.model,
         },
@@ -54,6 +55,7 @@ def build_run_record(
             "imagesSelected": result.images_selected,
             "imagesEmbedded": result.images_embedded,
             "batches": result.batches,
+            "steadyImages": result.steady_images,
             "failures": [
                 {"assetId": str(f.asset_id), "imageKey": f.image_key, "reason": f.reason}
                 for f in result.failures
@@ -64,11 +66,14 @@ def build_run_record(
                 "loaderWaitMs": round(timings.loader_wait_ms, 1),
                 "modelMs": round(timings.model_ms, 1),
                 "writeMs": round(timings.write_ms, 1),
+                "shutdownMs": round(timings.shutdown_ms, 1),
+                "steadyMs": round(timings.steady_ms, 1),
                 "workerFetchMs": round(timings.worker_fetch_ms, 1),
                 "workerDecodeMs": round(timings.worker_decode_ms, 1),
                 "workerPreprocessMs": round(timings.worker_preprocess_ms, 1),
             },
             "imagesPerSecond": round(result.images_per_second, 2),
+            "steadyImagesPerSecond": round(result.steady_images_per_second, 2),
         },
     }
 

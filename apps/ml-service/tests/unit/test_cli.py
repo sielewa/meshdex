@@ -10,6 +10,7 @@ def test_reindex_defaults() -> None:
 
     assert (args.batch_size, args.num_workers, args.prefetch_factor) == (64, 4, 2)
     assert args.limit is None
+    assert args.all is False
     assert args.record is None
 
 
