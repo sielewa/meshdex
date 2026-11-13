@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import grpc
 import pytest
-from grpc_health.v1 import health_pb2, health_pb2_grpc
+from grpc_health.v1 import health_pb2
 
 from ml_service.config import GrpcServerSettings
 from ml_service.embeddings.clip_model import ClipModel
@@ -64,6 +64,21 @@ def _channel(server: GrpcServer, channels: list[grpc.Channel]) -> grpc.Channel:
     return channel
 
 
+def _health_check(channel: grpc.Channel, service: str) -> int:
+    """Calls grpc.health.v1.Health/Check through the channel: the stubs of grpcio-health-checking
+    declare no methods on HealthStub."""
+    check = channel.unary_unary(
+        "/grpc.health.v1.Health/Check",
+        request_serializer=health_pb2.HealthCheckRequest.SerializeToString,
+        response_deserializer=health_pb2.HealthCheckResponse.FromString,
+    )
+    response: health_pb2.HealthCheckResponse = check(
+        health_pb2.HealthCheckRequest(service=service), timeout=5
+    )
+
+    return response.status
+
+
 def _search(channel: grpc.Channel) -> ml_pb2.SearchAssetsResponse:
     return ml_pb2_grpc.EmbeddingServiceStub(channel).SearchAssets(
         ml_pb2.SearchAssetsRequest(query="chair", limit=1), timeout=10
@@ -76,10 +91,9 @@ def test_liveness_and_readiness_serve_once_started(
     server = _server(clip, index)
     server.start()
     try:
-        health = health_pb2_grpc.HealthStub(_channel(server, channel_to))
+        channel = _channel(server, channel_to)
         for name in (LIVENESS_SERVICE, READINESS_SERVICE):
-            response = health.Check(health_pb2.HealthCheckRequest(service=name), timeout=5)
-            assert response.status == SERVING
+            assert _health_check(channel, name) == SERVING
     finally:
         index.release.set()
         server.stop()
@@ -91,9 +105,13 @@ def test_stop_turns_readiness_off_and_lets_in_flight_calls_finish(
     server = _server(clip, index)
     server.start()
     channel = _channel(server, channel_to)
-    readiness = health_pb2_grpc.HealthStub(channel).Watch(
-        health_pb2.HealthCheckRequest(service=READINESS_SERVICE), timeout=10
+    # Health/Watch: a stream that sends the status now and on every change.
+    watch = channel.unary_stream(
+        "/grpc.health.v1.Health/Watch",
+        request_serializer=health_pb2.HealthCheckRequest.SerializeToString,
+        response_deserializer=health_pb2.HealthCheckResponse.FromString,
     )
+    readiness = watch(health_pb2.HealthCheckRequest(service=READINESS_SERVICE), timeout=10)
     assert next(readiness).status == SERVING
 
     with ThreadPoolExecutor(max_workers=2) as pool:
