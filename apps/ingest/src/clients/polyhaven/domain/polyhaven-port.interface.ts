@@ -17,4 +17,7 @@ export interface PolyhavenPort {
 
   /** Body of a file download as a stream; nothing is buffered. */
   download(url: string, signal: AbortSignal): Promise<Readable>;
+
+  /** Like `download`, for a model's preview image; fails unless the response is WebP. */
+  downloadPreview(url: string, signal: AbortSignal): Promise<Readable>;
 }

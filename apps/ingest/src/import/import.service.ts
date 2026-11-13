@@ -278,7 +278,10 @@ export class ImportService {
     const startedAt = performance.now();
 
     try {
-      const asset = await this.uploader.upload(this.describe(manifest, glb), signal);
+      const asset = await this.uploader.upload(
+        this.describe(manifest, glb, await this.readPreview(manifest)),
+        signal,
+      );
 
       // A crash between these two lines leaves an asset the state file doesn't know about;
       // the re-run imports that model again. The window is one local file append.
@@ -313,7 +316,11 @@ export class ImportService {
    * then categories (broad; `collection: x` becomes `x`) and tags (specific). Tags are normalised the way asset-service
    * does it, so duplicates collapse before counting; overlong ones are left out.
    */
-  private describe(manifest: CachedModelManifest, glb: Uint8Array): GlbUpload {
+  private describe(
+    manifest: CachedModelManifest,
+    glb: Uint8Array,
+    sourcePreview: GlbUpload['sourcePreview'],
+  ): GlbUpload {
     const tags: string[] = [];
 
     const categories = manifest.categories.map((category) =>
@@ -335,6 +342,30 @@ export class ImportService {
       tags: tags.slice(0, MAX_TAGS_PER_ASSET),
       fileName: `${manifest.modelId}${GLB_EXTENSION}`,
       glb,
+      sourcePreview,
+    };
+  }
+
+  /**
+   * The cached preview image (ADR 017), read in the upload stage: it is ~35 KB, so it doesn't
+   * change the pipeline's memory bound, and the pack stage (possibly in a worker thread) stays
+   * about the GLB. A model cached before previews existed is imported without one.
+   */
+  private async readPreview(manifest: CachedModelManifest): Promise<GlbUpload['sourcePreview']> {
+    const preview = manifest.preview;
+
+    if (!preview) {
+      return null;
+    }
+
+    const modelDir = this.cache.modelDir(manifest.modelId, manifest.resolution);
+
+    return {
+      bytes: await this.cache.readVerifiedFile(
+        this.cache.filePath(modelDir, preview.path),
+        preview,
+      ),
+      contentType: preview.contentType,
     };
   }
 

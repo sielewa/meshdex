@@ -1,7 +1,10 @@
 import { performance } from 'node:perf_hooks';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { MAX_PREVIEW_SIZE_BYTES, PREVIEW_FILE_NAME } from '../cache/cache.constants';
 import type { CachedFile } from '../cache/domain/cached-file.interface';
+import type { CachedModelManifest } from '../cache/domain/cached-model-manifest.interface';
+import type { CachedPreview } from '../cache/domain/cached-preview.interface';
 import { UnsafeCachePathException } from '../cache/exceptions/unsafe-cache-path.exception';
 import { CacheService } from '../cache/cache.service';
 import type { PolyhavenModel } from '../clients/polyhaven/domain/polyhaven-model.interface';
@@ -9,6 +12,7 @@ import type { PolyhavenPort } from '../clients/polyhaven/domain/polyhaven-port.i
 import type { RemoteFile } from '../clients/polyhaven/domain/remote-file.interface';
 import type { TextureResolution } from '../clients/polyhaven/domain/texture-resolution.type';
 import { PolyhavenRequestException } from '../clients/polyhaven/exceptions/polyhaven-request.exception';
+import { POLYHAVEN_PREVIEW_CONTENT_TYPE } from '../clients/polyhaven/polyhaven.constants';
 import { POLYHAVEN } from '../clients/polyhaven/polyhaven.tokens';
 import type { RetryPolicy } from '../tasks/domain/retry-policy.interface';
 import { TasksService } from '../tasks/tasks.service';
@@ -28,6 +32,8 @@ import {
  * its files one after another, so at most `concurrency` downloads run at once. A re-run skips
  * models whose cached manifest matches the catalog's `files_hash` (no request at all) and
  * files already cached with the right MD5, so an interrupted fetch resumes where it stopped.
+ * Each model's preview image (ADR 017) is kept up to date the same way, also for models whose
+ * files are: a cache filled before previews existed gets them on the next run.
  */
 @Injectable()
 export class FetchService {
@@ -132,7 +138,18 @@ export class FetchService {
       cached.filesHash === model.filesHash &&
       (await this.allCached(modelDir, cached.files))
     ) {
-      return this.result('up-to-date', 0, 0);
+      const preview = await this.syncPreview(model, modelDir, cached.preview ?? null, signal);
+
+      if (!preview.downloaded) {
+        return this.result('up-to-date', 0, 0);
+      }
+
+      await this.cache.writeManifest({
+        ...cached,
+        preview: preview.cached,
+      });
+
+      return this.result('fetched', 1, preview.cached?.sizeBytes ?? 0);
     }
 
     const fileSet = await this.tasks.retry(
@@ -157,7 +174,14 @@ export class FetchService {
       }
     }
 
-    await this.cache.writeManifest({
+    const preview = await this.syncPreview(model, modelDir, cached?.preview ?? null, signal);
+
+    if (preview.downloaded) {
+      filesDownloaded += 1;
+      bytesDownloaded += preview.cached?.sizeBytes ?? 0;
+    }
+
+    const manifest: CachedModelManifest = {
       modelId: model.id,
       name: model.name,
       tags: model.tags,
@@ -171,8 +195,11 @@ export class FetchService {
         sizeBytes,
         md5,
       })),
+      preview: preview.cached,
       fetchedAt: new Date().toISOString(),
-    });
+    };
+
+    await this.cache.writeManifest(manifest);
     this.logger.info(
       {
         modelId: model.id,
@@ -188,6 +215,58 @@ export class FetchService {
       filesDownloaded,
       bytesDownloaded,
     );
+  }
+
+  /**
+   * Keeps the cached preview in step with the catalog: reused while its source URL (which
+   * carries the render's version) is unchanged and the file is intact, downloaded otherwise.
+   * A failed download fails the model, so the next run tries again instead of importing it
+   * without the image search needs.
+   */
+  private async syncPreview(
+    model: PolyhavenModel,
+    modelDir: string,
+    cached: CachedPreview | null,
+    signal: AbortSignal,
+  ): Promise<{ cached: CachedPreview | null; downloaded: boolean }> {
+    if (model.previewUrl === null) {
+      return {
+        cached: null,
+        downloaded: cached !== null,
+      };
+    }
+
+    const path = this.cache.filePath(modelDir, PREVIEW_FILE_NAME);
+
+    if (cached?.sourceUrl === model.previewUrl && (await this.cache.hasFile(path, cached))) {
+      return {
+        cached,
+        downloaded: false,
+      };
+    }
+
+    const previewUrl = model.previewUrl;
+    const stored = await this.tasks.retry(
+      async () =>
+        this.cache.writeBoundedFile(
+          await this.polyhaven.downloadPreview(previewUrl, signal),
+          path,
+          MAX_PREVIEW_SIZE_BYTES,
+        ),
+      this.retryPolicy,
+      signal,
+    );
+
+    return {
+      cached: {
+        path: PREVIEW_FILE_NAME,
+        sizeBytes: stored.sizeBytes,
+        md5: stored.md5,
+        contentType: POLYHAVEN_PREVIEW_CONTENT_TYPE,
+        sourceUrl: previewUrl,
+      },
+      downloaded: true,
+    };
   }
 
   /** Downloads the file unless it is already cached intact; returns whether it downloaded. */

@@ -10,6 +10,8 @@ import type { RemoteFile } from '../domain/remote-file.interface';
 import type { TextureResolution } from '../domain/texture-resolution.type';
 import { PolyhavenRequestException } from '../exceptions/polyhaven-request.exception';
 import {
+  POLYHAVEN_PREVIEW_CONTENT_TYPE,
+  POLYHAVEN_PREVIEW_SIZE_PX,
   POLYHAVEN_REQUEST_TIMEOUT_MS,
   POLYHAVEN_RETRYABLE_STATUSES,
   POLYHAVEN_USER_AGENT,
@@ -75,6 +77,23 @@ export class HttpPolyhavenAdapter implements PolyhavenPort {
     return Readable.fromWeb(response.body);
   }
 
+  async downloadPreview(url: string, signal: AbortSignal): Promise<Readable> {
+    const response = await this.request(url, signal, POLYHAVEN_REQUEST_TIMEOUT_MS);
+    // "image/webp; charset=…" would still be WebP; only the media type is compared.
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
+
+    if (contentType !== POLYHAVEN_PREVIEW_CONTENT_TYPE || !response.body) {
+      await response.body?.cancel();
+
+      throw new PolyhavenRequestException(
+        `Preview ${url} is ${contentType ?? 'untyped'}, expected ${POLYHAVEN_PREVIEW_CONTENT_TYPE}`,
+        false,
+      );
+    }
+
+    return Readable.fromWeb(response.body);
+  }
+
   private async getJson(url: string, signal: AbortSignal): Promise<unknown> {
     const response = await this.request(url, signal, POLYHAVEN_REQUEST_TIMEOUT_MS);
 
@@ -127,6 +146,7 @@ export class HttpPolyhavenAdapter implements PolyhavenPort {
     const name = this.field(raw, 'name');
     const authors = this.field(raw, 'authors');
     const filesHash = this.field(raw, 'files_hash');
+    const thumbnailUrl = this.field(raw, 'thumbnail_url');
 
     return {
       id,
@@ -135,7 +155,31 @@ export class HttpPolyhavenAdapter implements PolyhavenPort {
       categories: this.strings(this.field(raw, 'categories')),
       authors: this.isRecord(authors) ? Object.keys(authors) : [],
       filesHash: typeof filesHash === 'string' ? filesHash : null,
+      previewUrl: this.toPreviewUrl(thumbnailUrl),
     };
+  }
+
+  /**
+   * The catalog's `thumbnail_url` (e.g. `https://cdn.polyhaven.com/asset_img/thumbs/x.png?width=256
+   * &height=256&format=webp&v=…`) with our size and WebP. Its `v` parameter is kept: it changes
+   * with the render, so a cached preview whose URL differs is out of date.
+   */
+  private toPreviewUrl(raw: unknown): string | null {
+    if (typeof raw !== 'string' || !URL.canParse(raw)) {
+      return null;
+    }
+
+    const url = new URL(raw);
+
+    if (url.protocol !== 'https:') {
+      return null;
+    }
+
+    url.searchParams.set('width', String(POLYHAVEN_PREVIEW_SIZE_PX));
+    url.searchParams.set('height', String(POLYHAVEN_PREVIEW_SIZE_PX));
+    url.searchParams.set('format', 'webp');
+
+    return url.toString();
   }
 
   private toRemoteFile(path: string, raw: unknown): RemoteFile {

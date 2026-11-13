@@ -34,7 +34,10 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
 
   async initiateUpload(command: InitiateUploadCommand): Promise<UploadSession> {
     const response = await this.call(
-      this.client.initiateUpload({ ...command, sourcePreview: undefined }),
+      this.client.initiateUpload({
+        ...command,
+        sourcePreview: command.sourcePreview ?? undefined,
+      }),
     );
 
     return {
@@ -42,6 +45,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
       assetVersionId: response.assetVersionId,
       partSizeBytes: response.partSizeBytes,
       parts: response.parts.map((part) => this.toUploadPartUrl(part)),
+      sourcePreviewUploadUrl: response.sourcePreviewUpload?.url ?? null,
     };
   }
 

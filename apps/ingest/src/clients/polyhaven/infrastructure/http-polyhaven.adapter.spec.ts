@@ -49,7 +49,10 @@ describe('HttpPolyhavenAdapter', () => {
           categories: ['furniture'],
           authors: { 'Some Author': 'All' },
           files_hash: 'abc',
+          thumbnail_url:
+            'https://cdn.polyhaven.com/asset_img/thumbs/Chair.png?width=256&height=256&format=webp&v=597e',
         },
+        Insecure: { thumbnail_url: 'http://cdn.polyhaven.com/asset_img/thumbs/Insecure.png' },
         Unnamed: {},
       }),
     );
@@ -68,6 +71,17 @@ describe('HttpPolyhavenAdapter', () => {
         categories: ['furniture'],
         authors: ['Some Author'],
         filesHash: 'abc',
+        previewUrl:
+          'https://cdn.polyhaven.com/asset_img/thumbs/Chair.png?width=512&height=512&format=webp&v=597e',
+      },
+      {
+        id: 'Insecure',
+        name: 'Insecure',
+        tags: [],
+        categories: [],
+        authors: [],
+        filesHash: null,
+        previewUrl: null,
       },
       {
         id: 'Unnamed',
@@ -76,6 +90,7 @@ describe('HttpPolyhavenAdapter', () => {
         categories: [],
         authors: [],
         filesHash: null,
+        previewUrl: null,
       },
     ]);
   });
@@ -160,5 +175,28 @@ describe('HttpPolyhavenAdapter', () => {
     }
 
     expect(Buffer.concat(chunks).toString()).toBe('bytes');
+  });
+
+  it('downloads a WebP preview and refuses any other type', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('webp-bytes', { headers: { 'content-type': 'image/webp' } }),
+    );
+
+    const body = await adapter.downloadPreview('https://cdn.polyhaven.com/x.png', signal);
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of body) {
+      chunks.push(chunk as Buffer);
+    }
+
+    expect(Buffer.concat(chunks).toString()).toBe('webp-bytes');
+
+    fetchMock.mockResolvedValueOnce(
+      new Response('<html>', { headers: { 'content-type': 'text/html' } }),
+    );
+
+    await expect(
+      adapter.downloadPreview('https://cdn.polyhaven.com/x.png', signal),
+    ).rejects.toMatchObject({ retryable: false });
   });
 });

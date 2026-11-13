@@ -36,6 +36,7 @@ class FakeAssetService implements AssetServicePort {
       assetVersionId: 'version-1',
       partSizeBytes: PART_SIZE,
       parts: Array.from({ length: partCount }, (_, index) => this.sign(index + 1)),
+      sourcePreviewUploadUrl: command.sourcePreview ? 'https://storage/v1/preview?sig=p' : null,
     });
   }
 
@@ -75,7 +76,25 @@ class FakeAssetService implements AssetServicePort {
 /** Storage that keeps the bytes per URL; `failures` are thrown, in order, before succeeding. */
 class FakeStorage implements PresignedUploadPort {
   readonly puts: { url: string; bytes: number[] }[] = [];
+  readonly objects: { url: string; bytes: number[]; contentType: string }[] = [];
   failures: PartUploadException[] = [];
+  objectFailures: PartUploadException[] = [];
+
+  putObject(url: string, body: Uint8Array, contentType: string): Promise<void> {
+    const failure = this.objectFailures.shift();
+
+    if (failure !== undefined) {
+      return Promise.reject(failure);
+    }
+
+    this.objects.push({
+      url,
+      bytes: [...body],
+      contentType,
+    });
+
+    return Promise.resolve();
+  }
 
   putPart(url: string, body: Uint8Array): Promise<string> {
     const failure = this.failures.shift();
@@ -107,6 +126,7 @@ describe('UploadService', () => {
     tags: ['polyhaven'],
     fileName: 'Chair_01.glb',
     glb: Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    sourcePreview: null,
   };
 
   beforeEach(() => {
@@ -134,8 +154,10 @@ describe('UploadService', () => {
         fileName: 'Chair_01.glb',
         contentType: 'model/gltf-binary',
         sizeBytes: 10,
+        sourcePreview: null,
       },
     ]);
+    expect(storage.objects).toEqual([]);
     expect(storage.puts.map((put) => put.bytes)).toEqual([
       [1, 2, 3, 4],
       [5, 6, 7, 8],
@@ -187,5 +209,48 @@ describe('UploadService', () => {
     await expect(uploader.upload(upload, signal)).rejects.toThrow('asset-service: too big');
     expect(assetService.initiated).toHaveLength(1);
     expect(assetService.aborted).toEqual([]);
+  });
+
+  describe('with a source preview (ADR 017)', () => {
+    const withPreview = {
+      ...upload,
+      sourcePreview: {
+        bytes: Uint8Array.from([42, 43]),
+        contentType: 'image/webp',
+      },
+    };
+
+    it('declares the image, PUTs it with its type before the parts, then completes', async () => {
+      await uploader.upload(withPreview, signal);
+
+      expect(assetService.initiated[0]?.sourcePreview).toEqual({
+        contentType: 'image/webp',
+        sizeBytes: 2,
+      });
+      expect(storage.objects).toEqual([
+        {
+          url: 'https://storage/v1/preview?sig=p',
+          bytes: [42, 43],
+          contentType: 'image/webp',
+        },
+      ]);
+      expect(assetService.completed).toHaveLength(3);
+    });
+
+    it('retries the image after a transient failure', async () => {
+      storage.objectFailures = [new PartUploadException('HTTP 503', 503)];
+
+      await uploader.upload(withPreview, signal);
+
+      expect(storage.objects).toHaveLength(1);
+    });
+
+    it('aborts when the image URL is rejected, since it cannot be signed again', async () => {
+      storage.objectFailures = [new PartUploadException('HTTP 403', 403)];
+
+      await expect(uploader.upload(withPreview, signal)).rejects.toThrow(PartUploadException);
+      expect(storage.puts).toEqual([]);
+      expect(assetService.aborted).toEqual(['version-1']);
+    });
   });
 });

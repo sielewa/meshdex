@@ -101,6 +101,77 @@ export class CacheService {
     await rename(partial, path);
   }
 
+  /**
+   * Streams a file whose size and MD5 aren't known in advance (the API lists neither for
+   * previews): both are computed on the way, and the download is cut off as soon as it passes
+   * `maxBytes`, so a misbehaving server can't fill the disk. Same `.part` + rename as
+   * `writeFile`. Returns what was stored, for the manifest and later integrity checks.
+   */
+  async writeBoundedFile(
+    source: Readable,
+    path: string,
+    maxBytes: number,
+  ): Promise<{ sizeBytes: number; md5: string }> {
+    const partial = `${path}${PARTIAL_FILE_SUFFIX}`;
+    const hash = createHash('md5');
+    let bytes = 0;
+
+    await mkdir(dirname(path), { recursive: true });
+
+    try {
+      await pipeline(
+        source,
+        async function* (chunks: AsyncIterable<Buffer>) {
+          for await (const chunk of chunks) {
+            bytes += chunk.length;
+
+            if (bytes > maxBytes) {
+              throw new CacheIntegrityException(
+                `${path}: larger than ${String(maxBytes)} bytes, download stopped`,
+              );
+            }
+
+            hash.update(chunk);
+            yield chunk;
+          }
+        },
+        createWriteStream(partial),
+      );
+    } catch (error) {
+      await rm(partial, { force: true });
+      throw error;
+    }
+
+    if (bytes === 0) {
+      await rm(partial, { force: true });
+      throw new CacheIntegrityException(`${path}: empty download`);
+    }
+
+    await rename(partial, path);
+
+    return {
+      sizeBytes: bytes,
+      md5: hash.digest('hex'),
+    };
+  }
+
+  /**
+   * The bytes of a cached file, checked against the size and MD5 recorded when it was stored.
+   * For small files only (a preview), which are uploaded from memory.
+   */
+  async readVerifiedFile(path: string, expected: CachedFile): Promise<Buffer> {
+    const bytes = await readFile(path);
+    const md5 = createHash('md5').update(bytes).digest('hex');
+
+    if (bytes.length !== expected.sizeBytes || md5 !== expected.md5) {
+      throw new CacheIntegrityException(
+        `${expected.path}: cached file changed (got ${String(bytes.length)} B with MD5 ${md5}); fetch again`,
+      );
+    }
+
+    return bytes;
+  }
+
   /** Written last and atomically (temporary file + rename), so it never exists half-written. */
   async writeManifest(manifest: CachedModelManifest): Promise<void> {
     const path = join(this.modelDir(manifest.modelId, manifest.resolution), MANIFEST_FILE_NAME);

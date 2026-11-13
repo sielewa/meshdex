@@ -113,4 +113,14 @@ describe('HttpPresignedUploadAdapter', () => {
       reason,
     );
   });
+
+  it('PUTs a whole object with the Content-Type its URL was signed for, needing no ETag', async () => {
+    answer = { status: 200 };
+
+    await expect(
+      adapter.putObject(url, Uint8Array.from([42, 43]), 'image/webp', signal),
+    ).resolves.toBeUndefined();
+    expect(received[0]?.headers['content-type']).toBe('image/webp');
+    expect(received[0]?.headers['content-length']).toBe('2');
+  });
 });
