@@ -1,15 +1,13 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { AssetsPageQuery } from '@/graphql/gql/graphql';
+import type { AssetCardFieldsFragment } from '@/graphql/gql/graphql';
 import { formatBytes } from '@/lib/format-bytes';
 import { formatDate } from '@/lib/format-date';
 import { AssetStatusBadge } from '@/features/assets/components/asset-status-badge';
 import { PREVIEW_IMAGE_SIZE_PX } from '@/features/assets/assets.constants';
 import { previewImageUrl } from '@/features/assets/lib/preview-image-url';
 
-type AssetListItem = AssetsPageQuery['assets']['nodes'][number];
-
-export function AssetCard({ asset }: { asset: AssetListItem }): ReactNode {
+export function AssetCard({ asset }: { asset: AssetCardFieldsFragment }): ReactNode {
   const imageUrl = previewImageUrl(asset.currentVersion);
 
   return (

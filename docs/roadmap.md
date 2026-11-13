@@ -54,7 +54,7 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 - [ ] `ml-service`: CLIP image + text embeddings, pgvector search, batched `Embed`; benchmark batch size vs latency
 - [ ] Reindex job as a data-loading pipeline: thumbnails streamed from S3 with prefetch, parallel decode/resize, batching into the model; benchmark throughput vs workers / batch size / prefetch depth and identify the bottleneck (I/O, decode or model)
 - [ ] Search quality evaluation: small labelled query set, recall@k, two CLIP models and two pgvector index types (HNSW vs IVFFlat) compared on recall vs latency; reproducible with one command, report in `docs/benchmarks/`
-- [ ] `web`: search page, asset grid with thumbnails, 3D viewer (R3F), upload with progress
+- [x] `web`: search page, asset grid with thumbnails, 3D viewer (R3F), upload with progress
 - **Done when:** text search returns relevant models in the UI, and the reindex and evaluation reports have real numbers.
 
 ## Stage 6 — Fullstack polish

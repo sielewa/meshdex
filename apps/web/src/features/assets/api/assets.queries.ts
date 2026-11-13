@@ -22,22 +22,29 @@ export const previewImageFragment = graphql(`
   }
 `);
 
+/** What `AssetCard` shows; shared by the asset list and search results. */
+export const assetCardFragment = graphql(`
+  fragment AssetCardFields on Asset {
+    id
+    title
+    tags
+    status
+    createdAt
+    currentVersion {
+      number
+      original {
+        sizeBytes
+      }
+      ...PreviewImage
+    }
+  }
+`);
+
 export const assetsPageDocument = graphql(`
   query AssetsPage($first: Int!, $after: String) {
     assets(first: $first, after: $after) {
       nodes {
-        id
-        title
-        tags
-        status
-        createdAt
-        currentVersion {
-          number
-          original {
-            sizeBytes
-          }
-          ...PreviewImage
-        }
+        ...AssetCardFields
       }
       pageInfo {
         endCursor
@@ -139,4 +146,35 @@ export function staleTimeUntilUrlExpiry(data: AssetPageQuery | undefined): numbe
   }
 
   return Math.max(0, Date.parse(expiresAt) - Date.now() - DOWNLOAD_URL_EXPIRY_MARGIN_MS);
+}
+
+export const searchAssetsDocument = graphql(`
+  query SearchAssets($query: String!, $first: Int!) {
+    searchAssets(query: $query, first: $first) {
+      hits {
+        score
+        asset {
+          ...AssetCardFields
+        }
+      }
+    }
+  }
+`);
+
+/**
+ * Text search results, best match first. Ranked results have no cursor (ADR 020): "show
+ * more" asks again with a larger `first`, so `first` is part of the key. The query is trimmed
+ * by the caller, so "chair" and " chair " share one cache entry.
+ */
+export function searchAssetsQueryOptions(endpoint: string, query: string, first: number) {
+  return queryOptions({
+    queryKey: ['assets', 'search', { query, first }],
+    queryFn: ({ signal }) =>
+      executeGraphql({
+        endpoint,
+        document: searchAssetsDocument,
+        variables: { query, first },
+        signal,
+      }),
+  });
 }

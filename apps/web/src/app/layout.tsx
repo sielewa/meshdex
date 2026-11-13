@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import { getServerEnv } from '@/config/server-env';
+import { AssetSearchForm } from '@/features/assets/components/asset-search-form';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -33,6 +34,9 @@ export default async function RootLayout({
               <Link href="/upload" className="text-sm text-neutral-300 hover:text-white">
                 Upload
               </Link>
+              <div className="ml-auto flex flex-1 justify-end">
+                <AssetSearchForm />
+              </div>
             </nav>
           </header>
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
