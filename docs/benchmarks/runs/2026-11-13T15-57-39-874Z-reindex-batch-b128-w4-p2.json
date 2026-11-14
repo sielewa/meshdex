@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "command": "reindex",
+  "label": "batch-b128-w4-p2",
+  "startedAt": "2026-11-13T15:57:39.874Z",
+  "options": {
+    "batchSize": 128,
+    "numWorkers": 4,
+    "prefetchFactor": 2,
+    "limit": null,
+    "includeEmbedded": true,
+    "device": "mps",
+    "model": "ViT-B-32/laion2b_s34b_b79k"
+  },
+  "environment": {
+    "python": "3.12.16",
+    "torch": "2.15.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpuModel": "Apple M4",
+    "cpuCount": 10,
+    "totalMemoryBytes": 34359738368,
+    "gitCommit": "d328d9e73c0851ded95bca6b6b7d1352c4ae483d",
+    "gitDirty": false
+  },
+  "measurements": {
+    "wallMs": 4973,
+    "cpuUserMs": 10737,
+    "cpuSystemMs": 1184,
+    "peakRssBytes": 1105231872,
+    "peakWorkerRssBytes": 494223360
+  },
+  "result": {
+    "versionsListed": 518,
+    "versionsAlreadyEmbedded": 0,
+    "versionsWithoutImage": 1,
+    "versionsSelected": 517,
+    "versionsEmbedded": 517,
+    "versionsSuperseded": 0,
+    "imagesSelected": 517,
+    "imagesEmbedded": 517,
+    "batches": 5,
+    "steadyImages": 389,
+    "failures": [],
+    "stages": {
+      "listMs": 51.0,
+      "firstBatchMs": 1942.7,
+      "loaderWaitMs": 31.8,
+      "modelMs": 2003.9,
+      "writeMs": 336.3,
+      "shutdownMs": 549.5,
+      "steadyMs": 1733.2,
+      "workerFetchMs": 1113.1,
+      "workerDecodeMs": 804.0,
+      "workerPreprocessMs": 631.8
+    },
+    "imagesPerSecond": 103.96,
+    "steadyImagesPerSecond": 224.44
+  }
+}

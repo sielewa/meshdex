@@ -10,11 +10,13 @@ Measured performance of Meshdex, with the raw data behind every number ([ADR 014
 
 - [Ingest import: packing on the main thread vs in worker threads](ingest-import.md) (2026-11-12)
 - [Ingest import: upload concurrency](ingest-upload-concurrency.md) (2026-11-12)
+- [Reindex: batch size, loader workers and prefetch depth](reindex.md) (2026-11-13)
 
 ## Recording a run
 
 ```
 pnpm --filter @meshdex/ingest start import --record ../../docs/benchmarks/runs --label <name>
+cd apps/ml-service && uv run python -m ml_service reindex --record ../../docs/benchmarks/runs --label <name>
 ```
 
 Then list the new run files under their experiment in `experiments.json` (a unit test fails while a committed run belongs to no experiment). Commit a run when it is worth keeping (a baseline, a sweep, before/after an optimisation), from a clean working tree so its `gitCommit` names the code that produced it. Exploratory runs go to `.claude-workdir/` or any scratch directory.
