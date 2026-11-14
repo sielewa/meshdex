@@ -1,7 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { WorkloadSection } from '@/features/experiments/components/workload-section';
-import { buildBenchmarkRun as run } from '@/features/experiments/lib/benchmark-run.fixture';
+import {
+  buildBenchmarkRun as run,
+  buildReindexRun as reindexRun,
+} from '@/features/experiments/lib/benchmark-run.fixture';
 import { groupRuns } from '@/features/experiments/lib/group-runs';
 
 function renderComparison(): void {
@@ -100,5 +103,31 @@ describe('WorkloadSection', () => {
     expect(wallTime.getAttribute('aria-label')).toContain('8 uploaders: median 251 ms');
     expect(within(wallTime).getByText('251')).toBeDefined();
     expect(screen.queryByRole('list', { name: 'Configurations' })).toBeNull();
+  });
+
+  it('draws a reindex sweep with the metrics of reindex runs', () => {
+    const [workload] = groupRuns(
+      [0, 1, 2, 4].flatMap((workers, index) =>
+        [0, 1].map((repeat) =>
+          reindexRun({
+            startedAt: `2026-11-13T15:0${String(index)}:0${String(repeat)}Z`,
+            options: { numWorkers: workers },
+            steadyImagesPerSecond: workers === 2 ? 245 + repeat : 200 + workers + repeat,
+          }),
+        ),
+      ),
+    );
+
+    if (workload === undefined) {
+      throw new Error('expected one workload');
+    }
+
+    render(<WorkloadSection workload={workload} />);
+    const throughput = screen.getByRole('img', { name: /^Steady throughput by loader workers\./ });
+
+    expect(screen.getByText(/517 images embedded per run/)).toBeDefined();
+    expect(throughput.getAttribute('aria-label')).toContain('2 loader workers: median 246 img/s');
+    expect(within(throughput).getByText('246')).toBeDefined();
+    expect(screen.getAllByRole('img')).toHaveLength(workload.metrics.length);
   });
 });

@@ -1,26 +1,8 @@
-/**
- * Import options that choose the data a run works on. Runs with equal values (on the same
- * machine) did the same work, so they can be compared.
- */
-export const WORKLOAD_OPTIONS = ['resolution', 'limit', 'ids'] as const;
+/** Texture resolutions of `ingest import`, smallest first: the order of its workloads. */
+export const IMPORT_RESOLUTION_ORDER = ['1k', '2k', '4k'] as const;
 
-/**
- * Import options that change how the same work is done: what an experiment varies. Together
- * with the Node.js version and the commit they tell configurations apart.
- */
-export const CONFIGURATION_OPTIONS = [
-  'packConcurrency',
-  'packInWorkers',
-  'uploadConcurrency',
-  'queueSize',
-] as const;
-
-/** Configuration options with numeric values: one of them varying alone makes a sweep. */
-export const NUMERIC_CONFIGURATION_OPTIONS = [
-  'packConcurrency',
-  'uploadConcurrency',
-  'queueSize',
-] as const;
+/** SI megabytes, the unit ingest reports throughput in (and `formatBytes` uses). */
+export const MEGABYTE = 1_000_000;
 
 /**
  * Series colours (categorical slots of the data-viz palette, dark steps, validated against the

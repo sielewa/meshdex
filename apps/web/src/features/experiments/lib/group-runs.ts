@@ -1,35 +1,31 @@
-import {
-  CONFIGURATION_OPTIONS,
-  NUMERIC_CONFIGURATION_OPTIONS,
-  WORKLOAD_OPTIONS,
-} from '@/features/experiments/experiments.constants';
 import type { BenchmarkRun } from '@/features/experiments/lib/benchmark-run.schema';
-import type {
-  ConfigurationField,
-  Machine,
-  NumericConfigurationOption,
-  RunConfiguration,
-  Workload,
-} from '@/features/experiments/types/workload';
-
-const RESOLUTION_ORDER = ['1k', '2k', '4k'];
+import { profileRun } from '@/features/experiments/lib/profile-run';
+import type { RunProfile, RunSetting } from '@/features/experiments/types/run-profile';
+import type { RunConfiguration, Workload } from '@/features/experiments/types/workload';
 
 /**
  * Groups runs into workloads (same command, same data, same machine) and, inside each, into
- * configurations (same options, Node.js version and commit). Derived from the records alone,
- * so a new experiment needs no list of which runs belong together: labels are only names.
+ * configurations (same settings, runtime and commit). Derived from the records alone, through
+ * each command's profile, so a new experiment needs no list of which runs belong together:
+ * labels are only names.
  */
 export function groupRuns(runs: readonly BenchmarkRun[]): Workload[] {
   const workloads = new Map<string, Workload>();
   const byTime = [...runs].sort((a, b) => a.record.startedAt.localeCompare(b.record.startedAt));
 
   for (const run of byTime) {
-    const workload = getOrAdd(workloads, workloadKey(run), (key) => newWorkload(key, run));
+    const profile = profileRun(run.record);
+    const workload = getOrAdd(workloads, workloadKey(profile), (key) => newWorkload(key, profile));
+    const key = configurationKey(profile);
     const configuration =
-      workload.configurations.find((existing) => existing.key === configurationKey(run)) ??
-      addConfiguration(workload, run);
+      workload.configurations.find((existing) => existing.key === key) ??
+      addConfiguration(workload, key, profile);
 
-    configuration.runs.push(run);
+    configuration.runs.push({
+      file: run.file,
+      startedAt: run.record.startedAt,
+      values: profile.values,
+    });
 
     if (run.record.label !== null && !configuration.labels.includes(run.record.label)) {
       configuration.labels.push(run.record.label);
@@ -39,11 +35,13 @@ export function groupRuns(runs: readonly BenchmarkRun[]): Workload[] {
   for (const workload of workloads.values()) {
     workload.differences = findDifferences(workload.configurations);
 
-    const swept = sweptOption(workload);
+    const swept = sweptSetting(workload);
 
-    // A sweep reads along its option (1, 2, 4, 8 uploaders), not in recording order.
+    // A sweep reads along its setting (1, 2, 4, 8 uploaders), not in recording order.
     if (swept !== null) {
-      workload.configurations.sort((a, b) => a.options[swept] - b.options[swept]);
+      workload.configurations.sort(
+        (a, b) => Number(findSetting(a, swept)?.value) - Number(findSetting(b, swept)?.value),
+      );
     }
   }
 
@@ -51,80 +49,66 @@ export function groupRuns(runs: readonly BenchmarkRun[]): Workload[] {
 }
 
 /**
- * The numeric option a workload sweeps, when its configurations differ in that option alone
- * (same code, same other settings); `null` for any other comparison.
+ * The id of the numeric option a workload sweeps, when its configurations differ in that
+ * option alone (same code, same runtime, same other options); `null` for any other comparison.
  */
-export function sweptOption(workload: Workload): NumericConfigurationOption | null {
+export function sweptSetting(workload: Workload): string | null {
   const [only, ...rest] = workload.differences;
 
-  return rest.length === 0 && only !== undefined && isNumericOption(only) ? only : null;
+  if (only === undefined || rest.length > 0) {
+    return null;
+  }
+
+  const numericOption = workload.configurations.every((configuration) => {
+    const setting = findSetting(configuration, only);
+
+    return setting?.kind === 'option' && typeof setting.value === 'number';
+  });
+
+  return numericOption ? only : null;
 }
 
-function isNumericOption(field: ConfigurationField): field is NumericConfigurationOption {
-  return (NUMERIC_CONFIGURATION_OPTIONS as readonly string[]).includes(field);
+export function findSetting(configuration: RunConfiguration, id: string): RunSetting | undefined {
+  return configuration.settings.find((setting) => setting.id === id);
 }
 
-function workloadKey({ record }: BenchmarkRun): string {
-  const { options, environment } = record;
-
+function workloadKey({ command, work, machine }: RunProfile): string {
   return JSON.stringify([
-    record.command,
-    ...WORKLOAD_OPTIONS.map((name) => (name === 'ids' ? sortedIds(options.ids) : options[name])),
-    environment.platform,
-    environment.arch,
-    environment.cpuModel,
-    environment.cpuCount,
-    environment.totalMemoryBytes,
+    command,
+    work,
+    machine.platform,
+    machine.arch,
+    machine.cpuModel,
+    machine.cpuCount,
+    machine.totalMemoryBytes,
   ]);
 }
 
-function configurationKey({ record }: BenchmarkRun): string {
-  return JSON.stringify([
-    ...CONFIGURATION_OPTIONS.map((name) => record.options[name]),
-    record.environment.node,
-    record.environment.gitCommit,
-    record.environment.gitDirty,
-  ]);
+function configurationKey({ settings }: RunProfile): string {
+  return JSON.stringify(settings.map((setting) => [setting.id, setting.value]));
 }
 
-function newWorkload(key: string, { record }: BenchmarkRun): Workload {
-  const { platform, arch, cpuModel, cpuCount, totalMemoryBytes } = record.environment;
-  const machine: Machine = {
-    platform,
-    arch,
-    cpuModel,
-    cpuCount,
-    totalMemoryBytes,
-  };
-
+function newWorkload(key: string, profile: RunProfile): Workload {
   return {
     key,
-    command: record.command,
-    options: {
-      resolution: record.options.resolution,
-      limit: record.options.limit,
-      ids: sortedIds(record.options.ids),
-    },
-    machine,
+    command: profile.command,
+    title: profile.workloadTitle,
+    detail: profile.workloadDetail,
+    order: profile.workloadOrder,
+    machine: profile.machine,
+    metrics: profile.metrics,
     configurations: [],
     differences: [],
   };
 }
 
-function addConfiguration(workload: Workload, run: BenchmarkRun): RunConfiguration {
-  const { options, environment } = run.record;
+function addConfiguration(workload: Workload, key: string, profile: RunProfile): RunConfiguration {
   const configuration: RunConfiguration = {
-    key: configurationKey(run),
+    key,
     labels: [],
-    options: {
-      packConcurrency: options.packConcurrency,
-      packInWorkers: options.packInWorkers,
-      uploadConcurrency: options.uploadConcurrency,
-      queueSize: options.queueSize,
-    },
-    node: environment.node,
-    gitCommit: environment.gitCommit,
-    gitDirty: environment.gitDirty,
+    settings: profile.settings,
+    gitCommit: profile.gitCommit,
+    gitDirty: profile.gitDirty,
     runs: [],
   };
 
@@ -133,35 +117,33 @@ function addConfiguration(workload: Workload, run: BenchmarkRun): RunConfigurati
   return configuration;
 }
 
-/** A dirty tree counts as different code from its clean commit. */
-function findDifferences(configurations: readonly RunConfiguration[]): ConfigurationField[] {
-  const fields: Record<ConfigurationField, (configuration: RunConfiguration) => unknown> = {
-    packConcurrency: (c) => c.options.packConcurrency,
-    packInWorkers: (c) => c.options.packInWorkers,
-    uploadConcurrency: (c) => c.options.uploadConcurrency,
-    queueSize: (c) => c.options.queueSize,
-    node: (c) => c.node,
-    gitCommit: (c) => `${String(c.gitCommit)}:${String(c.gitDirty)}`,
-  };
+/** In the order the profile names its settings; every configuration of a workload has the same ones. */
+function findDifferences(configurations: readonly RunConfiguration[]): string[] {
+  const ids = configurations[0]?.settings.map((setting) => setting.id) ?? [];
 
-  return (Object.keys(fields) as ConfigurationField[]).filter(
-    (field) => new Set(configurations.map(fields[field])).size > 1,
-  );
+  return ids.filter((id) => new Set(configurations.map((c) => findSetting(c, id)?.value)).size > 1);
 }
 
-/** By command, then resolution, then the number of models (all models last). */
+/** By command, then by the command's own order, then by key so the order is stable. */
 function compareWorkloads(a: Workload, b: Workload): number {
   return (
     a.command.localeCompare(b.command) ||
-    RESOLUTION_ORDER.indexOf(a.options.resolution) -
-      RESOLUTION_ORDER.indexOf(b.options.resolution) ||
-    (a.options.limit ?? Infinity) - (b.options.limit ?? Infinity) ||
+    compareOrder(a.order, b.order) ||
     a.key.localeCompare(b.key)
   );
 }
 
-function sortedIds(ids: readonly string[] | null): string[] | null {
-  return ids === null ? null : [...ids].sort();
+function compareOrder(a: readonly number[], b: readonly number[]): number {
+  for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
+    const difference = (a[index] ?? 0) - (b[index] ?? 0);
+
+    // Infinity - Infinity is NaN: two "all models" workloads are equal at this position.
+    if (difference !== 0 && !Number.isNaN(difference)) {
+      return difference;
+    }
+  }
+
+  return a.length - b.length;
 }
 
 function getOrAdd<V>(map: Map<string, V>, key: string, create: (key: string) => V): V {
