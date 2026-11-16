@@ -8,11 +8,7 @@ import { HealthImplementation } from 'grpc-health-check';
 import { READINESS_SERVICE } from './health.constants';
 import { GRPC_HEALTH } from './health.tokens';
 
-/**
- * Liveness ("process is up") and readiness ("send me traffic") are separate on purpose:
- * during shutdown the pod stays alive but stops being ready, so Kubernetes removes it
- * from load balancing before in-flight calls are drained.
- */
+/** Separate so that during shutdown the pod stays alive but leaves load balancing. */
 @Injectable()
 export class HealthService implements OnApplicationBootstrap, BeforeApplicationShutdown {
   constructor(@Inject(GRPC_HEALTH) private readonly health: HealthImplementation) {}

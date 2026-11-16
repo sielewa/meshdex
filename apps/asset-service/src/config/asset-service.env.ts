@@ -2,13 +2,8 @@ import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsString, IsUrl, Max, Min } from 'class-validator';
 import { MIB } from './config.constants';
 
-/**
- * Every environment variable asset-service reads, validated once at startup (ADR 007).
- * Modules never touch `process.env`; they inject their config namespace instead.
- * Booleans accept only the literal strings "true"/"false"; anything else fails `@IsBoolean`.
- */
+/** Validated once at startup (ADR 007). */
 export class AssetServiceEnv {
-  /** host:port the gRPC server binds to. */
   @IsString()
   GRPC_URL!: string;
 

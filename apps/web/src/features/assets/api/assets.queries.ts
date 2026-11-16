@@ -8,7 +8,6 @@ import {
   DOWNLOAD_URL_EXPIRY_MARGIN_MS,
 } from '@/features/assets/assets.constants';
 
-/** What `previewImageUrl` needs: both kinds of image a version can have (ADR 017). */
 export const previewImageFragment = graphql(`
   fragment PreviewImage on AssetVersion {
     thumbnails {
@@ -22,22 +21,28 @@ export const previewImageFragment = graphql(`
   }
 `);
 
+export const assetCardFragment = graphql(`
+  fragment AssetCardFields on Asset {
+    id
+    title
+    tags
+    status
+    createdAt
+    currentVersion {
+      number
+      original {
+        sizeBytes
+      }
+      ...PreviewImage
+    }
+  }
+`);
+
 export const assetsPageDocument = graphql(`
   query AssetsPage($first: Int!, $after: String) {
     assets(first: $first, after: $after) {
       nodes {
-        id
-        title
-        tags
-        status
-        createdAt
-        currentVersion {
-          number
-          original {
-            sizeBytes
-          }
-          ...PreviewImage
-        }
+        ...AssetCardFields
       }
       pageInfo {
         endCursor
@@ -48,10 +53,8 @@ export const assetsPageDocument = graphql(`
 `);
 
 /**
- * The asset list as an infinite query: each page is one `assets` call, the next page starts
- * after the previous page's `endCursor` (ADR 009). Used by the server prefetch (internal
- * endpoint) and by `AssetGrid` (public endpoint); the key has no endpoint, so both share
- * one cache entry and the hydrated pages are reused instead of refetched.
+ * The key has no endpoint, so the server prefetch (internal endpoint) and the browser (public)
+ * share one cache entry and hydrated pages aren't refetched.
  */
 export function assetsInfiniteQueryOptions(endpoint: string) {
   return infiniteQueryOptions({
@@ -108,10 +111,6 @@ export const assetPageDocument = graphql(`
   }
 `);
 
-/**
- * One asset with a short-lived download URL. Shared by the page's server prefetch and
- * `AssetView`; `asset` is `null` when it doesn't exist.
- */
 export function assetQueryOptions(endpoint: string, id: string) {
   return queryOptions({
     queryKey: ['assets', 'detail', id],
@@ -126,11 +125,7 @@ export function assetQueryOptions(endpoint: string, id: string) {
   });
 }
 
-/**
- * Cached data stays fresh until shortly before the signed URL expires (ADR 010). Returning
- * to the page within that window reuses the same URL, so three.js finds the model in its
- * cache instead of downloading it again under a new signature.
- */
+/** Fresh until the signed URL nearly expires, so three.js finds the model in its cache (ADR 010). */
 export function staleTimeUntilUrlExpiry(data: AssetPageQuery | undefined): number {
   const expiresAt = data?.asset?.currentVersion.originalDownloadUrl?.expiresAt;
 
@@ -139,4 +134,31 @@ export function staleTimeUntilUrlExpiry(data: AssetPageQuery | undefined): numbe
   }
 
   return Math.max(0, Date.parse(expiresAt) - Date.now() - DOWNLOAD_URL_EXPIRY_MARGIN_MS);
+}
+
+export const searchAssetsDocument = graphql(`
+  query SearchAssets($query: String!, $first: Int!) {
+    searchAssets(query: $query, first: $first) {
+      hits {
+        score
+        asset {
+          ...AssetCardFields
+        }
+      }
+    }
+  }
+`);
+
+/** Ranked results have no cursor (ADR 020): "show more" asks again with a larger `first`. */
+export function searchAssetsQueryOptions(endpoint: string, query: string, first: number) {
+  return queryOptions({
+    queryKey: ['assets', 'search', { query, first }],
+    queryFn: ({ signal }) =>
+      executeGraphql({
+        endpoint,
+        document: searchAssetsDocument,
+        variables: { query, first },
+        signal,
+      }),
+  });
 }

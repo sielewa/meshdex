@@ -1,4 +1,4 @@
-/** Position of the last asset on a page: the keyset `(created_at, id)` of ListAssets. */
+/** The keyset `(created_at, id)` of the last asset on a page. */
 export interface PageCursor {
   createdAt: number;
   id: string;

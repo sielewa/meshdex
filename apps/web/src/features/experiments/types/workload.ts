@@ -1,21 +1,7 @@
-import type {
-  CONFIGURATION_OPTIONS,
-  NUMERIC_CONFIGURATION_OPTIONS,
-  WORKLOAD_OPTIONS,
-} from '@/features/experiments/experiments.constants';
-import type {
-  BenchmarkRun,
-  ImportRunOptions,
-} from '@/features/experiments/lib/benchmark-run.schema';
+import type { BenchmarkRecord } from '@/features/experiments/lib/benchmark-run.schema';
+import type { RunMetric, RunSetting } from '@/features/experiments/types/run-profile';
 
-export type WorkloadOption = (typeof WORKLOAD_OPTIONS)[number];
-export type ConfigurationOption = (typeof CONFIGURATION_OPTIONS)[number];
-export type NumericConfigurationOption = (typeof NUMERIC_CONFIGURATION_OPTIONS)[number];
-
-/** A configuration property that can differ between configurations of one workload. */
-export type ConfigurationField = ConfigurationOption | 'node' | 'gitCommit';
-
-/** The machine a run was measured on; runs from different machines are never compared. */
+/** Runs from different machines are never compared. */
 export interface Machine {
   platform: string;
   arch: string;
@@ -24,27 +10,30 @@ export interface Machine {
   totalMemoryBytes: number;
 }
 
-/** Runs that did the same work the same way, from the same code. */
-export interface RunConfiguration {
-  key: string;
-  /** Distinct labels of its runs, in the order they were recorded. */
-  labels: string[];
-  options: Pick<ImportRunOptions, ConfigurationOption>;
-  node: string;
-  gitCommit: string | null;
-  gitDirty: boolean | null;
-  /** Oldest first. */
-  runs: BenchmarkRun[];
+export interface WorkloadRun {
+  file: string;
+  startedAt: string;
+  values: Readonly<Record<string, number>>;
 }
 
-/** The same work on the same machine, done by one or more configurations. */
+export interface RunConfiguration {
+  key: string;
+  labels: string[];
+  settings: RunSetting[];
+  gitCommit: string | null;
+  gitDirty: boolean | null;
+  runs: WorkloadRun[];
+}
+
 export interface Workload {
   key: string;
-  command: 'import';
-  options: Pick<ImportRunOptions, WorkloadOption>;
+  command: BenchmarkRecord['command'];
+  title: string;
+  detail: string;
+  order: number[];
   machine: Machine;
-  /** In the order they were first recorded. */
+  metrics: readonly RunMetric[];
   configurations: RunConfiguration[];
-  /** Fields whose values differ between the configurations: what this workload compares. */
-  differences: ConfigurationField[];
+  /** Ids of the settings whose values differ between the configurations: what this workload compares. */
+  differences: string[];
 }

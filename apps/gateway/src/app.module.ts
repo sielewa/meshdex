@@ -11,13 +11,13 @@ import { DateTimeScalar } from './graphql/date-time.scalar';
 import { GraphqlOptionsFactory } from './graphql/graphql-options.factory';
 import { GraphqlValidationPipe } from './graphql/graphql-validation.pipe';
 import { HealthModule } from './health/health.module';
+import { SearchModule } from './search/search.module';
 import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // `.env` is loaded in main.ts (local only); here we only expose validated namespaces.
       ignoreEnvFile: true,
       load: allConfigNamespaces,
     }),
@@ -41,6 +41,7 @@ import { UploadsModule } from './uploads/uploads.module';
     HealthModule,
     AssetsModule,
     UploadsModule,
+    SearchModule,
   ],
   providers: [
     DateTimeScalar,

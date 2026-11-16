@@ -1,6 +1,5 @@
 import type { EventLoopDelay } from './event-loop-delay.interface';
 
-/** What the process spent on one run, measured by `RunProbe`. */
 export interface RunMeasurements {
   wallMs: number;
   /** CPU time of the whole process (all threads), so it can exceed `wallMs`. */

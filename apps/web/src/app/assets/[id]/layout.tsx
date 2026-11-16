@@ -3,10 +3,8 @@ import type { ReactNode } from 'react';
 import { z } from 'zod';
 
 /**
- * Rejects malformed ids above the `loading.tsx` boundary, where the HTTP status is still
- * open: a real 404. Below it the response is already streaming with 200, so an id that is
- * well-formed but unknown gets Next.js' soft 404 (not-found page + `noindex`), see page.tsx.
- * Format check only — no data is fetched here, because layouts also run for link prefetches.
+ * Above the `loading.tsx` boundary the status is still open, so a malformed id gets a real 404.
+ * No data is fetched here: layouts also run for link prefetches.
  */
 export default async function AssetLayout({
   children,

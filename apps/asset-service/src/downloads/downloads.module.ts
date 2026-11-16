@@ -4,7 +4,6 @@ import { DownloadsController } from './downloads.controller';
 import { DownloadsService } from './downloads.service';
 import { StoredOriginalsRepository } from './infrastructure/stored-originals.repository';
 
-/** Read access to stored files through short-lived presigned URLs (ADR 010). */
 @Module({
   imports: [
     StorageModule,

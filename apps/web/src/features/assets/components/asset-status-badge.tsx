@@ -24,7 +24,7 @@ const STYLES: Record<AssetStatus, { label: string; className: string }> = {
   },
 };
 
-/** `Record<AssetStatus, …>`: a status added to the schema fails type-checking here until styled. */
+/** A `Record`, so a new status fails type-checking until it is styled. */
 export function AssetStatusBadge({ status }: { status: AssetStatus }): ReactNode {
   const { label, className } = STYLES[status];
 

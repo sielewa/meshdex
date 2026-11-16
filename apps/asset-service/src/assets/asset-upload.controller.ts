@@ -25,10 +25,7 @@ import { InvalidUploadRequestException } from './exceptions/invalid-upload-reque
 import { SourcePreviewMissingException } from './exceptions/source-preview-missing.exception';
 import { UploadNotInProgressException } from './exceptions/upload-not-in-progress.exception';
 
-/**
- * Upload RPCs of `meshdex.asset.v1.AssetService`. Other RPCs of the same service live in
- * other controllers; `implements Pick<...>` keeps each method checked against the contract.
- */
+/** `implements Pick<...>`: the service's RPCs are split across controllers. */
 @Controller()
 export class AssetUploadController implements Pick<
   AssetServiceController,
@@ -117,7 +114,6 @@ export class AssetUploadController implements Pick<
     };
   }
 
-  /** Maps the domain exceptions of the upload RPCs to gRPC status codes; unknown errors become INTERNAL. */
   private toRpcException(error: unknown): unknown {
     if (
       error instanceof InvalidAssetVersionIdException ||

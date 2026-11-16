@@ -11,12 +11,7 @@ import type { AssetVersion } from '../assets/domain/asset-version.interface';
 import { AssetVersionStatus } from '../assets/domain/asset-version-status.enum';
 import type { StoredObject } from '../assets/domain/stored-object.interface';
 
-/**
- * Domain -> contract mapping shared by every controller that returns assets. Generated
- * proto types stop here (conventions): the domain uses string statuses and epoch
- * milliseconds, the contract uses numeric enums and google.protobuf.Timestamp.
- * Lives in the catalog module (which `assets` imports) so no module cycle is needed.
- */
+/** Generated proto types stop here. In `catalog`, which `assets` imports, to avoid a cycle. */
 @Injectable()
 export class AssetProtoMapper {
   toProtoAsset(asset: Asset): ProtoAsset {

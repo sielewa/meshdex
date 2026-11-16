@@ -9,10 +9,7 @@ import { GraphqlExceptionFilter } from '../graphql/graphql-exception.filter';
 import { AssetVersionModel } from './models/asset-version.model';
 import { SignedUrlModel } from './models/signed-url.model';
 
-/**
- * Fields of `AssetVersion` that cost a call to asset-service. They are resolved only when a
- * query selects them, so asset lists that don't ask for a download link sign nothing.
- */
+/** Resolved only when selected, so lists that don't ask for a download link sign nothing. */
 @Resolver(() => AssetVersionModel)
 @UseFilters(GraphqlExceptionFilter)
 export class AssetVersionResolver {
@@ -32,11 +29,7 @@ export class AssetVersionResolver {
     }
   }
 
-  /**
-   * Version ids come from asset-service itself, so INVALID_ARGUMENT can't happen here; the
-   * only expected failure is an unavailable upstream. The field is nullable, so the rest of
-   * the asset is still returned next to the error.
-   */
+  /** Nullable, so the rest of the asset is still returned next to an upstream error. */
   private toGraphQLError(error: unknown): unknown {
     if (error instanceof AssetServiceUnavailableException) {
       return new GraphQLError(error.message, {

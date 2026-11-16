@@ -5,7 +5,6 @@ import { CatalogService } from './catalog.service';
 import { AssetListRepository } from './infrastructure/asset-list.repository';
 import { AssetViewsRepository } from './infrastructure/asset-views.repository';
 
-/** Read side of assets; exports `CatalogService` and `AssetProtoMapper` for modules that return asset views. */
 @Module({
   controllers: [
     CatalogController,

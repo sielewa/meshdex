@@ -1,12 +1,8 @@
 import { PartUploadError } from '@/features/upload/api/part-upload-error';
 
 /**
- * PUTs one part to its presigned URL and returns the ETag object storage assigned to it.
- *
- * XMLHttpRequest instead of fetch: browsers report upload progress only for XHR
- * (`xhr.upload.onprogress`); fetch can't observe bytes leaving the machine. The body is a
- * `Blob` slice, which the browser streams from disk — the part is never copied into memory.
- * No Content-Type header is sent: the presigned signature doesn't cover one.
+ * XHR, not fetch: only XHR reports upload progress. The `Blob` slice is streamed from disk, and
+ * no Content-Type is sent because the signature doesn't cover one.
  */
 export function putPart(options: {
   url: string;

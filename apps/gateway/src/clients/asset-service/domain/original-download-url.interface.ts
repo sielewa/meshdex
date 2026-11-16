@@ -1,4 +1,3 @@
-/** Short-lived presigned GET URL of a version's original upload (ADR 010). */
 export interface OriginalDownloadUrl {
   versionId: string;
   url: string;

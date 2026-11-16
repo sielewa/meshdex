@@ -6,6 +6,5 @@ export interface InitiatedUpload {
   versionId: string;
   partSizeBytes: number;
   parts: PresignedPart[];
-  /** PUT target for the declared source preview; null when none was declared. */
   sourcePreviewUpload: PresignedUrl | null;
 }

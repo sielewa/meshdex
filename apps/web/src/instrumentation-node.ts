@@ -1,11 +1,6 @@
 import { getServerEnv } from './config/server-env';
 
-/**
- * An invalid environment must stop the process: Next.js catches errors thrown from
- * `register()`, logs them and keeps serving (every request then fails with 500), so throwing
- * alone would leave a broken pod running. Exiting makes the pod crash at startup, where
- * Kubernetes reports it and never routes traffic to it.
- */
+/** Exits: Next.js catches errors from `register()` and keeps serving 500s from a broken pod. */
 export function registerNode(): void {
   try {
     getServerEnv();

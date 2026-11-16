@@ -16,18 +16,13 @@ import type { UploadPartUrl } from '../domain/upload-part-url.interface';
 import type { UploadSession } from '../domain/upload-session.interface';
 import { AssetServiceRequestException } from '../exceptions/asset-service-request.exception';
 
-/**
- * `AssetServicePort` over gRPC. Generated proto types stop here, and gRPC status codes become
- * `AssetServiceRequestException`. Deadlines and transport retries come from the channel's
- * service config (`AssetServiceClientOptionsFactory`), so every call here has one.
- */
+/** Generated proto types stop here. */
 @Injectable()
 export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
   private client!: AssetServiceClient;
 
   constructor(@Inject(ASSET_SERVICE_GRPC_CLIENT) private readonly grpc: ClientGrpc) {}
 
-  /** The proto is loaded when the module initialises; the TCP connection opens on the first call. */
   onModuleInit(): void {
     this.client = this.grpc.getService<AssetServiceClient>(ASSET_SERVICE_NAME);
   }
@@ -73,10 +68,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     await this.call(this.client.abortUpload({ assetVersionId }));
   }
 
-  /**
-   * NestJS returns a cold Observable: the RPC starts on subscription (`lastValueFrom`).
-   * Every call goes through here so error mapping can't be skipped.
-   */
+  /** The Observable is cold: the RPC starts on subscription. */
   private async call<T>(response$: Observable<T>): Promise<T> {
     try {
       return await lastValueFrom(response$);
@@ -85,11 +77,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     }
   }
 
-  /**
-   * asset-service writes safe, descriptive messages for the codes it returns on purpose
-   * (invalid title, file too big…), so `details` is kept for the run's failure list. For
-   * transport failures it is not: it may name hosts and ports.
-   */
+  /** `details` of transport failures may name hosts and ports, so only service errors keep it. */
   private toRequestException(error: unknown): unknown {
     if (!this.isServiceError(error)) {
       return error;
@@ -113,7 +101,6 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     }
   }
 
-  /** Errors from a gRPC call carry the status `code` and the server's `details` message. */
   private isServiceError(error: unknown): error is ServiceError {
     return (
       error instanceof Error &&

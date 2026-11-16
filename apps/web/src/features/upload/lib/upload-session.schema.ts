@@ -1,10 +1,6 @@
 import { z } from 'zod';
 
-/**
- * What survives a page reload to resume an upload: the server-side upload and the ETags of
- * parts already stored. Parsed with zod because localStorage is untrusted input (older
- * versions of the app, manual edits, other tabs).
- */
+/** localStorage is untrusted input (older app versions, manual edits, other tabs). */
 export const uploadSessionSchema = z.object({
   version: z.literal(1),
   assetId: z.uuid(),

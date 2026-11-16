@@ -9,7 +9,7 @@ import { ResourceNotFoundException } from '../src/clients/asset-service/exceptio
 import { AssetServiceClientOptionsFactory } from '../src/clients/asset-service/infrastructure/asset-service-client-options.factory';
 import { GrpcAssetServiceAdapter } from '../src/clients/asset-service/infrastructure/grpc-asset-service.adapter';
 import { protoAsset } from './support/proto-asset.fixture';
-import { FakeAssetServiceServer } from './support/fake-asset-service-server';
+import { ASSET_SERVICE, FakeGrpcServer } from './support/fake-grpc-server';
 
 /**
  * The adapter with the real client options against a real gRPC server: proves that the
@@ -21,7 +21,7 @@ const TIMEOUT_MS = 300;
 const assetId = '019a7a5e-8b1c-7c3d-9e4f-000000000001';
 
 describe('GrpcAssetServiceAdapter against a gRPC server', () => {
-  const fake = new FakeAssetServiceServer();
+  const fake = new FakeGrpcServer(ASSET_SERVICE);
   let proxy: ClientGrpcProxy;
   let adapter: GrpcAssetServiceAdapter;
 

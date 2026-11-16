@@ -1,7 +1,4 @@
-/**
- * Runs once when the Next.js server starts. Node-only work lives in `instrumentation-node.ts`
- * and is imported only for the Node.js runtime, so it never ends up in an Edge bundle.
- */
+/** Node-only work is imported only for the Node.js runtime, so it stays out of Edge bundles. */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { registerNode } = await import('./instrumentation-node');

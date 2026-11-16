@@ -1,8 +1,4 @@
-/**
- * Paths masked in every log line (ADR 006). pino's `*` matches one level, so
- * `*.password` covers `{ user: { password } }` but not deeper nesting —
- * the rule "never log secrets" still applies; this is the safety net.
- */
+/** A safety net (ADR 006): pino's `*` matches one level only, so deeper secrets still leak. */
 export const REDACTED_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',

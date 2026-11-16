@@ -1,24 +1,22 @@
 import type { ReactNode } from 'react';
-import { describeCommit, describeWorkload } from '@/features/experiments/lib/describe-runs';
+import { describeCommit } from '@/features/experiments/lib/describe-runs';
 import { formatMetricValue } from '@/features/experiments/lib/format-metric';
-import { RUN_METRICS } from '@/features/experiments/lib/run-metrics';
 import { summarize } from '@/features/experiments/lib/summarize';
 import type { Workload } from '@/features/experiments/types/workload';
 
 interface WorkloadTableProps {
   workload: Workload;
-  /** Display name of each configuration, in the workload's order. */
   names: string[];
 }
 
-/** The charts' numbers as text: readable without hovering, by screen readers and in print. */
+/** Readable without hovering, by screen readers and in print. */
 export function WorkloadTable({ workload, names }: WorkloadTableProps): ReactNode {
   const { configurations } = workload;
 
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-left tabular-nums">
-        <caption className="sr-only">{describeWorkload(workload)}: median (min–max)</caption>
+        <caption className="sr-only">{workload.title}: median (min–max)</caption>
         <thead>
           <tr className="border-b border-neutral-800 text-neutral-400">
             <th scope="col" className="py-2 pr-4 font-normal">
@@ -46,14 +44,14 @@ export function WorkloadTable({ workload, names }: WorkloadTableProps): ReactNod
               </td>
             ))}
           </tr>
-          {RUN_METRICS.map((metric) => (
+          {workload.metrics.map((metric) => (
             <tr key={metric.id} className="border-b border-neutral-800 last:border-0">
               <th scope="row" className="py-2 pr-4 font-normal text-neutral-400">
                 {metric.label} ({metric.unit})
               </th>
               {configurations.map((configuration) => {
                 const { median, min, max } = summarize(
-                  configuration.runs.map((run) => metric.value(run.record)),
+                  configuration.runs.map((run) => run.values[metric.id] ?? 0),
                 );
 
                 return (

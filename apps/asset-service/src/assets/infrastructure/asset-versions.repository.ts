@@ -77,11 +77,7 @@ export class AssetVersionsRepository {
     };
   }
 
-  /**
-   * UPLOADING -> UPLOADED, only if the version is still UPLOADING. Returns false when
-   * another call already did it (a retried or concurrent CompleteUpload), so the caller
-   * can skip side effects such as the outbox event — exactly one transition wins.
-   */
+  /** False when another call already did it, so exactly one caller writes the outbox event. */
   async markUploaded(versionId: string, uploadedAt: number, tx: DbExecutor): Promise<boolean> {
     const at = new Date(uploadedAt);
     const updated = await tx
@@ -107,7 +103,6 @@ export class AssetVersionsRepository {
     await tx.delete(assetVersions).where(eq(assetVersions.id, versionId));
   }
 
-  /** UPLOADED -> PROCESSING; false if the version wasn't UPLOADED (see `markUploaded`). */
   async markProcessing(versionId: string, startedAt: number): Promise<boolean> {
     const at = new Date(startedAt);
 
@@ -118,7 +113,6 @@ export class AssetVersionsRepository {
     });
   }
 
-  /** PROCESSING -> READY with everything the worker produced. */
   async markReady(
     versionId: string,
     outputs: ProcessingOutputs,
@@ -145,7 +139,6 @@ export class AssetVersionsRepository {
     });
   }
 
-  /** PROCESSING -> FAILED. */
   async markFailed(versionId: string, reason: string, processedAt: number): Promise<boolean> {
     const at = new Date(processedAt);
 
@@ -157,7 +150,7 @@ export class AssetVersionsRepository {
     });
   }
 
-  /** Conditional update: applies only when the version is still in `from` (no lost updates). */
+  /** Applies only while the version is still in `from` (no lost updates). */
   private async transition(
     versionId: string,
     from: AssetVersionStatus,
@@ -172,7 +165,7 @@ export class AssetVersionsRepository {
     return updated.length === 1;
   }
 
-  /** Narrows a status read from the database; an unknown value means corrupted data, not user error. */
+  /** An unknown value means corrupted data, not user error. */
   private parseStatus(value: string): AssetVersionStatus {
     if (!this.isKnownStatus(value)) {
       throw new Error(`Unknown asset version status in database: "${value}"`);
@@ -181,7 +174,6 @@ export class AssetVersionsRepository {
     return value;
   }
 
-  /** Type guard: narrows the type only when the runtime check passed (no blind `as`). */
   private isKnownStatus(value: string): value is AssetVersionStatus {
     return (Object.values(AssetVersionStatus) as string[]).includes(value);
   }

@@ -4,7 +4,7 @@ import { AssetStatus } from '../../clients/asset-service/domain/asset-status.enu
 import '../models/asset-status.registration';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../assets.constants';
 
-/** Shape and cost bounds only; business rules (e.g. what a valid tag is) stay in asset-service. */
+/** Shape and cost bounds only; business rules stay in asset-service. */
 @ArgsType()
 export class AssetsArgs {
   @Field(() => Int, { defaultValue: DEFAULT_PAGE_SIZE })

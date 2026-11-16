@@ -458,6 +458,12 @@ importers:
         specifier: 29.4.15
         version: 29.4.15(@babel/core@7.29.13(supports-color@8.1.1))(@jest/transform@30.5.2(supports-color@8.1.1))(@jest/types@30.5.1)(babel-jest@30.5.2(@babel/core@7.29.13(supports-color@8.1.1))(supports-color@8.1.1))(esbuild@0.28.2)(jest-util@30.5.1)(jest@30.5.2(@types/node@24.19.2)(supports-color@8.1.1))(typescript@6.0.3)
 
+  apps/ml-service:
+    devDependencies:
+      '@meshdex/proto':
+        specifier: workspace:*
+        version: link:../../packages/proto
+
   apps/web:
     dependencies:
       '@react-three/drei':

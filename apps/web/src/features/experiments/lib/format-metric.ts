@@ -10,7 +10,6 @@ export function formatMetricValue(value: number): string {
   return Math.abs(value) >= 100 ? whole.format(value) : oneDecimal.format(value);
 }
 
-/** Axis ticks are round numbers already: no padding with ".0". */
 export function formatTick(value: number): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
 }

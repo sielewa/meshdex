@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buildBenchmarkRun as run } from '@/features/experiments/lib/benchmark-run.fixture';
-import { groupRuns, sweptOption } from '@/features/experiments/lib/group-runs';
+import {
+  buildBenchmarkRun as run,
+  buildReindexRun as reindexRun,
+} from '@/features/experiments/lib/benchmark-run.fixture';
+import { findSetting, groupRuns, sweptSetting } from '@/features/experiments/lib/group-runs';
+import type { RunConfiguration } from '@/features/experiments/types/workload';
+
+function settingValue(configuration: RunConfiguration, id: string): unknown {
+  return findSetting(configuration, id)?.value;
+}
 
 describe('groupRuns', () => {
   it('compares configurations of the same work and names what differs between them', () => {
@@ -45,10 +53,10 @@ describe('groupRuns', () => {
       run({ startedAt: '2026-11-12T20:00:03Z', options: { limit: 50 } }),
     ]);
 
-    expect(workloads.map(({ options }) => [options.resolution, options.limit])).toEqual([
-      ['1k', 50],
-      ['1k', null],
-      ['4k', 10],
+    expect(workloads.map(({ title }) => title)).toEqual([
+      'Import · 1k textures · first 50 models',
+      'Import · 1k textures · all cached models',
+      'Import · 4k textures · first 10 models',
     ]);
   });
 
@@ -82,8 +90,11 @@ describe('groupRuns', () => {
       run({ startedAt: '2026-11-12T20:00:01Z' }),
     ]);
 
-    expect(workload?.configurations.map((c) => c.options.packInWorkers)).toEqual([false, true]);
-    expect(workload?.configurations[0]?.runs.map((r) => r.record.startedAt)).toEqual([
+    expect(workload?.configurations.map((c) => settingValue(c, 'packInWorkers'))).toEqual([
+      false,
+      true,
+    ]);
+    expect(workload?.configurations[0]?.runs.map((r) => r.startedAt)).toEqual([
       '2026-11-12T20:00:01Z',
       '2026-11-12T20:00:02Z',
     ]);
@@ -99,8 +110,10 @@ describe('groupRuns', () => {
       ),
     );
 
-    expect(workload && sweptOption(workload)).toBe('uploadConcurrency');
-    expect(workload?.configurations.map((c) => c.options.uploadConcurrency)).toEqual([1, 2, 4, 8]);
+    expect(workload && sweptSetting(workload)).toBe('uploadConcurrency');
+    expect(workload?.configurations.map((c) => settingValue(c, 'uploadConcurrency'))).toEqual([
+      1, 2, 4, 8,
+    ]);
   });
 
   it('does not treat a comparison across commits or of a flag as a sweep', () => {
@@ -117,7 +130,59 @@ describe('groupRuns', () => {
       run({ startedAt: '2026-11-13T09:00:02Z', options: { packInWorkers: true } }),
     ]);
 
-    expect(acrossCommits && sweptOption(acrossCommits)).toBeNull();
-    expect(flag && sweptOption(flag)).toBeNull();
+    expect(acrossCommits && sweptSetting(acrossCommits)).toBeNull();
+    expect(flag && sweptSetting(flag)).toBeNull();
+  });
+
+  it('reads reindex runs through their own settings and sorts a sweep of loader workers', () => {
+    const [workload, ...rest] = groupRuns(
+      [4, 0, 8, 1, 2].map((workers, index) =>
+        reindexRun({
+          startedAt: `2026-11-13T15:5${String(index)}:00Z`,
+          options: { numWorkers: workers },
+        }),
+      ),
+    );
+
+    expect(rest).toEqual([]);
+    expect(workload?.title).toBe('Reindex · 517 images · already embedded included');
+    expect(workload?.metrics.map((metric) => metric.id)).toContain('steady-throughput');
+    expect(workload && sweptSetting(workload)).toBe('numWorkers');
+    expect(workload?.configurations.map((c) => settingValue(c, 'numWorkers'))).toEqual([
+      0, 1, 2, 4, 8,
+    ]);
+  });
+
+  it('keeps reindex runs over a different number of images in separate workloads', () => {
+    const workloads = groupRuns([
+      reindexRun({ startedAt: '2026-11-13T15:50:00Z', imagesSelected: 517 }),
+      reindexRun({ startedAt: '2026-11-13T15:51:00Z', imagesSelected: 2000 }),
+      reindexRun({ startedAt: '2026-11-13T15:52:00Z', options: { includeEmbedded: false } }),
+    ]);
+
+    expect(workloads).toHaveLength(3);
+  });
+
+  it('never compares runs of different commands', () => {
+    const workloads = groupRuns([
+      reindexRun({ startedAt: '2026-11-13T15:50:00Z' }),
+      run({ startedAt: '2026-11-12T20:00:01Z' }),
+    ]);
+
+    expect(workloads.map((workload) => workload.command)).toEqual(['import', 'reindex']);
+  });
+
+  it('counts a different PyTorch version as a different configuration, not a sweep', () => {
+    const [workload] = groupRuns([
+      reindexRun({ startedAt: '2026-11-13T15:50:00Z', options: { batchSize: 32 } }),
+      reindexRun({
+        startedAt: '2026-11-13T15:51:00Z',
+        options: { batchSize: 64 },
+        environment: { torch: '2.16.0' },
+      }),
+    ]);
+
+    expect(workload?.differences).toEqual(['batchSize', 'torch']);
+    expect(workload && sweptSetting(workload)).toBeNull();
   });
 });

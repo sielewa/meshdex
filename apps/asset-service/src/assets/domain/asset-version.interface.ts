@@ -3,7 +3,7 @@ import type { ModelStats } from './model-stats.interface';
 import type { StoredObject } from './stored-object.interface';
 import type { Thumbnail } from './thumbnail.interface';
 
-/** Times are epoch milliseconds inside the service (ADR 003). */
+/** Epoch milliseconds (ADR 003). */
 export interface AssetVersion {
   id: string;
   assetId: string;
@@ -16,6 +16,5 @@ export interface AssetVersion {
   failureReason: string | null;
   createdAt: number;
   processedAt: number | null;
-  /** Public image supplied with the upload (ADR 017). */
   sourcePreview: StoredObject | null;
 }

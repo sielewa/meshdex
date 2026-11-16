@@ -11,7 +11,6 @@ import { toProtoTimestamp } from '@meshdex/shared';
 import { DownloadsService } from './downloads.service';
 import { InvalidDownloadRequestException } from './exceptions/invalid-download-request.exception';
 
-/** Download RPCs of `meshdex.asset.v1.AssetService`. */
 @Controller()
 export class DownloadsController implements Pick<
   AssetServiceController,
@@ -38,7 +37,6 @@ export class DownloadsController implements Pick<
     }
   }
 
-  /** Maps the service's only domain exception; unknown errors pass through as INTERNAL. */
   private toRpcException(error: unknown): unknown {
     if (error instanceof InvalidDownloadRequestException) {
       return new RpcException({

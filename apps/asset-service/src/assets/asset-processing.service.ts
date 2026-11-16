@@ -12,11 +12,8 @@ import { ProcessingStateConflictException } from './exceptions/processing-state-
 import { AssetVersionsRepository } from './infrastructure/asset-versions.repository';
 
 /**
- * Processing lifecycle reported by the worker: UPLOADED -> PROCESSING -> READY | FAILED.
- *
- * Kafka delivers at least once and the worker retries after timeouts, so every call
- * must be safe to repeat: repeating a step that already happened returns the current
- * state; only a *conflicting* step (e.g. FAILED after READY) is an error.
+ * Kafka delivers at least once, so repeating a step that already happened returns the current
+ * state; only a conflicting step (e.g. FAILED after READY) is an error.
  */
 @Injectable()
 export class AssetProcessingService {
@@ -49,18 +46,13 @@ export class AssetProcessingService {
     return this.catalogService.getAssetVersion(versionId);
   }
 
-  /** A malformed id can't name a version; rejecting it here keeps it away from the uuid column. */
   private assertVersionId(versionId: string): void {
     if (!isUuid(versionId)) {
       throw new InvalidAssetVersionIdException(`Asset version id ${versionId} is not a UUID`);
     }
   }
 
-  /**
-   * Runs a conditional transition and interprets "nothing updated": if the version is
-   * already in the target status, a previous (retried) call did the work — success;
-   * any other status means the step is out of order — conflict.
-   */
+  /** "Nothing updated" is success if a retried call already reached the target, else a conflict. */
   private async applyTransition(
     versionId: string,
     target: AssetVersionStatus,

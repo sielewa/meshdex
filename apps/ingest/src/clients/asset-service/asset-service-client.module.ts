@@ -6,11 +6,7 @@ import {
 } from './infrastructure/asset-service-client-options.factory';
 import { GrpcAssetServiceAdapter } from './infrastructure/grpc-asset-service.adapter';
 
-/**
- * Client of the asset-service microservice: only the gRPC connection and the translation of
- * its contract. Exports only the `ASSET_SERVICE` port. The connection opens on the first
- * call, so commands that never upload (`fetch`) never connect.
- */
+/** The connection opens on the first call, so `fetch` never connects. */
 @Module({
   imports: [
     ClientsModule.registerAsync([

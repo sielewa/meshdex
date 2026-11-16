@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { WorkloadSection } from '@/features/experiments/components/workload-section';
 import type { Experiment } from '@/features/experiments/types/experiment';
 
-/** One experiment from the manifest (ADR 016): its question, its answer, then its workloads. */
 export function ExperimentSection({ experiment }: { experiment: Experiment }): ReactNode {
   const { definition, workloads } = experiment;
 

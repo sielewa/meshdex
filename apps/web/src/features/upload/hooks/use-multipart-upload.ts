@@ -12,10 +12,6 @@ import { UploadSessionStore } from '@/features/upload/lib/upload-session-store';
 import type { UploadState } from '@/features/upload/types/upload-state';
 import { createUploadApi } from '@/features/upload/api/upload.queries';
 
-/**
- * Runs one upload at a time for the upload form: progress and speed for display, cancel,
- * and on success a fresh asset list plus navigation to the new asset.
- */
 export function useMultipartUpload(): {
   state: UploadState;
   start: (values: UploadFormValues) => Promise<void>;

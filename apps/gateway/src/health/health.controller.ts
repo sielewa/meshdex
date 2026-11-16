@@ -1,7 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { HealthService } from './health.service';
 
-/** HTTP probes for Kubernetes (`livenessProbe` / `readinessProbe` in the Helm chart). */
 @Controller('health')
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}

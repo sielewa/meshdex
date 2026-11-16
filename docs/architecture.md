@@ -49,7 +49,7 @@ Meshdex is a 3D asset library with AI search. Users upload 3D models (glTF/GLB).
 4. Outbox relay publishes to Kafka topic `asset.events.v1`.
 5. `processing-worker` consumes, checks `processed_events` (idempotency key = event id), optimizes model, renders N thumbnails, uploads to S3, calls `ml-service.Embed`, reports status back to `asset-service` (gRPC).
 6. Status changes are pushed to `web` (GraphQL subscription or SSE).
-7. Search: `web` → `gateway` → `ml-service.Search(text)` → asset ids → `asset-service.GetAssets` → response.
+7. Search: `web` → `gateway` → `ml-service.SearchAssets(text)` (CLIP text embedding + pgvector HNSW, [ADR 019](adr/019-ml-service-grpc-server.md)) → asset ids with scores → `asset-service.BatchGetAssets` → response in the ranking's order.
 
 ## Microservice patterns
 
@@ -65,10 +65,10 @@ Each one gets an ADR and a README section.
 ## Tech stack
 
 - Monorepo: **pnpm workspaces + Turborepo**
-- Language: TypeScript (**strict**) everywhere except `ml-service` (Python 3.12). Pinned to **TypeScript 6.0.x**: TypeScript 7 (native compiler) has no classic JS compiler API yet, which typescript-eslint (`<6.1.0`) and the Nest CLI (`~6.0`) depend on. Revisit when they support 7.
+- Language: TypeScript (**strict**) everywhere except `ml-service` (Python 3.12 with uv, ruff, mypy `--strict`, pytest: [ADR 018](adr/018-ml-service-tooling-data-access-and-reindex-job.md)). Pinned to **TypeScript 6.0.x**: TypeScript 7 (native compiler) has no classic JS compiler API yet, which typescript-eslint (`<6.1.0`) and the Nest CLI (`~6.0`) depend on. Revisit when they support 7.
 - Runtime: Node.js current LTS
 - Broker: **Kafka protocol**, served by **Redpanda** (Kafka API compatible, single binary) locally and in kind; the cloud broker is a pending decision. Services only use standard Kafka clients, so the broker is swappable.
-- DB: **PostgreSQL** + **pgvector**; ORM **Drizzle** (SQL-close, pgvector support); migrations per service
+- DB: **PostgreSQL** + **pgvector**; ORM **Drizzle** (SQL-close, pgvector support) in the Node services, **psycopg 3** with plain SQL in `ml-service`; migrations per service
 - Object storage: **AWS S3**; locally **SeaweedFS** with its S3 gateway ([ADR 002](adr/002-seaweedfs-as-local-s3.md)). Code always uses the AWS SDK with the endpoint from config.
 - Proto tooling: **buf** (lint, breaking, generate); TS codegen with `ts-proto`
 - Testing: Jest + Supertest (Node), Testcontainers (integration), pytest (ml), Playwright (web E2E)

@@ -17,10 +17,7 @@ import {
   POLYHAVEN_USER_AGENT,
 } from '../polyhaven.constants';
 
-/**
- * Poly Haven's public API over `fetch`. Responses are external data: every field ingest
- * uses is checked here, so the rest of the app works with typed, validated values.
- */
+/** Responses are external data: every field ingest uses is validated here. */
 @Injectable()
 export class HttpPolyhavenAdapter implements PolyhavenPort {
   constructor(
@@ -104,11 +101,7 @@ export class HttpPolyhavenAdapter implements PolyhavenPort {
     }
   }
 
-  /**
-   * Sends the request with the User-Agent the API terms require. A caller's abort is
-   * rethrown as is (not retryable); a timeout or network error becomes a retryable
-   * `PolyhavenRequestException`.
-   */
+  /** The API terms require a User-Agent. */
   private async request(url: string, signal: AbortSignal, timeoutMs?: number): Promise<Response> {
     const requestSignal =
       timeoutMs === undefined ? signal : AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]);
@@ -159,11 +152,7 @@ export class HttpPolyhavenAdapter implements PolyhavenPort {
     };
   }
 
-  /**
-   * The catalog's `thumbnail_url` (e.g. `https://cdn.polyhaven.com/asset_img/thumbs/x.png?width=256
-   * &height=256&format=webp&v=…`) with our size and WebP. Its `v` parameter is kept: it changes
-   * with the render, so a cached preview whose URL differs is out of date.
-   */
+  /** Keeps the `v` parameter: it changes with the render, which marks cached previews stale. */
   private toPreviewUrl(raw: unknown): string | null {
     if (typeof raw !== 'string' || !URL.canParse(raw)) {
       return null;
@@ -207,7 +196,6 @@ export class HttpPolyhavenAdapter implements PolyhavenPort {
     };
   }
 
-  /** The `.gltf` itself has no path in the listing; its URL ends with the file name. */
   private fileNameOf(entry: unknown): string {
     const url = this.field(entry, 'url');
 

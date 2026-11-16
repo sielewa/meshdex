@@ -5,12 +5,7 @@ import type {
 import { groupRuns } from '@/features/experiments/lib/group-runs';
 import type { Experiment } from '@/features/experiments/types/experiment';
 
-/**
- * Joins the manifest with the runs (ADR 016): each experiment gets exactly the runs it lists,
- * grouped into workloads. Runs are grouped per experiment, never across experiments, so a
- * comparison contains only the runs recorded for its question. A listed file that doesn't
- * exist or a repeated id is a broken manifest and throws, which fails the build.
- */
+/** Grouped per experiment, never across, so a comparison holds only its own runs (ADR 016). */
 export function resolveExperiments({ experiments, runs }: BenchmarkBundle): Experiment[] {
   const runsByFile = new Map(runs.map((run) => [run.file, run]));
   const ids = new Set<string>();

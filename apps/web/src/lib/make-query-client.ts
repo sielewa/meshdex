@@ -27,10 +27,7 @@ export function makeQueryClient(): QueryClient {
   });
 }
 
-/**
- * Only failures that may go away on their own: network errors (fetch throws a TypeError)
- * and an unavailable upstream. Retrying BAD_USER_INPUT or NOT_FOUND would just repeat them.
- */
+/** Network errors (fetch throws a TypeError) and an unavailable upstream only. */
 function isRetryable(error: Error): boolean {
   if (error instanceof GraphqlRequestError) {
     return (

@@ -17,10 +17,7 @@ import { RenewUploadPartUrlsArgs } from './dto/renew-upload-part-urls.args';
 import { UploadPartUrlModel } from './models/upload-part-url.model';
 import { UploadSessionModel } from './models/upload-session.model';
 
-/**
- * Presigned multipart upload: the browser sends file bytes straight to object storage,
- * the gateway only brokers URLs and the final "complete" call (architecture.md, upload flow).
- */
+/** File bytes go straight to object storage; the gateway only brokers URLs. */
 @Resolver()
 @UseFilters(GraphqlExceptionFilter)
 export class UploadsResolver {
@@ -37,10 +34,7 @@ export class UploadsResolver {
     }
   }
 
-  /**
-   * A mutation although it changes no state: presigned URLs expire, and GraphQL clients
-   * cache query results, so a query here could hand back URLs that no longer work.
-   */
+  /** A mutation: clients cache query results, which would hand back expired URLs. */
   @Mutation(() => [UploadPartUrlModel], {
     description: 'Fresh presigned URLs to resume an upload or replace expired ones.',
   })
@@ -74,7 +68,6 @@ export class UploadsResolver {
     }
   }
 
-  /** Maps every exception the upload RPCs can raise; unknown errors are masked by the formatter. */
   private toGraphQLError(error: unknown): unknown {
     if (error instanceof InvalidAssetRequestException) {
       return new GraphQLError(error.message, {

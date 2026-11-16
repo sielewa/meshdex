@@ -10,7 +10,6 @@ import { AssetProcessingService } from './asset-processing.service';
 import { AssetUploadController } from './asset-upload.controller';
 import { AssetUploadService } from './asset-upload.service';
 
-/** Owner of the asset version lifecycle writes (ADR 005): upload and processing. */
 @Module({
   imports: [
     StorageModule,

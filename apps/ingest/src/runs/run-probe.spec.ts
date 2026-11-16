@@ -4,11 +4,13 @@ describe('RunProbe', () => {
   it('sees the event loop blocked by synchronous work', async () => {
     const probe = new RunProbe();
 
-    // Let the 1 ms timer tick normally first, then hold the loop for 30 ms.
+    // Let the 1 ms timer tick normally first, then hold the loop for 30 ms of CPU time.
+    // Counting CPU rather than wall time keeps the test stable when other suites load the
+    // machine: wall time only grows faster than CPU time, never slower.
     await new Promise((resolve) => setTimeout(resolve, 20));
-    const end = Date.now() + 30;
+    const cpuAtStart = process.cpuUsage();
 
-    while (Date.now() < end) {
+    while (process.cpuUsage(cpuAtStart).user < 30_000) {
       // busy wait: nothing else can run on this thread
     }
 

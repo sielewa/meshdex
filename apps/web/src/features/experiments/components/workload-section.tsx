@@ -8,27 +8,12 @@ import {
   describeConfiguration,
   describeDifferences,
   describeMachine,
-  describeWorkload,
 } from '@/features/experiments/lib/describe-runs';
 import { formatMetricValue } from '@/features/experiments/lib/format-metric';
-import { sweptOption } from '@/features/experiments/lib/group-runs';
-import { RUN_METRICS, type RunMetric } from '@/features/experiments/lib/run-metrics';
+import { findSetting, sweptSetting } from '@/features/experiments/lib/group-runs';
 import { summarize } from '@/features/experiments/lib/summarize';
-import type {
-  ConfigurationField,
-  RunConfiguration,
-  Workload,
-} from '@/features/experiments/types/workload';
-import { formatBytes } from '@/lib/format-bytes';
-
-const ALL_FIELDS: ConfigurationField[] = [
-  'packConcurrency',
-  'packInWorkers',
-  'uploadConcurrency',
-  'queueSize',
-  'node',
-  'gitCommit',
-];
+import type { RunMetric } from '@/features/experiments/types/run-profile';
+import type { RunConfiguration, Workload } from '@/features/experiments/types/workload';
 
 const runTime = new Intl.DateTimeFormat('en-GB', {
   dateStyle: 'medium',
@@ -36,11 +21,6 @@ const runTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
 });
 
-/**
- * One workload of an experiment: what was compared, a chart per metric and the same numbers as
- * a table. A sweep of one numeric option gets a line across its values; any other comparison
- * gets a dot plot with a row per configuration.
- */
 export function WorkloadSection({ workload }: { workload: Workload }): ReactNode {
   const { configurations, differences } = workload;
   const first = configurations[0];
@@ -50,9 +30,10 @@ export function WorkloadSection({ workload }: { workload: Workload }): ReactNode
     return null;
   }
 
-  const firstRun = first.runs[0]?.record;
-  const swept = sweptOption(workload);
-  const sharedFields = ALL_FIELDS.filter((field) => !differences.includes(field));
+  const swept = sweptSetting(workload);
+  const shared = first.settings
+    .map((setting) => setting.id)
+    .filter((id) => !differences.includes(id));
   const series = configurations.map((configuration, index) => ({
     configuration,
     name: describeConfiguration(configuration, differences),
@@ -60,23 +41,18 @@ export function WorkloadSection({ workload }: { workload: Workload }): ReactNode
   }));
 
   return (
-    <section
-      className="space-y-5 rounded-lg bg-neutral-900 p-5"
-      aria-label={describeWorkload(workload)}
-    >
+    <section className="space-y-5 rounded-lg bg-neutral-900 p-5" aria-label={workload.title}>
       <header className="space-y-1">
-        <h3 className="text-lg font-semibold">{describeWorkload(workload)}</h3>
-        {firstRun && (
-          <p className="text-sm text-neutral-400">
-            {formatBytes(firstRun.result.bytesUploaded)} uploaded per run ·{' '}
-            {describeMachine(workload)}
-          </p>
-        )}
+        <h3 className="text-lg font-semibold">{workload.title}</h3>
+        <p className="text-sm text-neutral-400">
+          {workload.detail} · {describeMachine(workload)}
+        </p>
         <p className="text-sm text-neutral-400">
           {differences.length > 0 ? (
             <>
-              Compares <span className="text-neutral-200">{describeDifferences(differences)}</span>;
-              the same in every run: {describeConfiguration(first, sharedFields)}
+              Compares{' '}
+              <span className="text-neutral-200">{describeDifferences(workload, differences)}</span>
+              ; the same in every run: {describeConfiguration(first, shared)}
             </>
           ) : (
             <>One configuration: {describeConfiguration(first, [])}</>
@@ -119,7 +95,7 @@ export function WorkloadSection({ workload }: { workload: Workload }): ReactNode
       )}
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {RUN_METRICS.map((metric) => {
+        {workload.metrics.map((metric) => {
           const rows = series.map(({ configuration, name, color }) =>
             toRow(configuration, name, color, metric),
           );
@@ -140,11 +116,15 @@ export function WorkloadSection({ workload }: { workload: Workload }): ReactNode
               unit={metric.unit}
               better={metric.better}
               description={metric.description}
-              axisLabel={describeDifferences([swept])}
-              steps={rows.map((row, index) => ({
-                ...row,
-                label: String(configurations[index]?.options[swept] ?? ''),
-              }))}
+              axisLabel={describeDifferences(workload, [swept])}
+              steps={rows.map((row, index) => {
+                const configuration = configurations[index];
+
+                return {
+                  ...row,
+                  label: String(configuration && findSetting(configuration, swept)?.value),
+                };
+              })}
             />
           );
         })}
@@ -160,7 +140,6 @@ export function WorkloadSection({ workload }: { workload: Workload }): ReactNode
   );
 }
 
-/** Points and summary of one configuration for one metric, shared by both chart kinds. */
 function toRow(
   configuration: RunConfiguration,
   name: string,
@@ -173,7 +152,7 @@ function toRow(
   summary: ReturnType<typeof summarize>;
   points: { key: string; value: number; title: string }[];
 } {
-  const values = configuration.runs.map((run) => metric.value(run.record));
+  const values = configuration.runs.map((run) => run.values[metric.id] ?? 0);
 
   return {
     key: configuration.key,
@@ -182,7 +161,7 @@ function toRow(
     summary: summarize(values),
     points: configuration.runs.map((run, index) => {
       const value = values[index] ?? 0;
-      const time = runTime.format(new Date(run.record.startedAt));
+      const time = runTime.format(new Date(run.startedAt));
 
       return {
         key: run.file,

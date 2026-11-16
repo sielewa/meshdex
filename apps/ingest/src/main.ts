@@ -37,7 +37,6 @@ Options (import):
   --help                      Show this help
 `;
 
-/** Each command accepts only its own options; anything else is a usage error. */
 const COMMAND_OPTIONS = {
   fetch: {
     resolution: { type: 'string', default: '1k' },
@@ -152,7 +151,6 @@ async function main(): Promise<number> {
       run = (app) => app.get(ImportService).run(args, controller.signal);
     }
   } catch (error) {
-    // parseArgs throws plain errors (unknown option, missing value) with a clear message.
     const message = error instanceof Error ? error.message : String(error);
 
     process.stderr.write(`${message}\n\n${USAGE}`);

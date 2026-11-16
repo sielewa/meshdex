@@ -5,13 +5,8 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { ImportRecord } from './domain/import-record.interface';
 
 /**
- * The import state file: one JSON line per model that became an asset (JSON Lines). A re-run
- * skips the models listed there, which is what keeps it from creating duplicates (ADR 013).
- *
- * Append-only on purpose: finishing a model costs one small `appendFile`, not a rewrite of
- * the whole file, and a crash can at worst cut the last line short. Such a line is skipped
- * on load, so that model is imported again (one duplicate asset, never a lost record of
- * the others). Appends are chained, so lines from parallel uploads never interleave.
+ * JSON Lines of imported models; a re-run skips them (ADR 013). Append-only, so a crash can at
+ * worst cut the last line, which is skipped on load. Appends are chained so lines never interleave.
  */
 @Injectable()
 export class ImportStateService {
@@ -22,7 +17,6 @@ export class ImportStateService {
     private readonly logger: PinoLogger,
   ) {}
 
-  /** Every complete record in the file; none when it doesn't exist yet. */
   async load(path: string): Promise<ImportRecord[]> {
     let text: string;
 

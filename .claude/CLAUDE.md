@@ -62,7 +62,7 @@ _(fill in as they are created)_
 
 ```
 pnpm install                                        # user only
-pnpm dev                                            # all services via turbo
+pnpm dev                                            # all services via turbo (web, gateway, asset-service, ml-service serve); needs infra up
 pnpm lint / pnpm typecheck / pnpm format
 cp infra/docker/.env.example infra/docker/.env      # once, user
 docker compose -f infra/docker/compose.yml up -d    # ask first; Redpanda Console on :8088
@@ -72,4 +72,7 @@ pnpm test
 pnpm --filter @meshdex/ingest start fetch --limit 10   # Poly Haven → apps/ingest/.cache (after build)
 pnpm --filter @meshdex/ingest start import --limit 10  # cache → GLB → asset-service (needs infra + asset-service)
   # add --record <dir> --label <name> to save the run's measurements as JSON
+pnpm --filter @meshdex/ml-service db:migrate           # ml-service migrations
+cd apps/ml-service && uv run python -m ml_service reindex [--all] [--num-workers N] [--batch-size N] [--record <dir> --label <name>]
+                                                    # embed source previews (needs infra + asset-service)
 ```

@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 
-/**
- * Skeleton of the asset grid while the home page renders. Also the prefetch boundary for the
- * header's home link: prefetching `/` from any page stops here instead of fetching the grid.
- */
+/** Also the prefetch boundary of the header's home link. */
 export default function HomeLoading(): ReactNode {
   return (
     <div className="space-y-6" aria-busy="true">

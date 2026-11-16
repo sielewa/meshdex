@@ -13,7 +13,6 @@ import { AssetsArgs } from './dto/assets.args';
 import { AssetConnectionModel } from './models/asset-connection.model';
 import { AssetModel } from './models/asset.model';
 
-/** Asset queries; every field is answered by asset-service over gRPC (no data lives here). */
 @Resolver(() => AssetModel)
 @UseFilters(GraphqlExceptionFilter)
 export class AssetsResolver {
@@ -56,10 +55,7 @@ export class AssetsResolver {
     }
   }
 
-  /**
-   * Maps the exceptions the asset reads can raise (an invalid cursor is the client's
-   * INVALID_ARGUMENT); anything else passes through and is masked by the error formatter.
-   */
+  /** Anything else passes through and is masked by the error formatter. */
   private toGraphQLError(error: unknown): unknown {
     if (error instanceof InvalidAssetRequestException) {
       return new GraphQLError(error.message, {

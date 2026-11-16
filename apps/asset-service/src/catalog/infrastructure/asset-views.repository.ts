@@ -8,10 +8,7 @@ import type { Asset } from '../../assets/domain/asset.interface';
 import type { AssetVersion } from '../../assets/domain/asset-version.interface';
 import { AssetVersionStatus } from '../../assets/domain/asset-version-status.enum';
 
-/**
- * Assembles full `Asset` views (asset + current version + tags) for many ids at once:
- * three queries however many ids are asked for, instead of 1 + 2N (the N+1 problem).
- */
+/** Three queries for any number of ids instead of 1 + 2N. */
 @Injectable()
 export class AssetViewsRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
@@ -26,7 +23,6 @@ export class AssetViewsRepository {
     return row ? this.toAssetVersion(row) : null;
   }
 
-  /** Returns found assets in no particular order; callers restore the order they need. */
   async findByIds(ids: string[], executor: DbExecutor = this.db): Promise<Asset[]> {
     if (ids.length === 0) {
       return [];
@@ -126,7 +122,7 @@ export class AssetViewsRepository {
     };
   }
 
-  /** Narrows a status read from the database; an unknown value means corrupted data, not user error. */
+  /** An unknown value means corrupted data, not user error. */
   private parseStatus(value: string): AssetVersionStatus {
     if (!this.isKnownStatus(value)) {
       throw new Error(`Unknown asset version status in database: "${value}"`);
@@ -135,7 +131,6 @@ export class AssetViewsRepository {
     return value;
   }
 
-  /** Type guard: narrows the type only when the runtime check passed (no blind `as`). */
   private isKnownStatus(value: string): value is AssetVersionStatus {
     return (Object.values(AssetVersionStatus) as string[]).includes(value);
   }

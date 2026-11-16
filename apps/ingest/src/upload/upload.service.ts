@@ -19,19 +19,9 @@ import {
 } from './upload.constants';
 
 /**
- * Turns a packed GLB into an asset through the same upload flow as the browser
- * (architecture.md): `InitiateUpload` → preview image PUT (when there is one, ADR 017) →
- * parts PUT to presigned URLs → `CompleteUpload`, which checks that the image arrived.
- *
- * Parts of one model go one after another, each a zero-copy `subarray` of the GLB: the
- * pipeline already runs several models at once, so per-model part concurrency would only
- * multiply open connections. A part is retried on transient errors; on a 403 (expired URL)
- * it is signed again first. When anything fails after `InitiateUpload`, the upload is
- * aborted, so no half-uploaded asset stays behind.
- *
- * `InitiateUpload` itself is never retried: it creates an asset each time, so a retry after
- * a lost response would create a duplicate. The model is reported as failed and a re-run
- * picks it up.
+ * The browser's upload flow. Parts of one model go one after another: the pipeline already runs
+ * several models at once, so per-model concurrency would only multiply connections. Anything
+ * failing after `InitiateUpload` aborts the upload.
  */
 @Injectable()
 export class UploadService {
@@ -53,10 +43,7 @@ export class UploadService {
     private readonly logger: PinoLogger,
   ) {}
 
-  /**
-   * The preview's URL can't be signed again (ADR 017), so only transient failures are retried;
-   * an expired URL fails the model, and the re-run starts a new upload.
-   */
+  /** The preview's URL can't be signed again (ADR 017): an expired one fails the model. */
   private readonly previewRetryPolicy: RetryPolicy = {
     ...this.partRetryPolicy,
     isRetryable: (error) => error instanceof PartUploadException && error.isTransient,
@@ -139,7 +126,7 @@ export class UploadService {
     return completed;
   }
 
-  /** One attempt; a rejected signature drops the URL, so the next attempt signs a new one. */
+  /** A rejected signature drops the URL, so the next attempt signs a new one. */
   private async putPart(
     assetVersionId: string,
     partNumber: number,
@@ -171,10 +158,7 @@ export class UploadService {
     }
   }
 
-  /**
-   * Best effort: the run goes on (or stops) either way. An upload left behind is also
-   * cleaned up by the stale-uploads reconciler (roadmap).
-   */
+  /** Best effort: a leftover upload is the stale-uploads reconciler's job (roadmap). */
   private async abortQuietly(assetVersionId: string): Promise<void> {
     try {
       await this.assetService.abortUpload(assetVersionId);

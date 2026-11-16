@@ -12,7 +12,6 @@ import { GraphqlErrorCode } from './domain/graphql-error-code.enum';
 import type { GraphqlContext } from './domain/graphql-context.interface';
 import { MASKED_ERROR_MESSAGE } from './graphql.constants';
 
-/** Apollo options for the GraphQL module: code-first schema, per-request context, error masking. */
 @Injectable()
 export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConfig> {
   constructor(
@@ -26,13 +25,11 @@ export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConf
 
   createGqlOptions(): ApolloDriverConfig {
     return {
-      // Schema built in memory from the decorated classes (no file writes at runtime);
-      // the e2e test keeps the committed schema.graphql in sync with it (ADR 011).
+      // In memory; a test keeps the committed schema.graphql in sync (ADR 011).
       autoSchemaFile: true,
       sortSchema: true,
       introspection: this.config.introspection,
-      // The bundled GraphiQL page loads unpinned scripts from a public CDN; explore the
-      // API with any GraphQL client against /graphql instead.
+      // The bundled GraphiQL page loads unpinned scripts from a public CDN.
       graphiql: false,
       includeStacktraceInErrorResponses: false,
       context: ({ req }: { req: Request }): GraphqlContext => ({
@@ -44,13 +41,7 @@ export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConf
     };
   }
 
-  /**
-   * The single place GraphQL errors are logged. Errors a resolver didn't map (bugs, broken
-   * contracts, unexpected gRPC codes) reach clients only as INTERNAL_SERVER_ERROR with a
-   * generic message, and the real error goes to the log with the request's context. An
-   * unavailable asset-service is logged as a warning; client errors (BAD_USER_INPUT,
-   * NOT_FOUND, CONFLICT) are not logged — the request log already records them.
-   */
+  /** The single place errors are logged. Unmapped errors reach clients only as a generic message. */
   private formatError(
     formattedError: GraphQLFormattedError,
     error: unknown,
@@ -87,10 +78,7 @@ export class GraphqlOptionsFactory implements GqlOptionsFactory<ApolloDriverConf
     };
   }
 
-  /**
-   * graphql-js wraps resolver errors (adding the path), and resolvers wrap domain exceptions;
-   * the log needs the innermost error, whose `cause` chain pino prints.
-   */
+  /** The innermost error, whose `cause` chain pino prints. */
   private originalError(error: unknown): unknown {
     let current = error;
 

@@ -15,9 +15,8 @@ import { CacheIntegrityException } from './exceptions/cache-integrity.exception'
 import { UnsafeCachePathException } from './exceptions/unsafe-cache-path.exception';
 
 /**
- * The local model cache: `<cache dir>/<model id>/<resolution>/` holds a model's `.gltf`, its
- * resources and `model.json`. A file only ever appears under its final name complete and
- * verified, so an interrupted run leaves at most a `.part` file that the next run overwrites.
+ * `<cache dir>/<model id>/<resolution>/`. A file appears under its final name only complete and
+ * verified, so an interrupted run leaves at most a `.part` file.
  */
 @Injectable()
 export class CacheService {
@@ -34,10 +33,7 @@ export class CacheService {
     return join(this.config.dir, modelId, resolution);
   }
 
-  /**
-   * Absolute path of a model's file. Paths come from the API, so one like `../../x` (or an
-   * absolute one) is rejected instead of being written outside the model's folder.
-   */
+  /** Paths come from the API, so one escaping the model's folder is rejected. */
   filePath(modelDir: string, relativePath: string): string {
     const target = resolve(modelDir, relativePath);
 
@@ -48,7 +44,6 @@ export class CacheService {
     return target;
   }
 
-  /** True when the file exists with the expected size and MD5. */
   async hasFile(path: string, expected: CachedFile): Promise<boolean> {
     const stats = await stat(path).catch(() => null);
 
@@ -60,10 +55,8 @@ export class CacheService {
   }
 
   /**
-   * Streams `source` to `path`, computing the MD5 while the bytes pass through, so the file is
-   * never held in memory and never read twice. `pipeline` propagates backpressure: when the
-   * disk is slower than the network, the generator stops pulling and the socket stops reading.
-   * The bytes go to `<path>.part` and are renamed only when size and MD5 match.
+   * Hashes while streaming, so the file is never held in memory or read twice; `pipeline`
+   * carries backpressure from the disk back to the socket.
    */
   async writeFile(source: Readable, path: string, expected: CachedFile): Promise<void> {
     const partial = `${path}${PARTIAL_FILE_SUFFIX}`;
@@ -101,12 +94,7 @@ export class CacheService {
     await rename(partial, path);
   }
 
-  /**
-   * Streams a file whose size and MD5 aren't known in advance (the API lists neither for
-   * previews): both are computed on the way, and the download is cut off as soon as it passes
-   * `maxBytes`, so a misbehaving server can't fill the disk. Same `.part` + rename as
-   * `writeFile`. Returns what was stored, for the manifest and later integrity checks.
-   */
+  /** For previews, whose size the API doesn't list: cut off past `maxBytes`. */
   async writeBoundedFile(
     source: Readable,
     path: string,
@@ -155,10 +143,7 @@ export class CacheService {
     };
   }
 
-  /**
-   * The bytes of a cached file, checked against the size and MD5 recorded when it was stored.
-   * For small files only (a preview), which are uploaded from memory.
-   */
+  /** Small files only: the whole file is read into memory. */
   async readVerifiedFile(path: string, expected: CachedFile): Promise<Buffer> {
     const bytes = await readFile(path);
     const md5 = createHash('md5').update(bytes).digest('hex');
@@ -172,7 +157,7 @@ export class CacheService {
     return bytes;
   }
 
-  /** Written last and atomically (temporary file + rename), so it never exists half-written. */
+  /** Written last, via temporary file + rename. */
   async writeManifest(manifest: CachedModelManifest): Promise<void> {
     const path = join(this.modelDir(manifest.modelId, manifest.resolution), MANIFEST_FILE_NAME);
     const partial = `${path}${PARTIAL_FILE_SUFFIX}`;
@@ -181,7 +166,6 @@ export class CacheService {
     await rename(partial, path);
   }
 
-  /** The model's manifest, or `null` when the model isn't (completely) cached. */
   async readManifest(
     modelId: string,
     resolution: TextureResolution,
@@ -197,7 +181,6 @@ export class CacheService {
     }
   }
 
-  /** Ids of the models with a folder in the cache, sorted; empty when there is no cache yet. */
   async listModelIds(): Promise<string[]> {
     const entries = await readdir(this.config.dir, { withFileTypes: true }).catch(
       (error: unknown) => {

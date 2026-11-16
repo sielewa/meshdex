@@ -5,10 +5,7 @@ import { IngestEnv } from './ingest.env';
 
 let validatedEnv: IngestEnv | undefined;
 
-/**
- * Validates `process.env` on first use and caches the result, so all namespaces share one
- * validation pass. Throws `ConfigValidationException` listing every problem.
- */
+/** Validated once and cached, shared by every namespace. */
 function ingestEnv(): IngestEnv {
   validatedEnv ??= validateConfig(IngestEnv, process.env);
 
@@ -20,7 +17,6 @@ export const polyhavenConfig = registerAs('polyhaven', () => ({
 }));
 
 export const cacheConfig = registerAs('cache', () => ({
-  // Resolved once, so every module agrees on the directory whatever its own cwd assumptions.
   dir: resolve(ingestEnv().INGEST_CACHE_DIR),
 }));
 

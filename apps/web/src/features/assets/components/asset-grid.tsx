@@ -6,10 +6,6 @@ import { useGatewayEndpoint } from '@/graphql/use-gateway-endpoint';
 import { AssetCard } from '@/features/assets/components/asset-card';
 import { assetsInfiniteQueryOptions } from '@/features/assets/api/assets.queries';
 
-/**
- * The asset list. The first page normally arrives hydrated from the server prefetch, so
- * the grid renders immediately; later pages are fetched from the browser on demand.
- */
 export function AssetGrid(): ReactNode {
   const endpoint = useGatewayEndpoint();
   const { data, error, status, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =

@@ -3,7 +3,7 @@ import type { ModelStats } from './model-stats.interface';
 import type { StoredObject } from './stored-object.interface';
 import type { Thumbnail } from './thumbnail.interface';
 
-/** Times are epoch milliseconds (ADR 003); fields that proto leaves empty are `null`. */
+/** Epoch milliseconds (ADR 003); empty proto fields are `null`. */
 export interface AssetVersion {
   id: string;
   assetId: string;
@@ -16,6 +16,5 @@ export interface AssetVersion {
   failureReason: string | null;
   createdAt: number;
   processedAt: number | null;
-  /** Image supplied with the upload (ADR 017). */
   sourcePreview: StoredObject | null;
 }

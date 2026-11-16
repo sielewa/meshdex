@@ -20,7 +20,6 @@ import { AssetNotFoundException } from '../catalog/exceptions/asset-not-found.ex
 import { AssetVersionNotFoundException } from './exceptions/asset-version-not-found.exception';
 import { ProcessingStateConflictException } from './exceptions/processing-state-conflict.exception';
 
-/** Processing RPCs of `meshdex.asset.v1.AssetService`, called by the processing worker. */
 @Controller()
 export class AssetProcessingController implements Pick<
   AssetServiceController,
@@ -58,7 +57,7 @@ export class AssetProcessingController implements Pick<
     }
   }
 
-  /** Maps the proto `oneof outcome` onto the domain union; exactly one branch must be set. */
+  /** Exactly one branch of the `oneof` must be set. */
   private toOutcome(request: CompleteProcessingRequest): ProcessingOutcome {
     const { succeeded, failed } = request;
 
@@ -107,7 +106,6 @@ export class AssetProcessingController implements Pick<
     };
   }
 
-  /** Maps the domain exceptions of the processing RPCs to gRPC status codes; unknown errors become INTERNAL. */
   private toRpcException(error: unknown): unknown {
     if (
       error instanceof InvalidAssetVersionIdException ||

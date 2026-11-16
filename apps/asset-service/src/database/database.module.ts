@@ -7,11 +7,7 @@ import { DATABASE, PG_POOL } from './database.tokens';
 import type { Database } from './domain/database.type';
 import * as schema from './schema';
 
-/**
- * One connection pool per process, shared by all repositories. The pool size is a
- * per-pod budget: total DB connections = pool max × replicas, which must stay
- * below Postgres' `max_connections` when the service scales out.
- */
+/** Size Postgres `max_connections` for pool max × replicas. */
 @Global()
 @Module({
   providers: [
@@ -31,7 +27,6 @@ import * as schema from './schema';
       inject: [
         PG_POOL,
       ],
-      // casing: TypeScript camelCase <-> snake_case columns (ADR 005).
       useFactory: (pool: Pool): Database => drizzle(pool, {
         schema,
         casing: 'snake_case',

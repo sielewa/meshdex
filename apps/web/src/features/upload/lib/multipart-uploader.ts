@@ -25,15 +25,8 @@ interface Dependencies {
 }
 
 /**
- * Uploads a file straight to object storage in presigned parts (architecture.md, upload
- * flow): the gateway only hands out URLs and completes the upload.
- *
- * - Parts run through a bounded pool (`PART_UPLOAD_CONCURRENCY`), read lazily from disk.
- * - A part that fails transiently is retried with exponential backoff and jitter; one whose
- *   URL expired gets a fresh URL first.
- * - Every stored part is recorded with its ETag, so an interrupted upload (closed tab, lost
- *   network) resumes with only the missing parts when the same file is picked again.
- * - Cancelling aborts the upload on the server and forgets the session.
+ * Straight to object storage in presigned parts, read lazily from disk. Every stored part is
+ * recorded with its ETag, so picking the same file again resumes with only the missing parts.
  */
 export class MultipartUploader {
   private readonly sleep: (ms: number) => Promise<void>;
@@ -113,11 +106,7 @@ export class MultipartUploader {
     return { assetId: session.assetId };
   }
 
-  /**
-   * Picks up a stored session and signs fresh URLs for its missing parts. A session the
-   * server no longer knows (aborted, completed, cleaned up) is dropped, and the upload
-   * starts over.
-   */
+  /** A session the server no longer knows is dropped and the upload starts over. */
   private async resume(file: File, urls: Map<number, PartUrl>): Promise<UploadSession | null> {
     const session = this.deps.store.load(file);
 
@@ -181,7 +170,6 @@ export class MultipartUploader {
     return session;
   }
 
-  /** One part with its own retry loop; returns the ETag storage assigned to it. */
   private async uploadPart(
     session: UploadSession,
     file: File,
@@ -224,7 +212,7 @@ export class MultipartUploader {
     }
   }
 
-  /** The part's URL, renewed first when missing or about to expire (saves a 403 round trip). */
+  /** Renewed before it expires, which saves a 403 round trip. */
   private async usableUrl(
     session: UploadSession,
     partNumber: number,
@@ -246,22 +234,18 @@ export class MultipartUploader {
     return renewed;
   }
 
-  /**
-   * "Full jitter": a random delay up to an exponentially growing cap, so parts (and other
-   * clients) that failed together don't retry together.
-   */
+  /** Full jitter, so parts that failed together don't retry together. */
   private backoff(attempt: number): number {
     return Math.round(this.random() * PART_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
   }
 
-  /** Best effort: the upload is cancelled locally even if the server can't be told. */
   private async cancel(file: File, session: UploadSession): Promise<void> {
     this.deps.store.remove(file);
 
     try {
       await this.deps.api.abort(session.assetVersionId);
     } catch {
-      // Unfinished uploads are also cleaned up by the stale-uploads reconciler (roadmap).
+      // Best effort: the stale-uploads reconciler (roadmap) cleans up what is left.
     }
   }
 

@@ -10,12 +10,7 @@ import type { PageCursor } from '../domain/page-cursor.interface';
 export class AssetListRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  /**
-   * One page of asset positions, newest first, using keyset pagination on
-   * `assets_created_at_id_idx`: the cost of a page doesn't grow with how deep the
-   * client has paged (unlike OFFSET). Returns `limit` rows; ask for one more than the
-   * page size to learn whether another page exists.
-   */
+  /** Keyset pagination: unlike OFFSET, a page costs the same however deep the client has paged. */
   async findPage(
     filter: AssetListFilter,
     after: PageCursor | null,

@@ -1,11 +1,4 @@
-/**
- * Runs `worker` over `items` with at most `limit` calls in flight — a bounded pool, the
- * simplest form of backpressure: the next item starts only when a slot frees up, so
- * memory and open connections stay constant however many items there are.
- *
- * Fails fast: after the first error (or an abort) no new item starts; calls already in
- * flight are allowed to settle, then the first error is thrown.
- */
+/** After the first error no new item starts; calls in flight settle, then it is thrown. */
 export async function runWithConcurrency<T>(
   items: readonly T[],
   limit: number,

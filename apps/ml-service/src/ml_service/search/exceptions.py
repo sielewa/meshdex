@@ -1,0 +1,2 @@
+class InvalidSearchQueryError(Exception):
+    pass

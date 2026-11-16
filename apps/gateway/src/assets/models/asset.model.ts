@@ -4,10 +4,7 @@ import { DateTimeScalar } from '../../graphql/date-time.scalar';
 import './asset-status.registration';
 import { AssetVersionModel } from './asset-version.model';
 
-/**
- * GraphQL shape of an asset. Resolvers return the domain `Asset` typed as this class, so
- * the compiler checks that the domain object has every field the schema promises.
- */
+/** Resolvers return the domain `Asset` typed as this class, so the compiler checks the shape. */
 @ObjectType('Asset')
 export class AssetModel {
   @Field(() => ID)

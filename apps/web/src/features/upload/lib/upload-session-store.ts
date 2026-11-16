@@ -8,10 +8,8 @@ import {
 } from '@/features/upload/lib/upload-session.schema';
 
 /**
- * Resumable upload sessions in localStorage, keyed by the file's identity. A browser can't
- * keep a reference to a file across reloads, so the user picks the same file again and
- * name + size + modification time recognise it. Storage errors (private mode, quota) only
- * disable resuming; they never fail the upload.
+ * A browser can't keep a file across reloads, so name + size + modification time recognise it
+ * when picked again. Storage errors only disable resuming.
  */
 export class UploadSessionStore {
   constructor(private readonly storage: Storage | null = UploadSessionStore.defaultStorage()) {}

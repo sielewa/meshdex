@@ -3,7 +3,6 @@ import { formatMetricValue, formatTick } from '@/features/experiments/lib/format
 import { niceScale } from '@/features/experiments/lib/nice-scale';
 import type { Summary } from '@/features/experiments/lib/summarize';
 
-/** One configuration's row: every run as a point, its median as a tick. */
 export interface DotPlotRow {
   key: string;
   name: string;
@@ -29,17 +28,11 @@ const ROW_HEIGHT = 28;
 const TOP = 4;
 const AXIS_HEIGHT = 22;
 const DOT_RADIUS = 4;
-/** Transparent circle around each dot: the hover target is bigger than the mark. */
+/** The hover target is bigger than the mark. */
 const HIT_RADIUS = 12;
 const MEDIAN_HALF_HEIGHT = 9;
 
-/**
- * Dot plot of one metric across the configurations of a workload, rendered on the server as
- * SVG (ADR 015): no JavaScript reaches the browser. Each run is a dot so the spread stays
- * visible (five runs are too few for a box plot), the median is a vertical tick, and the
- * median's value is printed at the end of the row. Hovering a dot shows its run (`<title>`);
- * the same numbers are in the table below the charts.
- */
+/** Server-rendered SVG (ADR 015). A dot per run: five runs are too few for a box plot. */
 export function RunDotPlot({ title, unit, better, description, rows }: RunDotPlotProps): ReactNode {
   const largest = Math.max(...rows.flatMap((row) => row.points.map((point) => point.value)));
   const scale = niceScale(largest);

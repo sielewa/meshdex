@@ -27,7 +27,8 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 
 ## Stage 2 — Processing pipeline
 
-- [ ] Outbox table + relay → Kafka
+- [x] Outbox table: `asset.uploaded` written in the same transaction as the status change (asset-service)
+- [ ] Outbox relay → Kafka
 - [ ] `processing-worker`: idempotency, glTF-Transform (Draco, texture resize; the web viewer then needs the Draco decoder served from our own origin — drei defaults to Google's CDN), thumbnails via Puppeteer + three.js (headless WebGL / SwiftShader; fallback: Blender headless — ask first)
 - [ ] Retry + DLQ
 - [ ] Integration test: kill broker mid-processing → nothing lost, nothing processed twice
@@ -51,10 +52,11 @@ Then the remaining stages continue in order (processing worker with Kafka/outbox
 
 ## Stage 5 — ML search + minimal web
 
-- [ ] `ml-service`: CLIP image + text embeddings, pgvector search, batched `Embed`; benchmark batch size vs latency
-- [ ] Reindex job as a data-loading pipeline: thumbnails streamed from S3 with prefetch, parallel decode/resize, batching into the model; benchmark throughput vs workers / batch size / prefetch depth and identify the bottleneck (I/O, decode or model)
+- [x] `ml-service`: CLIP image + text embeddings, pgvector (HNSW) search over gRPC ([ADR 018](adr/018-ml-service-tooling-data-access-and-reindex-job.md), [ADR 019](adr/019-ml-service-grpc-server.md)), search page in `web`
+- [ ] `EmbedAsset` with dynamic batching for the processing worker (the RPC is in the contract and answers UNIMPLEMENTED until the worker exists); benchmark batch size vs latency
+- [x] Reindex job as a data-loading pipeline: thumbnails streamed from S3 with prefetch, parallel decode/resize, batching into the model; benchmark throughput vs workers / batch size / prefetch depth and identify the bottleneck (I/O, decode or model)
 - [ ] Search quality evaluation: small labelled query set, recall@k, two CLIP models and two pgvector index types (HNSW vs IVFFlat) compared on recall vs latency; reproducible with one command, report in `docs/benchmarks/`
-- [ ] `web`: search page, asset grid with thumbnails, 3D viewer (R3F), upload with progress
+- [x] `web`: search page, asset grid with thumbnails, 3D viewer (R3F), upload with progress
 - **Done when:** text search returns relevant models in the UI, and the reindex and evaluation reports have real numbers.
 
 ## Stage 6 — Fullstack polish

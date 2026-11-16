@@ -1,15 +1,13 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { AssetsPageQuery } from '@/graphql/gql/graphql';
+import type { AssetCardFieldsFragment } from '@/graphql/gql/graphql';
 import { formatBytes } from '@/lib/format-bytes';
 import { formatDate } from '@/lib/format-date';
 import { AssetStatusBadge } from '@/features/assets/components/asset-status-badge';
 import { PREVIEW_IMAGE_SIZE_PX } from '@/features/assets/assets.constants';
 import { previewImageUrl } from '@/features/assets/lib/preview-image-url';
 
-type AssetListItem = AssetsPageQuery['assets']['nodes'][number];
-
-export function AssetCard({ asset }: { asset: AssetListItem }): ReactNode {
+export function AssetCard({ asset }: { asset: AssetCardFieldsFragment }): ReactNode {
   const imageUrl = previewImageUrl(asset.currentVersion);
 
   return (
@@ -18,11 +16,8 @@ export function AssetCard({ asset }: { asset: AssetListItem }): ReactNode {
       className="flex h-full flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 transition-colors hover:border-neutral-600"
     >
       {imageUrl ? (
-        // A plain <img>, not next/image: the file is already a 512 px WebP from our media host
-        // (ADR 017), and Next's optimizer would need that host in the build-time config.
-        // Decorative (alt=""): the title right below names the model. Lazy: a page of 24 cards
-        // loads only the images near the viewport. Width and height reserve the square, so
-        // the grid doesn't shift while images arrive.
+        // Not next/image: already a 512 px WebP (ADR 017), and the optimizer would need the
+        // media host in the build-time config.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imageUrl}

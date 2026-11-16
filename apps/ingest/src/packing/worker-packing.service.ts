@@ -12,11 +12,7 @@ import type { PackerPool } from './domain/packer-pool.interface';
 import { ModelPackingException } from './exceptions/model-packing.exception';
 import { PACK_WORKER_FILE } from './packing.constants';
 
-/**
- * Packing in worker threads (`--pack-in-workers`), the experiment of ADR 013's pipeline: the
- * same packer, moved off the main thread. Opened per run with one worker per pack slot, so
- * the pipeline's pack concurrency is also the number of threads.
- */
+/** One worker thread per pack slot (`--pack-in-workers`, ADR 013). */
 @Injectable()
 export class WorkerPackingService {
   constructor(
@@ -28,7 +24,6 @@ export class WorkerPackingService {
 
   open(size: number): PackerPool {
     const workerData: PackWorkerData = { cacheDir: this.cacheSettings.dir };
-    // The compiled worker sits next to this file in dist/ (import/workers/pack.worker.js).
     const pool = new WorkerPool<PackRequest, PackResponse>(
       join(__dirname, 'workers', PACK_WORKER_FILE),
       size,

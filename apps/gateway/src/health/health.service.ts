@@ -1,14 +1,9 @@
 import { Injectable, type BeforeApplicationShutdown } from '@nestjs/common';
 
 /**
- * Liveness ("process is up") and readiness ("send me traffic") are separate on purpose:
- * during shutdown the pod stays alive but stops being ready, so Kubernetes removes it
- * from load balancing before in-flight requests are drained.
- *
- * Readiness deliberately ignores asset-service: if it did, an asset-service outage would
- * mark every gateway pod unready, and clients would get connection errors from the
- * ingress instead of a GraphQL SERVICE_UNAVAILABLE error they can handle (and queries
- * that don't need asset-service would fail too).
+ * Separate so that during shutdown the pod stays alive but leaves load balancing. Readiness
+ * ignores asset-service: an outage would make every pod unready, and clients would get
+ * connection errors instead of a SERVICE_UNAVAILABLE they can handle.
  */
 @Injectable()
 export class HealthService implements BeforeApplicationShutdown {

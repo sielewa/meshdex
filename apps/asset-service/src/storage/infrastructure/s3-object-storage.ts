@@ -126,8 +126,7 @@ export class S3ObjectStorage implements ObjectStorage {
       }),
       {
         expiresIn: expiresInSeconds,
-        // Sign the header instead of leaving it free: a client can't store the image under
-        // another type (e.g. text/html) than the one validated at InitiateUpload.
+        // Signed, so a client can't store the image as another type (e.g. text/html).
         signableHeaders: new Set(['content-type']),
       },
     );

@@ -4,11 +4,8 @@ import { PartUploadException } from '../exceptions/part-upload.exception';
 import { PART_UPLOAD_TIMEOUT_MS } from '../object-storage.constants';
 
 /**
- * `PresignedUploadPort` with the global `fetch`. The body is a `Uint8Array` view of the packed
- * GLB, so its length is known: fetch sends `Content-Length` instead of chunked encoding, which
- * S3 requires for a presigned PUT, and only the view's bytes are sent, without a copy. Parts
- * carry no Content-Type (their signature covers none); a whole object sends the one its URL
- * was signed with. URLs are credentials, so they never appear in error messages.
+ * A `Uint8Array` body has a known length, so fetch sends `Content-Length` (S3 rejects chunked
+ * presigned PUTs) without copying. URLs are credentials and never appear in errors.
  */
 @Injectable()
 export class HttpPresignedUploadAdapter implements PresignedUploadPort {
@@ -32,7 +29,6 @@ export class HttpPresignedUploadAdapter implements PresignedUploadPort {
     await this.put(url, body, { 'content-type': contentType }, signal);
   }
 
-  /** One PUT with the shared timeout and error mapping; the response is read to the end. */
   private async put(
     url: string,
     body: Uint8Array,
@@ -61,7 +57,7 @@ export class HttpPresignedUploadAdapter implements PresignedUploadPort {
       );
     }
 
-    // Read the (small) response to the end, so the connection goes back to the pool.
+    // An unread body keeps the connection out of the pool.
     await response.arrayBuffer();
 
     if (!response.ok) {
