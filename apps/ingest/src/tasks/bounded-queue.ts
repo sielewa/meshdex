@@ -1,14 +1,8 @@
 import { QueueClosedException } from './exceptions/queue-closed.exception';
 
 /**
- * A FIFO queue between two pipeline stages that holds at most `capacity` items (ADR 013).
- *
- * `push` waits while the queue is full, so a slow consumer stage pauses the producer stage
- * instead of letting finished items pile up in memory: backpressure, as `stream.pipeline`
- * does for bytes, but for whole items (packed models) and several workers on each side.
- * `take` waits while the queue is empty and returns `undefined` once producers have called
- * `close` and everything was taken. `abort` fails every waiting and future call, so no
- * worker stays blocked when the run stops.
+ * Backpressure for whole items between pipeline stages (ADR 013): `push` waits while full, so a
+ * slow consumer pauses producers instead of letting items pile up in memory.
  */
 export class BoundedQueue<T> {
   private readonly items: T[] = [];
@@ -27,14 +21,12 @@ export class BoundedQueue<T> {
     }
   }
 
-  /** Items waiting for a consumer (not counting ones handed straight to a waiting consumer). */
   get size(): number {
     return this.items.length;
   }
 
   async push(item: T): Promise<void> {
-    // A loop, not a single wait: a woken producer re-checks, because another producer may
-    // have taken the free slot first, or a consumer may now be waiting for a direct hand-off.
+    // A woken producer re-checks: another one may have taken the free slot first.
     for (;;) {
       this.throwIfAborted();
 
@@ -71,7 +63,6 @@ export class BoundedQueue<T> {
     if (this.items.length > 0) {
       const item = this.items.shift() as T;
 
-      // A slot is free: let one waiting producer in.
       this.pushers.shift()?.resolve();
 
       return item;

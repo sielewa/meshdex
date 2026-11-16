@@ -4,16 +4,8 @@ import type { RunMeasurements } from './domain/run-measurements.interface';
 import { EVENT_LOOP_RESOLUTION_MS, MEMORY_SAMPLE_INTERVAL_MS } from './runs.constants';
 
 /**
- * Measures one run from construction to `stop()`: wall and CPU time, memory peaks and
- * event-loop delay.
- *
- * Event-loop delay is how late a 1 ms timer fires: while synchronous work (JSON parsing,
- * buffer copies in the packer) runs on the main thread, nothing else can, including the
- * callbacks that keep uploads moving. The histogram reports the full interval between ticks,
- * so the resolution is subtracted to leave only the delay.
- *
- * Memory is sampled on a timer, so a peak between two samples can be missed; the timer is
- * `unref`'d so it never keeps the process alive.
+ * Event-loop delay is how late a 1 ms timer fires: synchronous work on the main thread also
+ * stalls the callbacks that keep uploads moving. Memory is sampled, so short peaks can be missed.
  */
 export class RunProbe {
   private readonly startedAt = performance.now();

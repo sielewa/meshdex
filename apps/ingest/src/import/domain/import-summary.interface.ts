@@ -1,7 +1,6 @@
 import type { ModelFailure } from './model-failure.interface';
 import type { PipelineStats } from './pipeline-stats.interface';
 
-/** Result of one `ingest import` run, logged at the end. */
 export interface ImportSummary {
   /** Cached at the requested resolution and picked by `--ids` / `--limit`. */
   modelsSelected: number;

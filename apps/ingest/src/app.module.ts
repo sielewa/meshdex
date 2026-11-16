@@ -10,7 +10,6 @@ import { ImportModule } from './import/import.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // `.env` is loaded in main.ts (local only); here we only expose validated namespaces.
       ignoreEnvFile: true,
       load: allConfigNamespaces,
     }),

@@ -7,14 +7,8 @@ import type { PackWorkerData } from '../domain/pack-worker-data.interface';
 import { PackingService } from '../packing.service';
 
 /**
- * Worker thread entry point (`ingest import --pack-in-workers`), like `main.ts` an exception
- * to the one-class-per-file rule. It runs the same `PackingService` as the main thread,
- * outside Nest's DI: a worker is a separate JavaScript environment with its own module graph,
- * so it builds only what packing needs. Reading files, parsing JSON and copying buffers then
- * happen here, and the main thread's event loop stays free for uploads.
- *
- * The finished GLB goes back by transfer: its `ArrayBuffer` moves to the main thread instead
- * of being copied, so a worker costs no extra copy of the model.
+ * Runs `PackingService` outside Nest's DI: a worker has its own module graph. The GLB goes back
+ * by transfer, so the main thread gets it without a copy.
  */
 if (parentPort === null) {
   throw new Error('pack.worker must run in a worker thread');

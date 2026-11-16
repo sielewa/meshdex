@@ -26,21 +26,11 @@ import {
 } from './fetch.constants';
 
 /**
- * `ingest fetch`: downloads models' glTF files from Poly Haven into the local cache (ADR 013).
- *
- * Concurrency is across models: up to `concurrency` models are in flight, each downloading
- * its files one after another, so at most `concurrency` downloads run at once. A re-run skips
- * models whose cached manifest matches the catalog's `files_hash` (no request at all) and
- * files already cached with the right MD5, so an interrupted fetch resumes where it stopped.
- * Each model's preview image (ADR 017) is kept up to date the same way, also for models whose
- * files are: a cache filled before previews existed gets them on the next run.
+ * Concurrency is across models, each downloading its files in sequence, so at most
+ * `concurrency` downloads run at once. A re-run skips what is cached intact (ADR 013).
  */
 @Injectable()
 export class FetchService {
-  /**
-   * Network errors, timeouts, 429/5xx and truncated downloads are transient. Unsafe paths and
-   * non-retryable API answers (404, malformed listings) fail at once.
-   */
   private readonly retryPolicy: RetryPolicy = {
     attempts: FETCH_RETRY_ATTEMPTS,
     baseDelayMs: FETCH_RETRY_BASE_DELAY_MS,
@@ -217,12 +207,7 @@ export class FetchService {
     );
   }
 
-  /**
-   * Keeps the cached preview in step with the catalog: reused while its source URL (which
-   * carries the render's version) is unchanged and the file is intact, downloaded otherwise.
-   * A failed download fails the model, so the next run tries again instead of importing it
-   * without the image search needs.
-   */
+  /** The source URL carries the render's version, so a changed URL means a stale preview. */
   private async syncPreview(
     model: PolyhavenModel,
     modelDir: string,
@@ -269,7 +254,6 @@ export class FetchService {
     };
   }
 
-  /** Downloads the file unless it is already cached intact; returns whether it downloaded. */
   private async downloadIfMissing(
     modelDir: string,
     file: RemoteFile,
@@ -305,7 +289,6 @@ export class FetchService {
     return true;
   }
 
-  /** Requested ids (unknown ones become failures) or the whole catalog, sorted by id, limited. */
   private select(
     catalog: PolyhavenModel[],
     args: FetchArgs,

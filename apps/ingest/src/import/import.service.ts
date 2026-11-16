@@ -33,21 +33,12 @@ import { UploadService } from '../upload/upload.service';
 import { WorkerPackingService } from '../packing/worker-packing.service';
 
 /**
- * `ingest import`: cached models → assets in asset-service (ADR 013), as a two-stage pipeline.
- *
  * ```
  * cached manifests ─▶ pack × P ─▶ BoundedQueue(Q) ─▶ upload × U ─▶ state file
- *                     (CPU, disk)                     (network)
  * ```
  *
- * Packing and uploading overlap: while one model's parts are on the wire, the next ones are
- * being packed. The queue is the only buffer between the stages, so at most P + Q + U packed
- * models are in memory at any time, whichever stage is slower: when uploads lag, packers
- * wait in `push`; when packing lags, uploaders wait in `take`. One model's failure is
- * recorded and the rest carry on; the caller's abort stops both stages.
- *
- * Every run is measured (`RunProbe`) and the measurements are logged; `--record <dir>` also
- * writes them as a JSON run record for benchmark reports.
+ * The queue is the only buffer between the stages, so at most P + Q + U GLBs are in memory
+ * whichever stage is slower (ADR 013).
  */
 @Injectable()
 export class ImportService {
@@ -238,7 +229,6 @@ export class ImportService {
     }
   }
 
-  /** Pack stage: the model's GLB, or `null` when packing failed (recorded in the summary). */
   private async pack(
     packer: ModelPacker,
     manifest: CachedModelManifest,
@@ -267,7 +257,6 @@ export class ImportService {
     }
   }
 
-  /** Upload stage: the asset, then its line in the state file. */
   private async upload(
     packed: PackedModel,
     statePath: string,
@@ -311,10 +300,9 @@ export class ImportService {
   }
 
   /**
-   * Poly Haven metadata fitted to asset-service's limits, so it never rejects a model over
-   * its description: `polyhaven` first (it must survive the cap, the credit depends on it),
-   * then categories (broad; `collection: x` becomes `x`) and tags (specific). Tags are normalised the way asset-service
-   * does it, so duplicates collapse before counting; overlong ones are left out.
+   * Fitted to asset-service's limits so it never rejects a model over metadata. `polyhaven`
+   * goes first so the cap can't drop it; tags are normalised as asset-service does before
+   * counting.
    */
   private describe(
     manifest: CachedModelManifest,
@@ -346,11 +334,7 @@ export class ImportService {
     };
   }
 
-  /**
-   * The cached preview image (ADR 017), read in the upload stage: it is ~35 KB, so it doesn't
-   * change the pipeline's memory bound, and the pack stage (possibly in a worker thread) stays
-   * about the GLB. A model cached before previews existed is imported without one.
-   */
+  /** Read in the upload stage: ~35 KB, so it doesn't change the memory bound (ADR 017). */
   private async readPreview(manifest: CachedModelManifest): Promise<GlbUpload['sourcePreview']> {
     const preview = manifest.preview;
 
@@ -369,11 +353,7 @@ export class ImportService {
     };
   }
 
-  /**
-   * Cached models at the requested resolution, sorted by id, then `--ids` (requested ids that
-   * aren't cached become failures) and `--limit`. The selection doesn't depend on the state
-   * file, so `--limit N` always means the same N models.
-   */
+  /** Independent of the state file, so `--limit N` always means the same N models. */
   private async select(args: ImportArgs, summary: ImportSummary): Promise<CachedModelManifest[]> {
     const cachedIds = await this.cache.listModelIds();
     const requested = args.ids === undefined ? null : new Set(args.ids);

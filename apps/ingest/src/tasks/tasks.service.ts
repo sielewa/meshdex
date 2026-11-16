@@ -3,7 +3,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { RetryPolicy } from './domain/retry-policy.interface';
 
-/** Bounded concurrency and retries, shared by `fetch` and `import`. */
 @Injectable()
 export class TasksService {
   constructor(
@@ -11,12 +10,7 @@ export class TasksService {
     private readonly logger: PinoLogger,
   ) {}
 
-  /**
-   * Runs `worker` over `items` with at most `limit` calls in flight: `limit` loops share one
-   * index, each taking the next item when its previous one finishes. Workers are expected to
-   * handle their own per-item failures; one that throws stops the loops from taking new items
-   * and the call rejects with that error once the calls already in flight have settled.
-   */
+  /** `limit` loops share one index. Workers handle per-item failures; a throw stops the run. */
   async forEach<T>(
     items: readonly T[],
     limit: number,
@@ -46,11 +40,7 @@ export class TasksService {
     }
   }
 
-  /**
-   * Retries transient failures with exponential backoff and full jitter (a random delay below
-   * a doubling cap), so parallel retries don't hit a server in lockstep. Errors the policy
-   * doesn't call retryable, and the caller's abort, fail at once.
-   */
+  /** Full jitter, so parallel retries don't hit a server in lockstep. */
   async retry<T>(
     operation: () => Promise<T>,
     policy: RetryPolicy,

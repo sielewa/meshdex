@@ -4,7 +4,6 @@ import { PolyhavenClientModule } from '../clients/polyhaven/polyhaven-client.mod
 import { TasksModule } from '../tasks/tasks.module';
 import { FetchService } from './fetch.service';
 
-/** `ingest fetch`: Poly Haven → local model cache. */
 @Module({
   imports: [
     PolyhavenClientModule,

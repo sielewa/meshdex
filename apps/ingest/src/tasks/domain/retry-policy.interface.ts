@@ -1,4 +1,3 @@
-/** How `TasksService.retry` repeats a failing operation. */
 export interface RetryPolicy {
   /** Attempts including the first. */
   attempts: number;

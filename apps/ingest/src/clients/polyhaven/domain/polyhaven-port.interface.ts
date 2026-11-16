@@ -3,7 +3,6 @@ import type { ModelFileSet } from './model-file-set.interface';
 import type { PolyhavenModel } from './polyhaven-model.interface';
 import type { TextureResolution } from './texture-resolution.type';
 
-/** What ingest needs from Poly Haven. Throws `PolyhavenRequestException`. */
 export interface PolyhavenPort {
   /** Every model in the catalog. */
   listModels(signal: AbortSignal): Promise<PolyhavenModel[]>;

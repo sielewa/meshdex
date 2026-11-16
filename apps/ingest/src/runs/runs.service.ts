@@ -9,11 +9,6 @@ import type { RunRecord } from './domain/run-record.interface';
 import { RunProbe } from './run-probe';
 import { GIT_TIMEOUT_MS } from './runs.constants';
 
-/**
- * Measures runs and writes them as JSON files, one per run, so benchmark reports are built
- * from recorded data instead of numbers copied from logs. Where runs are stored for the
- * Experiments page is a later decision; a file is the input either way.
- */
 @Injectable()
 export class RunsService {
   start(): RunProbe {
@@ -38,10 +33,7 @@ export class RunsService {
     };
   }
 
-  /**
-   * Writes `<dir>/<startedAt>-<command>[-<label>].json` and returns its absolute path. The
-   * `wx` flag refuses to overwrite: a recorded run is never replaced by another one.
-   */
+  /** `wx`: a recorded run is never overwritten. */
   async write<TOptions, TResult>(
     dir: string,
     record: RunRecord<TOptions, TResult>,
@@ -56,7 +48,6 @@ export class RunsService {
     return path;
   }
 
-  /** Output of a read-only git command, or `null` when git or the checkout isn't there. */
   private async git(args: string[]): Promise<string | null> {
     try {
       const { stdout } = await promisify(execFile)('git', args, { timeout: GIT_TIMEOUT_MS });

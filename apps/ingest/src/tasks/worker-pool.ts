@@ -2,13 +2,8 @@ import { Worker, type Transferable, type WorkerOptions } from 'node:worker_threa
 import { WorkerPoolException } from './exceptions/worker-pool.exception';
 
 /**
- * A fixed set of worker threads, each handling one request at a time; requests beyond the
- * number of idle workers wait in order.
- *
- * Messages are structured-cloned between threads, except what is listed in `transfer`: an
- * `ArrayBuffer` in the transfer list moves to the other thread without a copy (and becomes
- * unusable on the sending side). A worker that crashes or exits fails its request and closes
- * the pool: per-request errors are the worker's job to report as a normal response.
+ * One request per worker at a time. A crashed worker closes the pool: per-request errors are
+ * the worker's to report as a normal response.
  */
 export class WorkerPool<TRequest, TResponse> {
   private readonly workers: Worker[] = [];
@@ -63,7 +58,6 @@ export class WorkerPool<TRequest, TResponse> {
     });
   }
 
-  /** Stops every worker; waiting and later requests are rejected. */
   async close(): Promise<void> {
     this.fail(new WorkerPoolException('The worker pool is closed'));
     await Promise.all(this.workers.map((worker) => worker.terminate()));

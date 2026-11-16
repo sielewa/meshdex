@@ -8,14 +8,9 @@ import { CacheService } from '../cache/cache.service';
 import { UnsupportedGltfException } from './exceptions/unsupported-gltf.exception';
 
 /**
- * Packs a cached `.gltf` with its `.bin` and textures into one GLB (ADR 013): the same glTF
- * 2.0 content in a single binary container, which is what asset-service accepts.
- *
- * The packer reads the files itself and hands `NodeIO` an in-memory `{ json, resources }`
- * document, so the library never touches the disk or the network: a resource URI that isn't
- * one of the model's verified cached files (`../../secret`, `https://…`) fails the model
- * instead of being followed. The whole model is in memory while it is packed; the import
- * pipeline bounds how many models that is.
+ * `.gltf` + resources → one GLB (ADR 013). Files are read here and handed to `NodeIO` in
+ * memory, so a URI that isn't a verified cached file (`../../secret`, `https://…`) fails the
+ * model instead of being followed.
  */
 @Injectable()
 export class PackingService {
@@ -26,9 +21,7 @@ export class PackingService {
     @InjectPinoLogger(PackingService.name)
     private readonly logger: PinoLogger,
   ) {
-    // Every official Khronos/EXT extension (materials such as transmission, texture transforms…)
-    // is read and written back as it is. Compressed geometry (Draco, meshopt) would also need
-    // its decoder; Poly Haven doesn't use it, and such a model fails below instead of changing.
+    // Draco/meshopt would need decoders; Poly Haven doesn't use them, so such a model fails.
     this.io = new NodeIO().registerExtensions(ALL_EXTENSIONS).setLogger(this.gltfLogger());
   }
 
@@ -48,13 +41,7 @@ export class PackingService {
     return this.io.writeBinary(document);
   }
 
-  /**
-   * Loads every external buffer and image, keyed by the URI exactly as written in the JSON
-   * (that is how `NodeIO` looks them up). URIs are percent-encoded per the glTF spec, the
-   * manifest holds plain paths. `data:` URIs are embedded and decoded by the library.
-   * A model's files are read in parallel: a handful per model, and libuv's thread pool
-   * bounds the actual disk reads.
-   */
+  /** Keyed by the URI as written (percent-encoded), which is how `NodeIO` looks them up. */
   private async readResources(
     json: GLTF.IGLTF,
     modelDir: string,
@@ -91,12 +78,7 @@ export class PackingService {
     }
   }
 
-  /**
-   * `NodeIO` skips optional extensions it has no implementation for (a vendor extension, or
-   * an official one newer than the library), with only a warning: a glass material would come
-   * out opaque. A model whose content would change fails instead.
-   * (Required extensions it doesn't know already make `readJSON` throw.)
-   */
+  /** `NodeIO` drops unknown optional extensions with only a warning: glass would turn opaque. */
   private assertNoExtensionDropped(json: GLTF.IGLTF, document: Document): void {
     const kept = new Set(
       document
@@ -113,7 +95,6 @@ export class PackingService {
     }
   }
 
-  /** The library's warnings go to pino like everything else, never to the console. */
   private gltfLogger(): ILogger {
     return {
       debug: (text) => {

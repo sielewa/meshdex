@@ -7,11 +7,6 @@ import { UploadModule } from '../upload/upload.module';
 import { ImportService } from './import.service';
 import { ImportStateService } from './import-state.service';
 
-/**
- * `ingest import`: picks cached models, runs them through packing → upload as a pipeline,
- * remembers what was imported and measures the run. The work itself is done by
- * `PackingModule` and `UploadModule`.
- */
 @Module({
   imports: [
     CacheModule,

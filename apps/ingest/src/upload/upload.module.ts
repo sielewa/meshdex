@@ -4,11 +4,6 @@ import { ObjectStorageClientModule } from '../clients/object-storage/object-stor
 import { TasksModule } from '../tasks/tasks.module';
 import { UploadService } from './upload.service';
 
-/**
- * GLB bytes → an asset in asset-service, through the same upload flow as the browser:
- * `InitiateUpload`, parts to presigned URLs, `CompleteUpload`. Knows nothing of glTF or the
- * cache.
- */
 @Module({
   imports: [
     AssetServiceClientModule,

@@ -1,6 +1,5 @@
 import type { ModelFailure } from './model-failure.interface';
 
-/** Outcome of one `ingest fetch` run. */
 export interface FetchSummary {
   modelsSelected: number;
   modelsFetched: number;
