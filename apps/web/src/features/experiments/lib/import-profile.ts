@@ -3,11 +3,6 @@ import type { ImportRecord } from '@/features/experiments/lib/benchmark-run.sche
 import type { CommandProfile } from '@/features/experiments/types/run-profile';
 import { formatBytes } from '@/lib/format-bytes';
 
-/**
- * `ingest import` runs. The data is chosen by texture resolution and which models (the first
- * N, chosen ids or all cached); how it is done by packing and upload concurrency, the queue
- * between them and where packing runs.
- */
 export const IMPORT_PROFILE: CommandProfile<ImportRecord> = {
   work: ({ options }) => [options.resolution, options.limit, sortedIds(options.ids)],
 

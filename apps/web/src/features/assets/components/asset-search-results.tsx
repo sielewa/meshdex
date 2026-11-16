@@ -7,12 +7,7 @@ import { AssetCard } from '@/features/assets/components/asset-card';
 import { searchAssetsQueryOptions } from '@/features/assets/api/assets.queries';
 import { MAX_SEARCH_RESULTS, SEARCH_RESULTS_STEP } from '@/features/assets/assets.constants';
 
-/**
- * Results of one text search, best match first. The first step normally arrives hydrated from
- * the server prefetch. "Show more" asks again with a larger `first` (ranked results have no
- * cursor, ADR 020); the shown results stay on screen while the larger list loads. The page
- * keys this component by the query, so a new search starts again from the first step.
- */
+/** Keyed by the query, so a new search starts again from the first step. */
 export function AssetSearchResults({ query }: { query: string }): ReactNode {
   const endpoint = useGatewayEndpoint();
   const [first, setFirst] = useState(SEARCH_RESULTS_STEP);

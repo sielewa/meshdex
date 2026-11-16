@@ -6,19 +6,11 @@ interface GraphqlResponseBody<TResult> {
   errors?: { message: string; extensions?: { code?: unknown } }[];
 }
 
-/**
- * Sends one typed operation to the gateway. Server components pass the internal endpoint,
- * client components the public one (`useGatewayEndpoint`); the document carries both the
- * result and the variables type, so a call can't drift from the schema.
- *
- * Any error in the response fails the whole call: the views in this app need complete
- * data, and partial results would have to be handled field by field.
- */
+/** Any error fails the whole call: the views need complete data. */
 export async function executeGraphql<TResult, TVariables>(options: {
   endpoint: string;
   document: TypedDocumentString<TResult, TVariables>;
   variables: TVariables;
-  /** Lets TanStack Query cancel requests whose result nobody needs anymore. */
   signal?: AbortSignal;
 }): Promise<TResult> {
   const response = await fetch(options.endpoint, {

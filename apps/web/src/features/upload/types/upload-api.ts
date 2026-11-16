@@ -7,7 +7,6 @@ export interface PartUrl {
   expiresAt: string;
 }
 
-/** The gateway calls the uploader needs; an interface so tests can fake them. */
 export interface UploadApi {
   initiate(input: InitiateUploadInput): Promise<{
     assetId: string;

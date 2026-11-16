@@ -4,11 +4,7 @@ import { IMPORT_PROFILE } from '@/features/experiments/lib/import-profile';
 import { REINDEX_PROFILE } from '@/features/experiments/lib/reindex-profile';
 import type { CommandProfile, RunProfile } from '@/features/experiments/types/run-profile';
 
-/**
- * Reads a run through its command's profile into the shape the page compares, so grouping and
- * charts work the same for every command. Narrowing on `command` picks the profile with the
- * record's own type: a profile can only read fields its record format has.
- */
+/** Narrowing on `command` types each profile with its own record format. */
 export function profileRun(record: BenchmarkRecord): RunProfile {
   switch (record.command) {
     case 'import':

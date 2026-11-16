@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
-/**
- * Quick feedback before anything is sent. asset-service stays the authority on the real
- * limits (title length, tag count, maximum size) and reports violations, which the form shows.
- */
+/** Quick feedback only; asset-service stays the authority on the limits. */
 export const uploadFormSchema = z.object({
   title: z.string().trim().min(1, 'Give the model a title'),
   tags: z.string().transform((value) => [

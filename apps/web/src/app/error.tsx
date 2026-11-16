@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react';
 
-/** Last-resort boundary for unexpected render errors; data errors are handled in place. */
 export default function ErrorPage({ reset }: { error: Error; reset: () => void }): ReactNode {
   return (
     <div role="alert" className="space-y-3">

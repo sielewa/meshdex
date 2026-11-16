@@ -1,14 +1,9 @@
-/** Texture resolutions of `ingest import`, smallest first: the order of its workloads. */
 export const IMPORT_RESOLUTION_ORDER = ['1k', '2k', '4k'] as const;
 
-/** SI megabytes, the unit ingest reports throughput in (and `formatBytes` uses). */
+/** SI, as ingest reports throughput. */
 export const MEGABYTE = 1_000_000;
 
-/**
- * Series colours (categorical slots of the data-viz palette, dark steps, validated against the
- * card surface #171717: every adjacent pair clears the colour-blindness check). Assigned by a
- * configuration's position in its workload, in this fixed order, never cycled.
- */
+/** Validated against the card surface #171717 for colour-blind safety; never cycled. */
 export const SERIES_COLORS = [
   'var(--chart-series-1)',
   'var(--chart-series-2)',

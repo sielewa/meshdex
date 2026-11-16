@@ -6,11 +6,10 @@ import type { Workload } from '@/features/experiments/types/workload';
 
 interface WorkloadTableProps {
   workload: Workload;
-  /** Display name of each configuration, in the workload's order. */
   names: string[];
 }
 
-/** The charts' numbers as text: readable without hovering, by screen readers and in print. */
+/** Readable without hovering, by screen readers and in print. */
 export function WorkloadTable({ workload, names }: WorkloadTableProps): ReactNode {
   const { configurations } = workload;
 

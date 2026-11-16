@@ -4,11 +4,7 @@ const count = z.int().nonnegative();
 const positive = z.int().positive();
 const amount = z.number().nonnegative();
 
-/**
- * The machine and code a run was measured on: the part of `environment` every command
- * records. Records come from other apps, so they are validated like any external input
- * (ADR 007), not trusted as a hand-written type.
- */
+/** Records come from other apps, so they are validated like any external input (ADR 007). */
 const machineEnvironment = {
   platform: z.string(),
   arch: z.string(),
@@ -19,7 +15,6 @@ const machineEnvironment = {
   gitDirty: z.boolean().nullable(),
 };
 
-/** Measurements every command records about its whole process. */
 const processMeasurements = {
   wallMs: amount,
   cpuUserMs: amount,
@@ -27,14 +22,12 @@ const processMeasurements = {
   peakRssBytes: amount,
 };
 
-/** The envelope shared by every record (ADR 014), format version 1. */
 const envelope = {
   version: z.literal(1),
   label: z.string().nullable(),
   startedAt: z.iso.datetime(),
 };
 
-/** Options of `ingest import` that shape a measurement (`ImportRunOptions` in ingest). */
 export const importRunOptionsSchema = z.object({
   resolution: z.enum(['1k', '2k', '4k']),
   packConcurrency: positive,
@@ -45,7 +38,6 @@ export const importRunOptionsSchema = z.object({
   ids: z.array(z.string()).nullable(),
 });
 
-/** One `ingest import` run (`RunRecord` in ingest). */
 const importRecordSchema = z.object({
   ...envelope,
   command: z.literal('import'),
@@ -79,7 +71,6 @@ const importRecordSchema = z.object({
   }),
 });
 
-/** Options of `ml_service reindex` that shape a measurement (`run_record.py` in ml-service). */
 export const reindexRunOptionsSchema = z.object({
   batchSize: positive,
   /** 0 loads images in the main process. */
@@ -91,7 +82,6 @@ export const reindexRunOptionsSchema = z.object({
   model: z.string(),
 });
 
-/** One `ml_service reindex` run (`run_record.py` in ml-service). */
 const reindexRecordSchema = z.object({
   ...envelope,
   command: z.literal('reindex'),
@@ -141,7 +131,6 @@ const reindexRecordSchema = z.object({
   }),
 });
 
-/** One recorded run of any command; `command` tells which record format it has. */
 export const benchmarkRecordSchema = z.discriminatedUnion('command', [
   importRecordSchema,
   reindexRecordSchema,
@@ -152,14 +141,12 @@ const benchmarkRunSchema = z.object({
   record: benchmarkRecordSchema,
 });
 
-/** One question and the runs recorded to answer it (`docs/benchmarks/experiments.json`, ADR 016). */
 export const experimentSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
   title: z.string().min(1),
   question: z.string().min(1),
-  /** One sentence; absent while the experiment has no conclusion yet. */
+  /** Absent while the experiment has no conclusion yet. */
   answer: z.string().min(1).optional(),
-  /** File name of the report in `docs/benchmarks/`. */
   report: z.string().regex(/^[a-z0-9-]+\.md$/),
   runs: z.array(z.string().regex(/\.json$/)).min(1),
 });
@@ -168,7 +155,6 @@ export const experimentsManifestSchema = z.object({
   experiments: z.array(experimentSchema),
 });
 
-/** The bundle written by `scripts/collect-benchmark-runs.ts`. */
 export const benchmarkBundleSchema = z.object({
   experiments: experimentsManifestSchema,
   runs: z.array(benchmarkRunSchema),

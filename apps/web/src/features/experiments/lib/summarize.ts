@@ -1,4 +1,3 @@
-/** Median and range of a metric over repeated runs. */
 export interface Summary {
   n: number;
   median: number;
@@ -6,11 +5,7 @@ export interface Summary {
   max: number;
 }
 
-/**
- * Median, not mean: with a handful of runs one disturbed run (a GC pause, a background job)
- * would drag the mean, while the median stays with the typical run. The range shows the spread
- * instead of a standard deviation, which says little about 3–5 values.
- */
+/** Median and range: one disturbed run drags a mean, and a deviation says little about 3–5 values. */
 export function summarize(values: readonly number[]): Summary {
   if (values.length === 0) {
     throw new RangeError('Cannot summarize zero values');

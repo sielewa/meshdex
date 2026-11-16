@@ -17,8 +17,7 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }): Promise<ReactNode> {
-  // Render per request, so the public endpoint comes from the runtime environment
-  // (ADR 012) instead of being frozen into prerendered HTML at build time.
+  // Per request, so the public endpoint comes from the runtime environment (ADR 012).
   await connection();
   const { PUBLIC_GATEWAY_URL } = getServerEnv();
 

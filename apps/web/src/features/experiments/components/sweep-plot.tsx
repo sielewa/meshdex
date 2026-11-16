@@ -3,10 +3,8 @@ import { formatMetricValue, formatTick } from '@/features/experiments/lib/format
 import { niceScale } from '@/features/experiments/lib/nice-scale';
 import type { Summary } from '@/features/experiments/lib/summarize';
 
-/** One value of the swept option: its runs and their median. */
 export interface SweepStep {
   key: string;
-  /** The option's value, printed under the axis ("4"). */
   label: string;
   points: { key: string; value: number; title: string }[];
   summary: Summary;
@@ -17,7 +15,6 @@ interface SweepPlotProps {
   unit: string;
   better: 'lower' | 'higher';
   description: string;
-  /** What the x axis counts ("uploaders"). */
   axisLabel: string;
   steps: SweepStep[];
 }
@@ -31,16 +28,11 @@ const TOP = 16;
 const BOTTOM = HEIGHT - 36;
 const DOT_RADIUS = 4;
 const HIT_RADIUS = 12;
-/** Runs of one step are spread sideways a little so equal values don't hide each other. */
+/** Equal values would hide each other. */
 const SPREAD = 5;
 const COLOR = 'var(--chart-series-1)';
 
-/**
- * One metric across the values of a single swept option (ADR 015: server-rendered SVG). Steps
- * are evenly spaced and labelled with their value: the sweep doubles (1, 2, 4, 8), so even
- * spacing reads like a log scale. Every run is a dot, a line joins the medians, and only the
- * best median is printed, above its dots (the rest are in the table and on hover).
- */
+/** Steps are evenly spaced: the sweep doubles (1, 2, 4, 8), so this reads like a log scale. */
 export function SweepPlot({
   title,
   unit,

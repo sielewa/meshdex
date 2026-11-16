@@ -16,11 +16,8 @@ export function AssetCard({ asset }: { asset: AssetCardFieldsFragment }): ReactN
       className="flex h-full flex-col overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 transition-colors hover:border-neutral-600"
     >
       {imageUrl ? (
-        // A plain <img>, not next/image: the file is already a 512 px WebP from our media host
-        // (ADR 017), and Next's optimizer would need that host in the build-time config.
-        // Decorative (alt=""): the title right below names the model. Lazy: a page of 24 cards
-        // loads only the images near the viewport. Width and height reserve the square, so
-        // the grid doesn't shift while images arrive.
+        // Not next/image: already a 512 px WebP (ADR 017), and the optimizer would need the
+        // media host in the build-time config.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imageUrl}

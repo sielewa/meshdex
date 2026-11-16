@@ -2,13 +2,7 @@ import { MEGABYTE } from '@/features/experiments/experiments.constants';
 import type { ReindexRecord } from '@/features/experiments/lib/benchmark-run.schema';
 import type { CommandProfile } from '@/features/experiments/types/run-profile';
 
-/**
- * `ml_service reindex` runs. The data is the set of source previews it embeds: how many were
- * selected (the catalogue at the time, cut by `limit`) and whether already embedded ones were
- * included. The image count comes from the result, not the options: the same options on a
- * bigger catalogue are different work. How the work is done: batch size, loader workers,
- * prefetch depth, the device and the model.
- */
+/** The image count comes from the result: the same options on a bigger catalogue are other work. */
 export const REINDEX_PROFILE: CommandProfile<ReindexRecord> = {
   work: ({ options, result }) => [options.limit, options.includeEmbedded, result.imagesSelected],
 
@@ -79,7 +73,6 @@ export const REINDEX_PROFILE: CommandProfile<ReindexRecord> = {
     },
   ],
 
-  // Main-process stages first (they add up to the wall time), then the costs of the process.
   metrics: [
     {
       id: 'wall-time',

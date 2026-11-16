@@ -1,14 +1,7 @@
 /**
- * Bundles the committed benchmark runs (`docs/benchmarks/runs/*.json`, ADR 014) and the
- * experiments they belong to (`docs/benchmarks/experiments.json`, ADR 016) into one JSON
- * file that the Experiments page imports, so the page shows exactly the runs of the commit it
- * was built from and reads nothing from disk at runtime (ADR 015). Runs before every web
- * script, like the GraphQL codegen; the output is not committed.
- *
- * Validation is not done here: the page parses the bundle with its zod schema, and a unit test
- * parses every committed run and the manifest, so a malformed file fails `pnpm test` and the build.
- *
- * Plain Node (type stripping, no imports from `src/`), so it needs no TypeScript runner.
+ * Bundles the committed runs and the manifest into one JSON the Experiments page imports, so it
+ * shows exactly the runs of its commit (ADR 015). Validated by the page's zod schema, not here.
+ * Plain Node with type stripping: no imports from `src/`.
  */
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';

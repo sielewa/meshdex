@@ -4,10 +4,8 @@ import type { RunProfile, RunSetting } from '@/features/experiments/types/run-pr
 import type { RunConfiguration, Workload } from '@/features/experiments/types/workload';
 
 /**
- * Groups runs into workloads (same command, same data, same machine) and, inside each, into
- * configurations (same settings, runtime and commit). Derived from the records alone, through
- * each command's profile, so a new experiment needs no list of which runs belong together:
- * labels are only names.
+ * Workloads (same command, data and machine) split into configurations (same settings and
+ * commit), derived from the records alone: labels are only names.
  */
 export function groupRuns(runs: readonly BenchmarkRun[]): Workload[] {
   const workloads = new Map<string, Workload>();
@@ -48,10 +46,7 @@ export function groupRuns(runs: readonly BenchmarkRun[]): Workload[] {
   return [...workloads.values()].sort(compareWorkloads);
 }
 
-/**
- * The id of the numeric option a workload sweeps, when its configurations differ in that
- * option alone (same code, same runtime, same other options); `null` for any other comparison.
- */
+/** Set only when the configurations differ in that one numeric option. */
 export function sweptSetting(workload: Workload): string | null {
   const [only, ...rest] = workload.differences;
 
@@ -117,14 +112,12 @@ function addConfiguration(workload: Workload, key: string, profile: RunProfile):
   return configuration;
 }
 
-/** In the order the profile names its settings; every configuration of a workload has the same ones. */
 function findDifferences(configurations: readonly RunConfiguration[]): string[] {
   const ids = configurations[0]?.settings.map((setting) => setting.id) ?? [];
 
   return ids.filter((id) => new Set(configurations.map((c) => findSetting(c, id)?.value)).size > 1);
 }
 
-/** By command, then by the command's own order, then by key so the order is stable. */
 function compareWorkloads(a: Workload, b: Workload): number {
   return (
     a.command.localeCompare(b.command) ||

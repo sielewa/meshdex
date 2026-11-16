@@ -2,11 +2,7 @@ import Form from 'next/form';
 import type { ReactNode } from 'react';
 import { MAX_SEARCH_QUERY_LENGTH } from '@/features/assets/assets.constants';
 
-/**
- * A GET form to `/search?q=…`: the query lives in the URL, so results can be linked, reloaded
- * and navigated with back/forward. `next/form` turns the submit into a client-side navigation
- * (and prefetches the route's loading state); without JavaScript it is a plain form.
- */
+/** A GET form: the query lives in the URL, so results can be linked and reloaded. */
 export function AssetSearchForm({
   defaultQuery = '',
   autoFocus = false,

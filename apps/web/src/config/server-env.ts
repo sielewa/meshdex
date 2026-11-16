@@ -3,11 +3,7 @@ import { serverEnvSchema, type ServerEnv } from '@/config/server-env.schema';
 
 let validated: ServerEnv | undefined;
 
-/**
- * The validated server environment. Read at runtime (not inlined at build time like
- * `NEXT_PUBLIC_*`), so the same build runs in every environment. `instrumentation.ts`
- * calls it on startup, so a misconfigured pod fails before serving traffic.
- */
+/** Read at runtime, unlike `NEXT_PUBLIC_*`, so one build runs in every environment. */
 export function getServerEnv(): ServerEnv {
   if (!validated) {
     const result = serverEnvSchema.safeParse(process.env);

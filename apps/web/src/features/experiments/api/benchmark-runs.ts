@@ -6,10 +6,7 @@ import type { Experiment } from '@/features/experiments/types/experiment';
 
 let experiments: Experiment[] | undefined;
 
-/**
- * The experiments and runs bundled at build time by `scripts/collect-benchmark-runs.ts`
- * (ADR 015, 016). Parsed once per server process: the data can't change without a new build.
- */
+/** Bundled at build time (ADR 015), so parsed once per process. */
 export function getExperiments(): Experiment[] {
   experiments ??= resolveExperiments(benchmarkBundleSchema.parse(bundle));
 

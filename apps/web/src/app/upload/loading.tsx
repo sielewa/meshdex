@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 
-/**
- * Shown while the route renders (the root layout renders per request). Without it the route
- * would inherit the root boundary, a skeleton of the asset grid.
- */
+/** Without it the route would inherit the root boundary, a skeleton of the asset grid. */
 export default function UploadLoading(): ReactNode {
   return (
     <div className="space-y-6" aria-busy="true">

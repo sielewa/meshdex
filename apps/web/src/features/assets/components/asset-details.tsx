@@ -7,7 +7,6 @@ import { AssetStatusBadge } from '@/features/assets/components/asset-status-badg
 
 type AssetDetail = NonNullable<AssetPageQuery['asset']>;
 
-/** Metadata next to the viewer: what was uploaded and where processing stands. */
 export function AssetDetails({ asset }: { asset: AssetDetail }): ReactNode {
   const version = asset.currentVersion;
 

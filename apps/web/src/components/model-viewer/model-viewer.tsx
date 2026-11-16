@@ -8,13 +8,7 @@ import { LoadProgress } from '@/components/model-viewer/load-progress';
 import { FADE_DURATION_MS } from '@/components/model-viewer/model-viewer.constants';
 import { ViewerErrorBoundary } from '@/components/model-viewer/viewer-error-boundary';
 
-/**
- * Interactive 3D preview of a GLB. Loaded with `next/dynamic` (no SSR) by the asset page,
- * so three.js is downloaded only by pages that show a model.
- *
- * The canvas stays transparent until the model is framed, then fades in, so whatever the page
- * shows behind it (a still image of the model) turns into the model instead of being swapped.
- */
+/** Transparent until the model is framed, then fades in over the still image behind it. */
 export function ModelViewer({
   url,
   onRetry,
@@ -22,7 +16,6 @@ export function ModelViewer({
 }: {
   url: string;
   onRetry: () => void;
-  /** Called once the model is loaded and framed (e.g. to fade out a still image). */
   onLoaded?: () => void;
 }): ReactNode {
   const [loaded, setLoaded] = useState(false);
@@ -42,10 +35,8 @@ export function ModelViewer({
           }}
         >
           <Canvas
-            // Render only when something changes (camera moved, model loaded) instead of 60 fps:
-            // an idle viewer costs no GPU time.
+            // An idle viewer costs no GPU time.
             frameloop="demand"
-            // Sharp on HiDPI screens without rendering 3x pixels on phones.
             dpr={[1, 2]}
             camera={{ fov: 45 }}
             fallback={
@@ -57,18 +48,10 @@ export function ModelViewer({
             <Suspense fallback={null}>
               <GltfModel url={url} onLoaded={handleLoaded} />
             </Suspense>
-            {/*
-              Lights fixed to the world, not scaled with the model: directional lights shine the
-              same at any distance. No environment map: drei's presets are HDR files from a
-              public CDN, a third-party request this app doesn't make.
-            */}
+            {/* No environment map: drei's presets come from a third-party CDN. */}
             <hemisphereLight args={['#ffffff', '#444444', 0.8]} />
             <directionalLight position={[5, 8, 5]} intensity={1.4} />
             <directionalLight position={[-4, 2, -3]} intensity={0.5} />
-            {/*
-              Slower than the defaults (1.0): a small drag spun the model too far, and one wheel
-              notch jumped from the framed view to right up close.
-            */}
             <OrbitControls makeDefault rotateSpeed={0.4} zoomSpeed={0.2} />
           </Canvas>
         </div>

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-/** Shown while the search route renders and as the prefetch boundary of the header's form. */
 export default function SearchLoading(): ReactNode {
   return (
     <div className="space-y-6" aria-busy="true">

@@ -11,19 +11,13 @@ export function describeMachine({ machine }: Workload): string {
   ].join(' · ');
 }
 
-/** "where packing runs, code version": what the given settings of a workload are. */
 export function describeDifferences(workload: Workload, ids: readonly string[]): string {
   const settings = workload.configurations[0]?.settings ?? [];
 
   return ids.map((id) => settings.find((setting) => setting.id === id)?.name ?? id).join(', ');
 }
 
-/**
- * Names a configuration by the given settings ("worker threads"), so the legend says what is
- * being compared rather than repeating settings that are the same everywhere. With no ids, a
- * lone configuration is described by all its options; runtime and code only matter when they
- * differ, and then they are among the ids.
- */
+/** Names a configuration only by the settings that differ, so the legend says what is compared. */
 export function describeConfiguration(
   configuration: RunConfiguration,
   ids: readonly string[],

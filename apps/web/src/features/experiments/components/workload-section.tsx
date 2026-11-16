@@ -21,11 +21,6 @@ const runTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
 });
 
-/**
- * One workload of an experiment: what was compared, a chart per metric and the same numbers as
- * a table. A sweep of one numeric option gets a line across its values; any other comparison
- * gets a dot plot with a row per configuration. The metrics come from the command's profile.
- */
 export function WorkloadSection({ workload }: { workload: Workload }): ReactNode {
   const { configurations, differences } = workload;
   const first = configurations[0];
@@ -145,7 +140,6 @@ export function WorkloadSection({ workload }: { workload: Workload }): ReactNode
   );
 }
 
-/** Points and summary of one configuration for one metric, shared by both chart kinds. */
 function toRow(
   configuration: RunConfiguration,
   name: string,

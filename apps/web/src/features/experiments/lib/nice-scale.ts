@@ -1,17 +1,11 @@
-/** A zero-based linear scale whose ticks are round numbers. */
 export interface NiceScale {
-  /** Top of the domain: the last tick, at or above the largest value. */
   max: number;
   ticks: number[];
 }
 
 const STEP_MULTIPLIERS = [1, 2, 2.5, 5, 10];
 
-/**
- * Zero-based on purpose: the charts compare magnitudes ("20 % slower"), and an axis that
- * starts near the smallest value would make a small difference look like a large one.
- * The step is 1, 2, 2.5 or 5 times a power of ten, so ticks read as 0 / 250 / 500 / 750.
- */
+/** Zero-based: an axis starting near the smallest value makes small differences look large. */
 export function niceScale(largestValue: number, targetTickCount = 4): NiceScale {
   if (!Number.isFinite(largestValue) || largestValue <= 0) {
     return { max: 1, ticks: [0, 1] };

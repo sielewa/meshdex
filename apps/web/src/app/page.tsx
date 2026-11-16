@@ -5,11 +5,7 @@ import { AssetGrid } from '@/features/assets/components/asset-grid';
 import { assetsInfiniteQueryOptions } from '@/features/assets/api/assets.queries';
 import { getServerQueryClient } from '@/lib/get-server-query-client';
 
-/**
- * Prefetches the first page on the server (internal gateway endpoint) and hands it to the
- * client grid through the dehydrated cache. A failed prefetch doesn't fail the page: the
- * query is simply missing, and the grid fetches (and reports errors) in the browser.
- */
+/** A failed prefetch doesn't fail the page: the grid fetches and reports errors in the browser. */
 export default async function HomePage(): Promise<ReactNode> {
   const queryClient = getServerQueryClient();
 

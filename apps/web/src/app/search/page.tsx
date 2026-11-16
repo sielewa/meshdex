@@ -15,10 +15,6 @@ interface Props {
 /** Static: `generateMetadata` runs on every prefetch of the route (docs/conventions.md). */
 export const metadata: Metadata = { title: 'Search · Meshdex' };
 
-/**
- * Text search (CLIP over the models' preview images). Prefetches the first step of results
- * on the server; a failed prefetch leaves the client to fetch and report the error.
- */
 export default async function SearchPage({ searchParams }: Props): Promise<ReactNode> {
   const { q } = await searchParams;
   // `?q=a&q=b` takes the first; whitespace-only counts as no query.

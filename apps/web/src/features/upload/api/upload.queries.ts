@@ -41,7 +41,6 @@ export const abortUploadDocument = graphql(`
   }
 `);
 
-/** The upload mutations bound to the browser's gateway endpoint (see `MultipartUploader`). */
 export function createUploadApi(endpoint: string): UploadApi {
   return {
     initiate: async (input) =>
