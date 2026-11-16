@@ -19,7 +19,7 @@ VARIABLES = (
 
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Runs each test where no `.env` exists and without the developer's variables."""
+    # No .env and none of the developer's variables.
     monkeypatch.chdir(tmp_path)
     for name in VARIABLES:
         monkeypatch.delenv(name, raising=False)

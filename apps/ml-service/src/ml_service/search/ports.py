@@ -1,5 +1,3 @@
-"""What search needs from the outside world; adapters satisfy these structurally."""
-
 from collections.abc import Sequence
 from typing import Protocol
 
@@ -8,8 +6,6 @@ from ml_service.embeddings.domain import SearchHit, Vector
 
 
 class TextEmbedder(Protocol):
-    """ClipModel: `name` identifies the model whose vectors it returns."""
-
     @property
     def name(self) -> str: ...
 
@@ -17,6 +13,4 @@ class TextEmbedder(Protocol):
 
 
 class EmbeddingsIndex(Protocol):
-    """EmbeddingsRepository."""
-
     def search(self, model: str, query: Vector, limit: int) -> list[SearchHit]: ...

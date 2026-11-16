@@ -1,19 +1,13 @@
-"""CLIP from open_clip: images and texts embedded into one vector space (ADR 018).
+"""CLIP from open_clip (ADR 018). Vectors are L2-normalised float32.
 
-Every vector returned is L2-normalised float32, so cosine similarity is a dot product and matches
-pgvector's cosine distance (`<=>`) on the stored vectors.
-
-Image preprocessing is split in two (docs/data-processing.md, "uint8 images to the model"):
-`image_transform` does the pixel work (resize, crop, RGB) and returns uint8, in DataLoader workers;
-`embed_images` converts to float and normalises on the model's device. A uint8 image is a quarter
-of the float32 one, so moving batches between processes and to the GPU costs a quarter too.
+Preprocessing is split: `image_transform` resizes and crops to uint8 in the loader workers,
+`embed_images` normalises on the device, so batches move as uint8 (docs/data-processing.md).
 """
 
 import os
 import threading
 
-# Never download at runtime (ADR 018). Set before open_clip imports huggingface_hub, which reads
-# the variable once at import. An exported value still wins.
+# Never download at runtime (ADR 018). huggingface_hub reads this once at import.
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 from collections.abc import Callable, Sequence
@@ -28,24 +22,20 @@ from PIL import Image
 from ml_service.config import ClipSettings
 
 Embeddings = npt.NDArray[np.float32]
-# Batch of images as `image_transform` returns them, stacked: (n, height, width, 3), uint8.
+# (n, height, width, 3)
 ImagePixels = npt.NDArray[np.uint8]
 
 
 class UnknownPretrainedTagError(Exception):
-    """open_clip doesn't know the architecture/tag pair, so its preprocessing is unknown."""
+    pass
 
 
 class UnsupportedPreprocessError(Exception):
-    """open_clip's preprocessing doesn't end with ToTensor + Normalize, so it can't be split."""
+    pass
 
 
 class ImageTransform:
-    """PIL image → uint8 array (height, width, 3): resize, crop and RGB conversion.
-
-    Runs in DataLoader worker processes, so it is picklable: a module-level class holding
-    torchvision transforms, no lambdas.
-    """
+    """A class rather than a closure so it pickles into the loader workers."""
 
     def __init__(self, pixel_steps: Sequence[Callable[[Image.Image], Image.Image]]) -> None:
         self._pixel_steps = list(pixel_steps)
@@ -58,17 +48,12 @@ class ImageTransform:
 
 
 class ClipModel:
-    """A loaded CLIP model in inference mode.
-
-    Thread-safe: one call runs the model at a time (ADR 019). Concurrent calls on one device
-    wouldn't be faster, and torch on mps isn't documented as thread-safe. torch releases the GIL
-    inside its kernels, so threads waiting here don't block the rest of the process.
-    """
+    """One call runs the model at a time (ADR 019): parallel calls on one device aren't faster,
+    and torch on mps isn't documented as thread-safe."""
 
     def __init__(
         self,
         model: open_clip.CLIP,
-        # open_clip's torchvision Compose (untyped).
         preprocess: Any,
         tokenizer: Callable[[list[str]], torch.Tensor],
         name: str,
@@ -80,17 +65,15 @@ class ClipModel:
         self._device = device
         self._lock = threading.Lock()
         self.image_transform, mean, std = _split_preprocess(preprocess)
-        # Shaped to broadcast over (n, 3, height, width), kept on the model's device.
         self._mean = torch.tensor(mean, device=device).view(1, 3, 1, 1)
         self._std = torch.tensor(std, device=device).view(1, 3, 1, 1)
-        # Stored with every embedding: vectors of different models are not comparable.
+        # Stored with every embedding: vectors of different models aren't comparable.
         self.name = name
         self.dimensions = dimensions
 
     def embed_images(self, pixels: torch.Tensor) -> Embeddings:
-        """Embeds a batch from `image_transform`: uint8, shape (n, height, width, 3)."""
         with self._lock, torch.inference_mode():
-            # Same arithmetic as torchvision's ToTensor + Normalize, on the device.
+            # torchvision's ToTensor + Normalize, on the device.
             batch = pixels.to(self._device).permute(0, 3, 1, 2).float().div_(255)
             batch = batch.sub_(self._mean).div_(self._std)
             features = self._model.encode_image(batch, normalize=True)
@@ -106,14 +89,12 @@ class ClipModel:
 
     @staticmethod
     def _to_numpy(features: torch.Tensor) -> Embeddings:
-        # The copy to the CPU waits for the device, so callers time the model's real work.
         return features.float().cpu().numpy()
 
 
 def _split_preprocess(preprocess: Any) -> tuple[ImageTransform, Sequence[float], Sequence[float]]:
-    """open_clip's pipeline is [pixel steps..., ToTensor, Normalize]: the pixel steps go to the
-    workers, ToTensor + Normalize to `embed_images`. Anything else fails at load time instead of
-    preprocessing images differently from training."""
+    """Splits [pixel steps..., ToTensor, Normalize]; any other shape fails at load time rather
+    than preprocessing differently from training."""
     *pixel_steps, to_tensor, normalize = preprocess.transforms
     if (
         type(to_tensor).__name__ not in {"ToTensor", "MaybeToTensor"}
@@ -125,13 +106,8 @@ def _split_preprocess(preprocess: Any) -> tuple[ImageTransform, Sequence[float],
 
 
 def load_clip_model(settings: ClipSettings) -> ClipModel:
-    """Loads the weights file with the preprocessing registered for the pretrained tag.
-
-    open_clip applies a tag's preprocessing (mean/std, interpolation, resize mode, QuickGELU) only
-    when it downloads the weights itself; for a file path it falls back to architecture defaults.
-    Passing the tag's values explicitly keeps images preprocessed exactly as in training, which
-    matters as soon as a model whose values differ from the defaults is configured.
-    """
+    """open_clip applies a tag's preprocessing only when it downloads the weights itself; for a
+    local file it uses architecture defaults, so the tag's values are passed explicitly."""
     pretrained_cfg = open_clip.get_pretrained_cfg(settings.architecture, settings.pretrained)
     model_cfg = open_clip.get_model_config(settings.architecture)
     if not pretrained_cfg or model_cfg is None:

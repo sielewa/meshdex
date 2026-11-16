@@ -1,5 +1,3 @@
-"""SearchService with an in-memory index and the random CLIP model (tests/unit/conftest.py)."""
-
 from uuid import uuid4
 
 import numpy as np

@@ -1,16 +1,13 @@
-"""Text search: the query is embedded with CLIP and matched against stored image embeddings."""
-
 from ml_service.search.domain import SearchResult
 from ml_service.search.exceptions import InvalidSearchQueryError
 from ml_service.search.ports import EmbeddingsIndex, TextEmbedder
 
 
 class SearchService:
-    # Contract (meshdex.ml.v1.SearchAssetsRequest): 0 means the default, at most 100.
+    # From the contract: limit 0 means the default.
     DEFAULT_LIMIT = 20
     MAX_LIMIT = 100
-    # CLIP reads at most 77 tokens and truncates the rest; the limit bounds tokenizer work per
-    # request (ADR 019). Generous for "wooden industrial chair"-style queries.
+    # CLIP truncates at 77 tokens anyway; this bounds tokenizer work per request (ADR 019).
     MAX_QUERY_LENGTH = 500
 
     def __init__(self, texts: TextEmbedder, index: EmbeddingsIndex) -> None:

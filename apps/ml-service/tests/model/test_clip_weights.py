@@ -1,8 +1,4 @@
-"""The real CLIP weights load offline and rank captions sensibly.
-
-Needs the weights file (~600 MB, not in the repository, apps/ml-service/.cache is gitignored), so
-the module is skipped with a visible reason when it's absent.
-"""
+"""Needs the ~600 MB weights file (gitignored); skipped with a reason when it's absent."""
 
 from pathlib import Path
 

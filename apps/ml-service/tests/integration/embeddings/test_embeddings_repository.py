@@ -43,8 +43,7 @@ def _vector(seed: int) -> Vector:
 def _version(
     asset_id: UUID, number: int, names: tuple[str, ...] = ("a.webp",), seed: int = 0
 ) -> VersionEmbeddings:
-    """Image keys contain the version id, like real ones (public/previews/<asset>/<version>.webp),
-    so stored keys show which version the rows belong to."""
+    # Keys contain the version id, like real ones, so stored rows show their version.
     version_id = uuid.uuid4()
 
     return VersionEmbeddings(
@@ -168,7 +167,6 @@ def test_search_ranks_assets_by_their_best_matching_image(
 ) -> None:
     query = _vector(1000)
     close, far = uuid.uuid4(), uuid.uuid4()
-    # `close` has one image almost equal to the query and one unrelated image.
     near_query = (query + 0.05 * _vector(1)).astype(np.float32)
     close_version = VersionEmbeddings(
         asset_id=close,
@@ -191,15 +189,8 @@ def test_search_ranks_assets_by_their_best_matching_image(
 def test_search_through_the_hnsw_index_returns_more_than_its_default_40_rows(
     migrated_database_url: str,
 ) -> None:
-    """An HNSW scan stops after hnsw.ef_search rows (default 40) whatever the LIMIT: the
-    repository has to raise it for large limits.
-
-    On a table this small the planner prefers other plans, and they return all rows, so the test
-    would pass even without the fix. Disabling sequential scans, bitmap scans and sorts leaves the
-    HNSW index as the only way to answer ORDER BY distance (checked with EXPLAIN).
-    """
+    # On a table this small the planner wouldn't use the index; these settings force it.
     planner_options = "-c enable_seqscan=off -c enable_bitmapscan=off -c enable_sort=off"
-    # libpq `options`: every session of this pool starts with these settings.
     url = f"{migrated_database_url}?options={quote(planner_options)}"
     with _pool(url) as pool:
         repository = EmbeddingsRepository(pool)

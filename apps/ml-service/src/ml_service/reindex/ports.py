@@ -1,5 +1,3 @@
-"""What the reindex job needs from the outside world; adapters satisfy these structurally."""
-
 from collections.abc import Iterator, Sequence
 from typing import Protocol
 from uuid import UUID
@@ -13,7 +11,7 @@ class AssetCatalog(Protocol):
 
 
 class ImageSource(Protocol):
-    """Must be picklable: it is sent to DataLoader worker processes."""
+    """Must be picklable: it is sent to the loader workers."""
 
     def get_bytes(self, key: str) -> bytes: ...
 

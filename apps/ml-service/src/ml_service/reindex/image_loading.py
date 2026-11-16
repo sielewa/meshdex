@@ -1,8 +1,4 @@
-"""The part of the reindex job that runs in DataLoader worker processes.
-
-Each worker imports this module when it starts (spawn), so it imports only what loading needs:
-no model code, no database driver.
-"""
+"""Runs in DataLoader workers, which import it on spawn: no model or database imports here."""
 
 import io
 import time
@@ -16,14 +12,11 @@ from torch.utils.data import Dataset
 
 from ml_service.reindex.ports import ImageSource
 
-# One image → uint8 array (height, width, 3); ClipModel.image_transform.
 ImageTransform = Callable[[Image.Image], npt.NDArray[np.uint8]]
 
 
 @dataclass(frozen=True, slots=True)
 class LoadedImage:
-    """One image as a worker produced it: pixels, or the reason there are none."""
-
     index: int
     pixels: npt.NDArray[np.uint8] | None
     error: str | None
@@ -34,33 +27,22 @@ class LoadedImage:
 
 @dataclass(slots=True)
 class ImageBatch:
-    """What the main process receives: the images that loaded, stacked, plus the failures.
-
-    Built inside the worker (collate runs there), so stacking is parallel too. Pixels are a uint8
-    numpy array, sent to the main process through the worker's pipe. Not a torch tensor: on
-    macOS torch shares tensors between processes through shared-memory files, and a worker that
-    sent one then doesn't exit when the DataLoader finishes, so its shutdown waits out a 5 s
-    timeout per worker (measured, docs/data-processing.md). uint8 keeps the copy small: 9.6 MB
-    for 64 images instead of 38.5 MB as float32.
-    """
+    """Pixels are uint8 numpy, not a torch tensor: on macOS a worker that sent a shared-memory
+    tensor doesn't exit and shutdown waits out a 5 s timeout per worker. uint8 is also a quarter
+    of float32 to copy (docs/data-processing.md)."""
 
     pixels: npt.NDArray[np.uint8] | None
-    # Dataset indexes of the rows of `pixels`, in order.
+    # Dataset index of each row of `pixels`.
     indexes: list[int]
     failures: list[tuple[int, str]] = field(default_factory=list)
-    # Summed over the batch's images; worker time, overlapping with the main process.
     fetch_ms: float = 0.0
     decode_ms: float = 0.0
     preprocess_ms: float = 0.0
 
 
 class ImageDataset(Dataset[LoadedImage]):
-    """Map-style dataset over object storage keys: fetch → decode → resize/crop to uint8.
-
-    A failure becomes a value instead of an exception: an exception in a worker would stop the
-    whole DataLoader, and one broken or missing image must not stop a reindex of the catalogue.
-    The job reports every failure and exits non-zero.
-    """
+    """A failed image is returned as a value: an exception in a worker would stop the whole
+    DataLoader over one broken image. The job reports failures and exits non-zero."""
 
     def __init__(self, keys: Sequence[str], source: ImageSource, transform: ImageTransform) -> None:
         self._keys = list(keys)
@@ -74,13 +56,13 @@ class ImageDataset(Dataset[LoadedImage]):
         started = time.perf_counter()
         try:
             data = self._source.get_bytes(self._keys[index])
-        except Exception as error:  # reported per image, see the class docstring
+        except Exception as error:
             return _failed(index, f"fetch: {error!r}", started)
 
         fetched = time.perf_counter()
         try:
             with Image.open(io.BytesIO(data)) as image:
-                # Decoding is lazy in Pillow; load() forces it here so it is timed separately.
+                # Pillow decodes lazily; load() forces it so decoding is timed on its own.
                 image.load()
                 decoded = time.perf_counter()
                 pixels = self._transform(image)
@@ -100,7 +82,7 @@ class ImageDataset(Dataset[LoadedImage]):
 
 
 def collate_images(items: list[LoadedImage]) -> ImageBatch:
-    """Module-level so worker processes can unpickle it by reference."""
+    # Module-level so workers can unpickle it.
     arrays = [item.pixels for item in items if item.pixels is not None]
     loaded = [item for item in items if item.pixels is not None]
 

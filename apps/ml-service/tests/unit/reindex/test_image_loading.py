@@ -1,5 +1,3 @@
-"""ImageDataset and collate_images: what runs inside DataLoader workers."""
-
 import io
 import pickle
 
@@ -99,7 +97,6 @@ def test_images_of_any_aspect_ratio_stack_into_one_batch(
 
 
 def test_the_batch_survives_the_trip_through_a_worker_pipe(clip: ClipModel) -> None:
-    """DataLoader workers pickle the collated batch to send it to the main process."""
     dataset = ImageDataset(["a.png"], _DictSource({"a.png": _png((1, 2, 3))}), clip.image_transform)
     batch = collate_images([dataset[0]])
 

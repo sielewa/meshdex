@@ -1,15 +1,9 @@
-"""Records the reindex sweep of docs/benchmarks/reindex.md: batch size, loader workers and
-prefetch depth, each varied alone around a fixed point.
-
-Usage, from apps/ml-service with the stack and asset-service running and a clean working tree:
+"""The sweep of docs/benchmarks/reindex.md.
 
     uv run python scripts/reindex_sweep.py <rounds> <record-dir>
 
-Every configuration gets one unrecorded warm-up run first (page cache, Postgres buffers, the
-model file), then `rounds` recorded rounds. Each round runs every configuration once, in an
-order rotated per round and reversed on odd rounds, so slow drift (heat, background load) doesn't
-favour one configuration; the ingest sweeps in docs/benchmarks use the same scheme. Every run
-re-embeds the whole catalogue (`--all`), so each does the same work.
+One unrecorded warm-up per configuration, then rounds in an order rotated per round and reversed
+on odd ones, so slow drift (heat, background load) doesn't favour one configuration.
 """
 
 import subprocess
@@ -19,7 +13,6 @@ from pathlib import Path
 from typing import NamedTuple
 
 APP_DIR = Path(__file__).resolve().parents[1]
-# Fields of the "Reindex finished" log line echoed per run, to watch the sweep as it goes.
 ECHOED_FIELDS = (
     "total_ms",
     "first_batch_ms",

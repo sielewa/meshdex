@@ -1,5 +1,3 @@
-"""gRPC client of asset-service: connects and translates the contract, holds no business rules."""
-
 import json
 from collections.abc import Iterator
 from uuid import UUID
@@ -11,11 +9,10 @@ from ml_service.config import AssetServiceSettings
 from ml_service.gen.meshdex.asset.v1 import asset_pb2, asset_pb2_grpc
 
 SERVICE = "meshdex.asset.v1.AssetService"
-# ListAssets' maximum page size: fewest round trips for a full listing.
+# ListAssets' maximum.
 LIST_PAGE_SIZE = 100
 
-# Same retry policy as the gateway's client: only UNAVAILABLE (the request never reached a
-# server or the connection broke) is retried, with exponential backoff; gRPC adds jitter.
+# As in the gateway: only UNAVAILABLE is safe to retry for any call.
 RETRY_POLICY = {
     "maxAttempts": 3,
     "initialBackoff": "0.1s",
@@ -26,8 +23,7 @@ RETRY_POLICY = {
 
 
 def _service_config(settings: AssetServiceSettings) -> str:
-    """Deadlines and retries declared per method in the channel's service config, which gRPC
-    enforces on every call, so no call site can forget them (docs/conventions.md)."""
+    # In the channel's service config, so no call site can forget the deadline.
     read_methods = [{"service": SERVICE, "method": "ListAssets"}]
 
     return json.dumps(
@@ -35,8 +31,7 @@ def _service_config(settings: AssetServiceSettings) -> str:
             "methodConfig": [
                 {
                     "name": read_methods,
-                    # Deadline of the whole call, retries included; sent to the server as
-                    # grpc-timeout so it can stop work nobody waits for.
+                    # Retries included.
                     "timeout": f"{settings.read_timeout_ms / 1000:.3f}s",
                     "retryPolicy": RETRY_POLICY,
                 }
@@ -60,11 +55,7 @@ class AssetServiceClient:
         self._stub = asset_pb2_grpc.AssetServiceStub(channel)
 
     def list_current_versions(self) -> Iterator[CatalogVersion]:
-        """Every asset's current version, page by page (keyset pagination on the server).
-
-        The image is the version's source preview (ADR 017); thumbnails join when the processing
-        worker renders them and decides which image is embedded.
-        """
+        # The image is the source preview until the processing worker renders thumbnails (ADR 017).
         page_token = ""
         while True:
             response = self._stub.ListAssets(

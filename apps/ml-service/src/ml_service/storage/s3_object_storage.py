@@ -1,5 +1,3 @@
-"""Reads objects from S3 (SeaweedFS locally) through boto3 (ADR 018)."""
-
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -17,14 +15,10 @@ class ObjectNotFoundError(Exception):
 
 
 class S3ObjectStorage:
-    """Picklable: the reindex job sends it to DataLoader worker processes.
+    """Pickled into loader workers without its boto3 client, which holds sockets and locks;
+    each process creates its own on first use."""
 
-    The boto3 client is created on first use in each process and never pickled: boto3 clients
-    hold sockets and locks that can't cross a process boundary, and each worker needs its own
-    connection pool anyway.
-    """
-
-    # Seconds. A preview is tens of kB; a read that takes this long is a stuck connection.
+    # Seconds; a preview is tens of kB.
     CONNECT_TIMEOUT = 2
     READ_TIMEOUT = 10
 
@@ -60,7 +54,6 @@ class S3ObjectStorage:
         config = Config(
             connect_timeout=self.CONNECT_TIMEOUT,
             read_timeout=self.READ_TIMEOUT,
-            # "standard": retries throttling and transient errors with backoff and jitter.
             retries={"mode": "standard", "max_attempts": 3},
             s3={"addressing_style": "path" if settings.force_path_style else "auto"},
         )

@@ -1,6 +1,3 @@
-"""ClipModel mechanics on a small randomly initialised model (tests/unit/conftest.py): shapes,
-normalisation, batching, the split preprocessing."""
-
 import pickle
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -26,7 +23,6 @@ def _image(color: tuple[int, int, int], size: tuple[int, int] = (320, 240)) -> I
 
 
 def _pixels(clip: ClipModel, images: list[Image.Image]) -> torch.Tensor:
-    """Stacked the way the reindex job's collate stacks them."""
     return torch.from_numpy(np.stack([clip.image_transform(image) for image in images]))
 
 
@@ -49,7 +45,6 @@ def test_embeds_texts_into_the_same_space(clip: ClipModel) -> None:
 
 
 def test_an_image_embeds_the_same_alone_and_in_a_batch(clip: ClipModel) -> None:
-    """Batch size may change throughput, never results (the reindex benchmark relies on it)."""
     images = [_image((200, 30, 30)), _image((30, 200, 30)), _image((30, 30, 200))]
     pixels = _pixels(clip, images)
 
@@ -62,8 +57,7 @@ def test_an_image_embeds_the_same_alone_and_in_a_batch(clip: ClipModel) -> None:
 def test_split_preprocessing_embeds_like_open_clips_own(
     clip: ClipModel, random_model: open_clip.CLIP, reference_preprocess: Any
 ) -> None:
-    """uint8 in the worker + ToTensor/Normalize on the device must equal open_clip's pipeline:
-    a different input distribution than in training would silently degrade search."""
+    # A different input distribution than in training would silently degrade search.
     gradient = np.linspace(0, 255, 320 * 240 * 3).reshape(240, 320, 3).astype(np.uint8)
     images = [Image.fromarray(gradient), _image((30, 200, 30), (100, 400))]
     reference = torch.stack([reference_preprocess(image) for image in images])
@@ -121,7 +115,6 @@ def test_refuses_a_pretrained_tag_open_clip_does_not_know(tmp_path: Path) -> Non
 
 
 def test_concurrent_calls_from_server_threads_give_the_same_vectors(clip: ClipModel) -> None:
-    """The gRPC server calls the model from several threads; the lock serialises them."""
     texts = [f"query {index}" for index in range(16)]
     expected = [clip.embed_texts([text])[0] for text in texts]
 

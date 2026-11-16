@@ -1,9 +1,3 @@
-"""Smoke test of the generated gRPC code: it imports under ml_service.gen and keeps wire names.
-
-The import rewrite in scripts/generate_proto.py moves the Python modules, but must not change the
-proto package (`meshdex.ml.v1`), which is part of every gRPC method path on the wire.
-"""
-
 from ml_service.gen.meshdex.asset.v1 import asset_pb2, asset_pb2_grpc
 from ml_service.gen.meshdex.ml.v1 import ml_pb2, ml_pb2_grpc
 

@@ -1,10 +1,5 @@
-"""Applies numbered SQL migrations in order, each exactly once (ADR 018).
-
-A migration is `NNN_name.sql` in `ml_service/migrations/`, shipped inside the package so the runner
-finds it from any working directory and in the container image. Applied migrations are recorded in
-`schema_migrations` with a checksum of their SQL: editing a migration that already ran is an error,
-because databases that applied the old text would silently differ from new ones.
-"""
+"""Applies `migrations/NNN_name.sql` in order, each once (ADR 018). A checksum per applied
+migration makes editing one that already ran an error instead of a silent schema drift."""
 
 import hashlib
 import logging
@@ -18,20 +13,18 @@ import psycopg
 
 MIGRATION_FILE_PATTERN = re.compile(r"^(?P<version>\d{3})_(?P<name>[a-z0-9_]+)\.sql$")
 
-# Key of the Postgres advisory lock held while migrating. Any constant works as long as every
-# ml-service process uses the same one; advisory locks are scoped to one database, so it can't
-# collide with another service's locks.
+# Any constant shared by all ml-service processes; advisory locks are per database.
 MIGRATION_LOCK_KEY = 0x6D6C5F6D69677261  # "ml_migra" in ASCII
 
 logger = logging.getLogger(__name__)
 
 
 class InvalidMigrationsError(Exception):
-    """The migration files themselves are wrong (bad name, gap, duplicate)."""
+    pass
 
 
 class MigrationChecksumMismatchError(Exception):
-    """A migration that already ran in this database was changed afterwards."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +39,7 @@ class Migration:
 
 
 def load_migrations(directory: Traversable) -> list[Migration]:
-    """Reads `NNN_name.sql` files; versions must run 1..n without gaps or duplicates.
-
-    Gaps are rejected because they usually mean two branches picked numbers independently, and
-    the order the migrations would run in was never reviewed.
-    """
+    """Gaps are rejected: they usually mean two branches picked numbers independently."""
     migrations: list[Migration] = []
     for entry in directory.iterdir():
         if not entry.is_file() or not entry.name.endswith(".sql"):
@@ -81,25 +70,17 @@ def load_migrations(directory: Traversable) -> list[Migration]:
 
 
 class MigrationRunner:
-    """Brings the database schema up to date.
-
-    Safe to start from several pods at once: a session-level advisory lock lets one runner work
-    while the others wait, and they then find nothing left to apply. Each migration runs in its own
-    transaction together with its `schema_migrations` row, so a failed migration leaves no trace
-    and is retried on the next run. Consequence: statements that can't run in a transaction
-    (`CREATE INDEX CONCURRENTLY`) aren't supported.
-    """
+    """Safe from several pods at once: an advisory lock lets one run while the others wait.
+    Each migration commits with its history row, so `CREATE INDEX CONCURRENTLY` isn't supported."""
 
     def __init__(self, connection: psycopg.Connection[Any]) -> None:
-        # In autocommit mode `transaction()` opens a real transaction per migration; otherwise the
-        # first statement would open an outer one and every migration would become a savepoint.
+        # Otherwise every migration would become a savepoint of one outer transaction.
         if not connection.autocommit:
             raise ValueError("MigrationRunner needs a connection in autocommit mode")
 
         self._connection = connection
 
     def run(self, migrations: Sequence[Migration]) -> list[Migration]:
-        """Applies pending migrations; returns them (empty when the schema is up to date)."""
         self._connection.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK_KEY,))
         try:
             self._create_history_table()
@@ -140,8 +121,7 @@ class MigrationRunner:
         for version, checksum in sorted(applied.items()):
             migration = known.get(version)
             if migration is None:
-                # Applied by a newer release (e.g. an old pod restarting during a rolling update):
-                # newer migrations are expected to stay compatible with the previous release.
+                # A newer release during a rolling update; migrations stay backward compatible.
                 logger.warning(
                     "Database has a migration this release doesn't know", extra={"version": version}
                 )
@@ -155,8 +135,7 @@ class MigrationRunner:
 
     def _apply(self, migration: Migration) -> None:
         with self._connection.transaction():
-            # Executed without parameters, so psycopg sends the file as one simple query and
-            # Postgres runs all its statements.
+            # No parameters: sent as a simple query, so every statement in the file runs.
             self._connection.execute(migration.sql.encode("utf-8"))
             self._connection.execute(
                 "INSERT INTO schema_migrations (version, name, checksum) VALUES (%s, %s, %s)",

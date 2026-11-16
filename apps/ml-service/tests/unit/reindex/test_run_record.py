@@ -1,5 +1,3 @@
-"""The reindex run record (ADR 014): envelope shared with ingest, file naming."""
-
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -92,7 +90,6 @@ def test_an_unlabelled_run_has_no_label_suffix(tmp_path: Path) -> None:
 
 
 def test_untracked_files_dont_make_the_tree_dirty(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Earlier records of the same sweep are untracked; they must not mark later runs dirty."""
     calls: list[list[str]] = []
 
     def fake_command(arguments: list[str]) -> str:

@@ -1,5 +1,3 @@
-"""AssetServiceClient against an in-process gRPC server: paging, translation, deadline."""
-
 import time
 from collections.abc import Iterator
 from concurrent import futures
@@ -19,11 +17,7 @@ from ml_service.gen.meshdex.asset.v1 import asset_pb2
 
 
 class _AssetService:
-    """Serves `assets` in pages of the requested size; the page token is the next offset.
-
-    Registered as a generic handler for ListAssets only: the generated servicer base declares
-    every RPC abstract in its type stubs.
-    """
+    # A generic handler: the generated servicer base declares every RPC abstract in its stubs.
 
     def __init__(self) -> None:
         self.assets: list[asset_pb2.Asset] = []
@@ -141,7 +135,6 @@ def test_follows_page_tokens_with_the_largest_page_size(
 def test_a_call_past_its_deadline_fails_instead_of_hanging(
     service: _AssetService, address: str
 ) -> None:
-    """The deadline comes from the channel's service config, not from the call site."""
     service.delay_s = 1.0
     settings = AssetServiceSettings(url=address, read_timeout_ms=100)
 

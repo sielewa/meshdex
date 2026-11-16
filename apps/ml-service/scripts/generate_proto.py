@@ -1,16 +1,7 @@
-"""Generates Python code for the Meshdex gRPC contracts into src/ml_service/gen/ (gitignored).
+"""Generates the gRPC code into src/ml_service/gen/ (gitignored).
 
-The `.proto` files in packages/proto are the only source of truth; generated code is never edited
-or committed (docs/conventions.md, "Contracts and shared code"). Run through the package's
-`generate` script, which `typecheck` and `test` call first.
-
-Output per contract: `*_pb2.py` (messages), `*_pb2_grpc.py` (client stub and servicer base class),
-and `.pyi` stubs for both, so mypy --strict checks the transport layer too.
-
-Import paths: protoc derives them from the .proto path, so generated files import each other as
-`from meshdex.ml.v1 import ml_pb2`, a top-level `meshdex` package that doesn't exist here. protoc
-has no option to add a prefix, so the imports are rewritten to `ml_service.gen.meshdex...` after
-generation (the approach of the protoletariat tool, without the dependency).
+protoc makes generated files import a top-level `meshdex` package and has no prefix option, so the
+imports are rewritten to `ml_service.gen.meshdex...` afterwards.
 """
 
 import re
@@ -26,7 +17,6 @@ PROTO_ROOT = APP_DIR.parents[1] / "packages" / "proto" / "proto"
 OUTPUT_DIR = APP_DIR / "src" / "ml_service" / "gen"
 OUTPUT_PACKAGE = "ml_service.gen"
 
-# ml-service serves meshdex.ml.v1 and calls asset-service (ListAssets for the reindex job).
 PROTO_FILES = ("meshdex/ml/v1/ml.proto", "meshdex/asset/v1/asset.proto")
 
 GENERATED_IMPORT = re.compile(r"^from meshdex\.", re.MULTILINE)
@@ -34,7 +24,6 @@ UNSUPPORTED_IMPORT = re.compile(r"^import meshdex\.", re.MULTILINE)
 
 
 def _run_protoc() -> None:
-    # Well-known types (google/protobuf/timestamp.proto) ship inside grpcio-tools.
     well_known_types = files("grpc_tools") / "_proto"
     # Stubs come from mypy-protobuf, not protoc's built-in --pyi_out: those use bare generics
     # (`Mapping`) and fail mypy --strict.

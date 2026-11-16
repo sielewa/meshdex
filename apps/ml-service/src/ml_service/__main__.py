@@ -1,10 +1,7 @@
-"""Command-line entry point: `python -m ml_service <command>`.
+"""`python -m ml_service <command>`.
 
-Each command loads only the settings it needs and fails before doing any work if they are invalid.
-
-Commands import their dependencies inside their function: DataLoader workers start with spawn,
-which re-imports this module in every worker, so a top-level import of the model or database code
-would be paid once per worker.
+Commands import their dependencies inside the function: spawned DataLoader workers re-import this
+module, and a top-level model or database import would be paid once per worker.
 """
 
 import argparse
@@ -14,10 +11,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-# gRPC's fork support re-arms its pollers in a forked child, and logs "FD from fork parent" for
-# every DataLoader worker the reindex job starts. Workers are spawned (fork + exec, a fresh
-# interpreter that never touches the parent's channel), so there is nothing to re-arm. Read when
-# grpc is first imported, hence set before any command runs; an exported value still wins.
+# Otherwise gRPC logs "FD from fork parent" for every spawned loader worker, which never uses
+# the parent's channel. Read when grpc is first imported.
 os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "false")
 
 from ml_service.config import LoggingSettings
@@ -59,7 +54,6 @@ def _reindex(args: argparse.Namespace) -> int:
     from ml_service.reindex.run_record import build_run_record, write_run_record
     from ml_service.storage.s3_object_storage import S3ObjectStorage
 
-    # Every setting is validated before the model loads or anything connects.
     database_settings = DatabaseSettings()
     clip_settings = ClipSettings()
     asset_service_settings = AssetServiceSettings()
@@ -117,8 +111,7 @@ def _reindex(args: argparse.Namespace) -> int:
         )
         logger.info("Run recorded", extra={"path": write_run_record(record, args.record)})
 
-    # Non-zero so a Kubernetes Job (or a script) sees that some versions are still missing; a
-    # rerun only picks up what is not embedded yet.
+    # Non-zero so a Kubernetes Job sees missing versions; a rerun picks up only those.
     return 1 if result.failures else 0
 
 
@@ -159,11 +152,10 @@ def _serve() -> int:
     signal.signal(signal.SIGINT, _request_stop)
 
     clip = load_clip_model(clip_settings)
-    # The first model call on a device pays one-off set-up (measured on mps: 1.2 s instead of
-    # 15 ms for a search). Paid here, before readiness, not by the first user.
+    # The first call on a device pays a one-off set-up (1.2 s on mps): not the first user's.
     clip.embed_texts(["warm-up"])
     with create_pool(database_settings, application_name="ml-service") as pool:
-        # Fails here, before the port opens and readiness turns on, when the database is down.
+        # Fail before readiness when the database is down.
         with pool.connection() as connection:
             connection.execute("SELECT 1")
 

@@ -1,9 +1,4 @@
-"""Structured logs on stdout, one JSON object per line.
-
-Same shape as the Node services' pino logs (`level` as a label, ISO `time`, `service`, `msg`), so
-one Loki query works across services. Context goes in `extra`, e.g.
-`logger.info("Embedded batch", extra={"batch_size": 32})`, and becomes top-level keys.
-"""
+"""JSON lines in the shape of the Node services' pino logs; `extra` becomes top-level keys."""
 
 import json
 import logging
@@ -15,7 +10,7 @@ from ml_service.config import LoggingSettings
 
 SERVICE_NAME = "ml-service"
 
-# Attributes every LogRecord has; anything else on a record was passed through `extra`.
+# Anything else on a record came through `extra`.
 _STANDARD_RECORD_ATTRIBUTES = frozenset(vars(logging.makeLogRecord({}))) | {"message", "asctime"}
 
 
@@ -42,7 +37,6 @@ class JsonFormatter(logging.Formatter):
         if record.exc_info:
             entry["err"] = self.formatException(record.exc_info)
 
-        # default=str: ids, paths and other non-JSON values are logged as text instead of failing.
         return json.dumps(entry, default=str)
 
 
@@ -59,7 +53,7 @@ class PrettyFormatter(logging.Formatter):
 
 
 def configure_logging(settings: LoggingSettings) -> None:
-    """Replaces the root handlers, so libraries that log through `logging` share the format."""
+    # Root handlers, so libraries share the format.
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(PrettyFormatter() if settings.pretty else JsonFormatter())
     root = logging.getLogger()

@@ -1,24 +1,15 @@
-"""Configuration from environment variables (and `.env` locally), validated before any work starts.
-
-One settings class per namespace, like the `registerAs` namespaces of the NestJS services: a command
-loads only the namespaces it needs, so `migrate` doesn't require model or storage variables, and a
-missing or malformed variable stops the command with a message listing every problem (ADR 007).
-"""
+"""One settings class per namespace, so a command loads only what it needs (ADR 007)."""
 
 from typing import Literal
 
 from pydantic import Field, FilePath, HttpUrl, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Local development reads apps/ml-service/.env (gitignored); in Kubernetes the variables come from
-# the service's ConfigMap/Secret and the file doesn't exist. Real environment variables win.
 ENV_FILE = ".env"
 
 
 class DatabaseSettings(BaseSettings):
-    """The service's own database (database per service)."""
-
-    # extra="ignore": the .env file holds every namespace, each class reads only its prefix.
+    # The .env file holds every namespace; each class reads its own prefix.
     model_config = SettingsConfigDict(env_prefix="DATABASE_", env_file=ENV_FILE, extra="ignore")
 
     url: PostgresDsn
@@ -26,61 +17,45 @@ class DatabaseSettings(BaseSettings):
 
 
 class GrpcServerSettings(BaseSettings):
-    """The service's own gRPC server (ADR 019)."""
-
     model_config = SettingsConfigDict(env_prefix="GRPC_", env_file=ENV_FILE, extra="ignore")
 
-    # host:port to listen on, as in asset-service.
     url: str = Field(min_length=1)
-    # Threads running requests; DATABASE_POOL_MAX must cover them.
+    # DATABASE_POOL_MAX must cover them (ADR 019).
     max_workers: int = Field(default=8, ge=1)
-    # Requests in progress at once; more are refused with RESOURCE_EXHAUSTED, not queued.
+    # Beyond this, RESOURCE_EXHAUSTED instead of queueing.
     max_concurrent_rpcs: int = Field(default=32, ge=1)
-    # Seconds in-flight requests get to finish after SIGTERM.
     shutdown_grace_s: float = Field(default=10, gt=0)
 
 
 class AssetServiceSettings(BaseSettings):
-    """asset-service, called over gRPC (same variable names as in the gateway and ingest)."""
-
     model_config = SettingsConfigDict(
         env_prefix="ASSET_SERVICE_", env_file=ENV_FILE, extra="ignore"
     )
 
-    # host:port
     url: str = Field(min_length=1)
-    # Deadline of one read call, retries included.
+    # Retries included.
     read_timeout_ms: int = Field(default=2000, ge=1)
 
 
 class S3Settings(BaseSettings):
-    """Object storage: SeaweedFS locally, AWS S3 in the cloud (same names as asset-service)."""
-
     model_config = SettingsConfigDict(env_prefix="S3_", env_file=ENV_FILE, extra="ignore")
 
-    # Unset in AWS: the SDK then uses the regional endpoint.
+    # Unset in AWS: regional endpoint and the pod's IAM role.
     endpoint: HttpUrl | None = None
     region: str = Field(min_length=1)
     bucket: str = Field(min_length=1)
-    # Unset in AWS: the SDK then uses the pod's IAM role. SecretStr keeps them out of logs/reprs.
     access_key_id: SecretStr | None = None
     secret_access_key: SecretStr | None = None
-    # Path-style URLs (http://host/bucket/key), required by local S3 implementations.
+    # Required by local S3 implementations.
     force_path_style: bool = False
 
 
 class ClipSettings(BaseSettings):
-    """The CLIP model: open_clip architecture + pretrained tag, weights from a local file (ADR 018).
-
-    The tag is required even though the weights come from a file: it selects the image
-    preprocessing the weights were trained with and names the model in stored embeddings.
-    """
-
     model_config = SettingsConfigDict(env_prefix="CLIP_", env_file=ENV_FILE, extra="ignore")
 
     architecture: str = Field(min_length=1)
+    # Required with a local weights file too: it selects the training preprocessing.
     pretrained: str = Field(min_length=1)
-    # FilePath: must exist, so a missing weights file stops the service at startup.
     checkpoint_path: FilePath
     device: Literal["cpu", "mps", "cuda"] = "cpu"
 
@@ -89,5 +64,4 @@ class LoggingSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LOG_", env_file=ENV_FILE, extra="ignore")
 
     level: Literal["debug", "info", "warning", "error"] = "info"
-    # Human-readable lines for local development; JSON otherwise.
     pretty: bool = False

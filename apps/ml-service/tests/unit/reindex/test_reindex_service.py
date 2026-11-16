@@ -1,9 +1,3 @@
-"""ReindexService with in-memory catalogue, storage and embeddings store, and the random CLIP model.
-
-Most tests load in the main process (num_workers=0); one runs real spawned workers, which is what
-proves that everything sent to them pickles.
-"""
-
 import io
 from collections.abc import Iterator, Sequence
 from types import SimpleNamespace
@@ -46,7 +40,7 @@ class _Catalog:
 
 
 class _Store:
-    """Records every write; versions in `superseded` are rejected as the version guard would."""
+    """Versions in `superseded` are rejected, as the version guard would."""
 
     def __init__(self, embedded: set[UUID] | None = None, superseded: set[UUID] | None = None):
         self.embedded = embedded or set()
@@ -151,7 +145,6 @@ def test_a_version_whose_images_span_two_batches_is_written_once_complete(
 
 
 def test_a_version_with_a_broken_image_is_reported_and_not_written(clip: ClipModel) -> None:
-    """Partial embeddings would make the version look done and the next run would skip it."""
     healthy, broken = _version("ok.png"), _version("ok-too.png", "missing.png")
     store = _Store()
 
@@ -238,12 +231,8 @@ def test_include_embedded_re_embeds_versions_that_are_done(clip: ClipModel) -> N
 
 
 def test_spawned_workers_load_the_same_embeddings_as_the_main_process(clip: ClipModel) -> None:
-    """Real worker processes: the dataset, storage adapter and transform must pickle.
-
-    The image source is a SimpleNamespace over a dict's bound `__getitem__`: both pickle by
-    reference to builtins, while a class defined in this test file could not be imported by a
-    spawned worker (pytest's importlib mode doesn't put tests on sys.path).
-    """
+    # A class from this file couldn't be imported by a spawned worker (importlib mode), so the
+    # image source is built from builtins that pickle by reference.
     keys = [f"{index}.png" for index in range(5)]
     versions = [_version(key) for key in keys]
     objects = {key: _png((index * 50, 10, 200)) for index, key in enumerate(keys)}

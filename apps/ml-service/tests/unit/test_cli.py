@@ -1,5 +1,3 @@
-"""Argument validation of `python -m ml_service`: bad options stop before anything loads."""
-
 import pytest
 
 from ml_service.__main__ import _parser

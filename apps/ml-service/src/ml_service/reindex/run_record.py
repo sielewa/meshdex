@@ -1,6 +1,4 @@
-"""A reindex run as a JSON record (ADR 014): same envelope as ingest's records (`version`,
-`command`, `label`, `startedAt`, `options`, `environment`, `measurements`, `result`).
-"""
+"""A reindex run as a JSON record, in the same envelope as ingest's (ADR 014)."""
 
 import json
 import os
@@ -79,7 +77,6 @@ def build_run_record(
 
 
 def write_run_record(record: dict[str, Any], directory: Path) -> Path:
-    """File name like ingest's: `<startedAt with ':' and '.' as '-'>-reindex-<label>.json`."""
     directory.mkdir(parents=True, exist_ok=True)
     stamp = str(record["startedAt"]).replace(":", "-").replace(".", "-")
     suffix = f"-{record['label']}" if record["label"] else ""
@@ -103,7 +100,7 @@ def _measurements(wall_ms: float) -> dict[str, Any]:
         "cpuUserMs": round((own.ru_utime + workers.ru_utime) * 1000),
         "cpuSystemMs": round((own.ru_stime + workers.ru_stime) * 1000),
         "peakRssBytes": _max_rss_bytes(own.ru_maxrss),
-        # The largest single worker, not their sum.
+        # The largest worker, not the sum.
         "peakWorkerRssBytes": _max_rss_bytes(workers.ru_maxrss),
     }
 
@@ -144,11 +141,7 @@ def _cpu_model() -> str:
 
 
 def _git_state() -> tuple[str | None, bool | None]:
-    """The commit the run was measured on, and whether tracked files had uncommitted changes.
-
-    Untracked files don't count, as in ingest: records written earlier in the same sweep are
-    untracked until committed, and would otherwise mark every later run dirty.
-    """
+    # Untracked files don't count: records written earlier in a sweep would mark later runs dirty.
     commit = _command(["git", "rev-parse", "HEAD"])
     if commit is None:
         return None, None

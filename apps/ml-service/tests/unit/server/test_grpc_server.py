@@ -1,5 +1,3 @@
-"""GrpcServer lifecycle on a real port: health statuses, bounded concurrency, graceful stop."""
-
 import threading
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -22,7 +20,7 @@ NOT_SERVING = health_pb2.HealthCheckResponse.NOT_SERVING
 
 
 class _BlockingIndex:
-    """Holds every search until `release` is set, so tests control what is in flight."""
+    """Holds every search until `release` is set."""
 
     def __init__(self) -> None:
         self.entered = threading.Semaphore(0)
@@ -50,7 +48,6 @@ def _server(clip: ClipModel, index: _BlockingIndex, **settings: object) -> GrpcS
 
 @pytest.fixture
 def channel_to() -> Iterator[list[grpc.Channel]]:
-    """Channels opened by a test, closed after it."""
     channels: list[grpc.Channel] = []
     yield channels
     for channel in channels:
@@ -65,8 +62,7 @@ def _channel(server: GrpcServer, channels: list[grpc.Channel]) -> grpc.Channel:
 
 
 def _health_check(channel: grpc.Channel, service: str) -> int:
-    """Calls grpc.health.v1.Health/Check through the channel: the stubs of grpcio-health-checking
-    declare no methods on HealthStub."""
+    # grpcio-health-checking's stubs declare no methods on HealthStub.
     check = channel.unary_unary(
         "/grpc.health.v1.Health/Check",
         request_serializer=health_pb2.HealthCheckRequest.SerializeToString,
@@ -105,7 +101,6 @@ def test_stop_turns_readiness_off_and_lets_in_flight_calls_finish(
     server = _server(clip, index)
     server.start()
     channel = _channel(server, channel_to)
-    # Health/Watch: a stream that sends the status now and on every change.
     watch = channel.unary_stream(
         "/grpc.health.v1.Health/Watch",
         request_serializer=health_pb2.HealthCheckRequest.SerializeToString,
@@ -119,10 +114,8 @@ def test_stop_turns_readiness_off_and_lets_in_flight_calls_finish(
         assert index.entered.acquire(timeout=5)
         stopping = pool.submit(server.stop)
 
-        # The watch stream is in flight too, so it sees readiness change before the server goes.
         assert next(readiness).status == NOT_SERVING
-        # An open stream is an in-flight call as well: left open, it would hold stop() for the
-        # whole grace period.
+        # An open stream would hold stop() for the whole grace period.
         readiness.cancel()
         assert not in_flight.done()
         index.release.set()

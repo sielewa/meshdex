@@ -1,5 +1,3 @@
-"""S3ObjectStorage with botocore's Stubber: no network, the requests and responses are checked."""
-
 import io
 import pickle
 
@@ -14,7 +12,6 @@ from ml_service.storage.s3_object_storage import ObjectNotFoundError, S3ObjectSt
 
 
 def _settings(*, force_path_style: bool = True) -> S3Settings:
-    # Every field explicit, so a developer's .env can't change what is tested.
     return S3Settings(
         endpoint=HttpUrl("http://localhost:8333"),
         region="us-east-1",
@@ -61,7 +58,6 @@ def test_other_storage_errors_propagate() -> None:
 
 @pytest.mark.parametrize(("force_path_style", "style"), [(True, "path"), (False, "auto")])
 def test_addressing_style_follows_the_settings(force_path_style: bool, style: str) -> None:
-    """SeaweedFS needs path-style URLs (http://host/bucket/key); AWS picks its own."""
     config = S3ObjectStorage(_settings(force_path_style=force_path_style))._s3().meta.config
 
     # Config sets its attributes dynamically; botocore's stubs don't declare `s3`.

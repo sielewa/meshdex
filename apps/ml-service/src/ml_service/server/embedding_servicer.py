@@ -1,6 +1,3 @@
-"""gRPC transport of meshdex.ml.v1.EmbeddingService: maps messages to domain calls and domain
-exceptions to status codes; holds no business rules."""
-
 import logging
 import time
 
@@ -44,6 +41,5 @@ class EmbeddingServicer(ml_pb2_grpc.EmbeddingServiceServicer):
     def EmbedAsset(  # noqa: N802
         self, request: ml_pb2.EmbedAssetRequest, context: grpc.ServicerContext
     ) -> ml_pb2.EmbedAssetResponse:
-        # Called by the processing worker, which doesn't exist yet; until then the reindex job
-        # embeds assets (ADR 018, ADR 019).
+        # For the processing worker, which doesn't exist yet; reindex embeds until then (ADR 018).
         context.abort(grpc.StatusCode.UNIMPLEMENTED, "EmbedAsset is not implemented yet")

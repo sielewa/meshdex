@@ -1,8 +1,4 @@
-"""Embeds every asset version that has an image and no embedding for the model yet (ADR 018).
-
-catalogue (gRPC) → pending versions → DataLoader workers: fetch, decode, preprocess
-→ CLIP on each batch (main process) → one write per batch (upsert + COPY).
-"""
+"""Embeds asset versions that have an image but no embedding for the model yet (ADR 018)."""
 
 import logging
 import time
@@ -26,16 +22,12 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class ReindexOptions:
     batch_size: int = 64
-    # 0 loads in the main process (no parallelism; useful as a baseline and in tests).
+    # 0 loads in the main process.
     num_workers: int = 4
-    # Batches each worker keeps ready ahead of the model: the prefetch depth.
     prefetch_factor: int = 2
     limit: int | None = None
-    # Also re-embed versions that already have embeddings for the model: after a change to
-    # preprocessing that keeps the model's name, and for benchmarks that repeat the same work.
+    # For a preprocessing change that keeps the model's name, and for benchmarks.
     include_embedded: bool = False
-    # Seconds the main process waits for one batch before failing instead of hanging on a
-    # stuck worker.
     batch_timeout_s: int = 300
 
 
@@ -48,20 +40,17 @@ class ReindexFailure:
 
 @dataclass(slots=True)
 class ReindexTimings:
-    """Milliseconds. Main-process stages add up to (almost) the total; worker stages are sums
-    over all images and overlap with them. Where the main process waits shows the bottleneck:
-    long `loader_wait` means loading can't keep up with the model; short means it can."""
+    """Main-process stages add up to the total; worker stages are sums over images and overlap
+    them. A long `loader_wait` means loading can't keep up with the model."""
 
     list_ms: float = 0.0
-    # Until the first batch arrives: worker start-up (spawn, imports) plus one batch of work.
+    # Worker start-up plus one batch: paid once, so kept out of `loader_wait`.
     first_batch_ms: float = 0.0
     loader_wait_ms: float = 0.0
     model_ms: float = 0.0
     write_ms: float = 0.0
-    # The last call for a batch, which finds the loader exhausted and stops its workers.
     shutdown_ms: float = 0.0
-    # From the end of the first batch's write to the end of the loop: the pipeline running with
-    # workers started and prefetch filled, the throughput a much larger catalogue would see.
+    # Between the first batch and shutdown: what a much larger catalogue would see.
     steady_ms: float = 0.0
     total_ms: float = 0.0
     worker_fetch_ms: float = 0.0
@@ -77,12 +66,11 @@ class ReindexResult:
     versions_without_image: int = 0
     versions_selected: int = 0
     versions_embedded: int = 0
-    # A newer version of the asset was stored while this one was being embedded.
+    # A newer version of the asset was stored meanwhile.
     versions_superseded: int = 0
     images_selected: int = 0
     images_embedded: int = 0
     batches: int = 0
-    # Images embedded by the model after the first batch, i.e. within `timings.steady_ms`.
     steady_images: int = 0
     failures: list[ReindexFailure] = field(default_factory=list)
     timings: ReindexTimings = field(default_factory=ReindexTimings)
@@ -95,14 +83,12 @@ class ReindexResult:
 
     @property
     def steady_images_per_second(self) -> float:
-        """0 with a single batch: there is no steady state to measure."""
         seconds = self.timings.steady_ms / 1000
 
         return self.steady_images / seconds if seconds > 0 else 0.0
 
 
 class ReindexService:
-    # Progress is logged every this many batches.
     LOG_EVERY_BATCHES = 10
 
     def __init__(
@@ -130,9 +116,7 @@ class ReindexService:
         return result
 
     def _select(self, result: ReindexResult, options: ReindexOptions) -> list[CatalogVersion]:
-        """The whole catalogue is listed before loading starts: hundreds of small rows, and the
-        DataLoader then works on a known amount of work. Already embedded versions are found
-        with one query, not one per version."""
+        # Listed up front: hundreds of small rows, and the loader gets a known length.
         versions = list(self._catalog.list_current_versions())
         embedded = (
             set()
@@ -160,7 +144,6 @@ class ReindexService:
     def _embed(
         self, versions: list[CatalogVersion], result: ReindexResult, options: ReindexOptions
     ) -> None:
-        # One dataset item per image; each remembers its version.
         items = [
             (version_index, key)
             for version_index, version in enumerate(versions)
@@ -192,9 +175,8 @@ class ReindexService:
             timings.worker_preprocess_ms += batch.preprocess_ms
 
             model_started = time.perf_counter()
-            # Includes normalisation on the device. embed_images ends with a copy to the CPU,
-            # which waits for the GPU (mps/cuda): the measured time is the model's real time,
-            # not just the launch of its kernels. from_numpy shares the array's memory.
+            # embed_images ends with a copy to the CPU, which waits for the GPU, so this times
+            # the model's work and not just its kernel launches.
             vectors = (
                 self._clip.embed_images(torch.from_numpy(batch.pixels))
                 if batch.pixels is not None
@@ -245,7 +227,7 @@ class ReindexService:
                     },
                 )
 
-        # Excludes the shutdown: a larger catalogue would pay it once too, like the start-up.
+        # Shutdown excluded: paid once, like the start-up.
         if steady_started is not None and result.batches > 1:
             timings.steady_ms = (waited - steady_started) * 1000
 
@@ -256,25 +238,20 @@ class ReindexService:
         return DataLoader(
             dataset,
             batch_size=options.batch_size,
-            # In order: images of one version stay together, so a version is complete (and
-            # written) at most one batch after its first image.
+            # Keeps a version's images together, so it is written soon after its first image.
             shuffle=False,
             num_workers=options.num_workers,
             collate_fn=collate_images,
             prefetch_factor=options.prefetch_factor if parallel else None,
-            # spawn on every platform: fork after torch has initialised a GPU (or its thread
-            # pools) is unsafe, and macOS uses spawn anyway, so runs behave the same everywhere.
+            # fork after torch has initialised the GPU is unsafe; macOS spawns anyway.
             multiprocessing_context="spawn" if parallel else None,
             timeout=options.batch_timeout_s if parallel else 0,
         )
 
 
 class _VersionAssembler:
-    """Collects image embeddings until every image of a version is accounted for.
-
-    A version with a failed image is not written at all: partial embeddings would make the
-    version look done, and the next reindex would skip it.
-    """
+    """Holds a version back until all its images are in. A version with a failed image isn't
+    written: it would look done, and the next reindex would skip it."""
 
     def __init__(self, versions: list[CatalogVersion]) -> None:
         self._versions = versions

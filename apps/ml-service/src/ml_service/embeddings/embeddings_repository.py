@@ -1,14 +1,11 @@
-"""Tables `embedded_versions` (002) and its child `embeddings` (003)."""
-
 from collections.abc import Sequence
 from uuid import UUID
 
 from ml_service.database.pool import Pool
 from ml_service.embeddings.domain import SearchHit, Vector, VersionEmbeddings
 
-# Conditional upsert of the batch's versions. The row lock serialises writers of the same asset;
-# `WHERE` keeps an older version from replacing a newer one (an equal one may: a repeated call
-# replaces its own rows, which makes writes idempotent). RETURNING lists the assets that won.
+# `WHERE` keeps an older version from replacing a newer one; an equal one may, so retries are
+# idempotent. RETURNING lists the assets that won.
 _CLAIM_VERSIONS = """
     INSERT INTO embedded_versions AS stored (model, asset_id, asset_version_id, version_number)
     SELECT %(model)s, batch.asset_id, batch.asset_version_id, batch.version_number
@@ -22,20 +19,16 @@ _CLAIM_VERSIONS = """
     RETURNING asset_id
 """
 
-# Served by the primary key's leading columns (model, asset_id).
 _DELETE_PREVIOUS = "DELETE FROM embeddings WHERE model = %s AND asset_id = ANY(%s)"
 
-# Binary COPY: the whole batch streams to Postgres as one statement with vectors sent as raw
-# float32, no SQL text to build or parse per row. Each row's foreign key is checked against the
-# embedded_versions row claimed just before, in the same transaction (an index lookup per row).
+# Binary COPY: one statement per batch, vectors sent as raw float32.
 _COPY_EMBEDDINGS = """
     COPY embeddings (model, asset_id, image_key, embedding) FROM STDIN WITH (FORMAT BINARY)
 """
 _COPY_TYPES = ["text", "uuid", "text", "vector"]
 
-# Nearest images by cosine distance, then the best image per asset. The inner query is what the
-# HNSW index serves (ORDER BY distance LIMIT n); it fetches more rows than hits requested, because
-# an asset with several images (thumbnails) would otherwise take several of the n places.
+# The inner query is the HNSW scan. It over-fetches because an asset with several images would
+# otherwise take several places; the outer one keeps the best image per asset.
 _SEARCH = """
     SELECT asset_id, max(1 - distance) AS score
     FROM (
@@ -52,10 +45,9 @@ _SEARCH = """
 
 
 class EmbeddingsRepository:
-    # Candidate rows per requested hit; enough while assets have a few images each.
     CANDIDATES_PER_HIT = 4
-    # An HNSW scan returns at most `hnsw.ef_search` rows (pgvector default 40) however large the
-    # LIMIT is, so it is raised per query to cover the candidates; 1000 is pgvector's maximum.
+    # An HNSW scan returns at most `hnsw.ef_search` rows whatever the LIMIT (pgvector: default
+    # 40, max 1000), so it is raised per query to cover the candidates.
     MIN_EF_SEARCH = 40
     MAX_EF_SEARCH = 1000
 
@@ -63,10 +55,7 @@ class EmbeddingsRepository:
         self._pool = pool
 
     def save_versions(self, model: str, versions: Sequence[VersionEmbeddings]) -> set[UUID]:
-        """Stores each version's embeddings in place of its asset's previous ones, in one
-        transaction for the whole batch. Returns the ids of the versions applied; a version older
-        than the one already stored for its asset is skipped.
-        """
+        """Returns the ids of the versions applied; older than the stored one are skipped."""
         newest = _newest_per_asset(versions)
         if not newest:
             return set()
@@ -107,8 +96,7 @@ class EmbeddingsRepository:
         candidates = limit * self.CANDIDATES_PER_HIT
         ef_search = min(max(candidates, self.MIN_EF_SEARCH), self.MAX_EF_SEARCH)
         with self._pool.connection() as connection, connection.transaction():
-            # is_local=true: the setting ends with this transaction, the pooled connection keeps
-            # the server default.
+            # is_local: the setting ends with the transaction, not with the pooled connection.
             connection.execute("SELECT set_config('hnsw.ef_search', %s, true)", (str(ef_search),))
             rows = connection.execute(
                 _SEARCH,
@@ -124,12 +112,8 @@ class EmbeddingsRepository:
 
 
 def _newest_per_asset(versions: Sequence[VersionEmbeddings]) -> list[VersionEmbeddings]:
-    """One version per asset (the newest), sorted by asset id.
-
-    One per asset because `ON CONFLICT DO UPDATE` can't touch the same row twice in one statement.
-    Sorted because two transactions locking overlapping assets in different orders can deadlock;
-    in one global order, one waits for the other instead.
-    """
+    """One per asset because `ON CONFLICT DO UPDATE` can't touch a row twice in one statement;
+    sorted so concurrent batches lock rows in one order and can't deadlock."""
     newest: dict[UUID, VersionEmbeddings] = {}
     for version in versions:
         stored = newest.get(version.asset_id)

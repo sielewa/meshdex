@@ -1,5 +1,3 @@
-"""EmbeddingServicer over a real in-process gRPC server: message mapping and status codes."""
-
 from collections.abc import Iterator
 from concurrent import futures
 from uuid import UUID, uuid4
