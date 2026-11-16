@@ -6,6 +6,5 @@ export interface InitiateUploadInput {
   fileName: string;
   contentType: string;
   sizeBytes: number;
-  /** Optional image uploaded with the model (ADR 017). */
   sourcePreview: ImageUpload | null;
 }

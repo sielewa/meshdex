@@ -42,13 +42,8 @@ import type { PresignedUrl } from './domain/presigned-url.interface';
 import type { StoredObject } from './domain/stored-object.interface';
 
 /**
- * Upload lifecycle of asset versions (UPLOADING -> UPLOADED). File bytes go from
- * the client straight to object storage; this service only plans the upload,
- * signs part URLs and records the result.
- *
- * There is no transaction spanning object storage and the database, so every step
- * is ordered and idempotent: a retried call after a timeout either finishes the
- * missing half or returns the already-finished result.
+ * No transaction spans object storage and the database, so every step is ordered and
+ * idempotent: a retry either finishes the missing half or returns the finished result.
  */
 @Injectable()
 export class AssetUploadService {
@@ -64,11 +59,8 @@ export class AssetUploadService {
   ) {}
 
   /**
-   * Storage first, then the database: if the INSERT fails, an orphaned multipart
-   * upload is left in storage — invisible and unused. It is cleaned up by an
-   * `AbortIncompleteMultipartUpload` lifecycle rule in AWS (Terraform) and, for every
-   * environment, by the planned stale-uploads reconciler (roadmap). The reverse order
-   * could leave a database row pointing at an upload that never existed.
+   * Storage first: a failed INSERT leaves an invisible orphan upload (cleaned by a lifecycle rule),
+   * while the reverse order could leave a row pointing at an upload that never existed.
    */
   async initiate(input: InitiateUploadInput): Promise<InitiatedUpload> {
     const title = this.validateTitle(input.title);
@@ -131,7 +123,6 @@ export class AssetUploadService {
     };
   }
 
-  /** Fresh URLs for resuming an interrupted upload or replacing expired ones. */
   async getPartUrls(versionId: string, requestedPartNumbers: number[]): Promise<PresignedPart[]> {
     this.assertVersionId(versionId);
     const upload = await this.requireUploading(versionId);
@@ -157,8 +148,7 @@ export class AssetUploadService {
       this.countParts(upload.sizeBytes, upload.partSizeBytes),
     );
 
-    // Checked before the parts are assembled: assembling can't be undone, while a missing
-    // image is something the client can still upload and then retry this call.
+    // Before assembling, which can't be undone: the client can still upload the image and retry.
     if (upload.sourcePreview) {
       await this.verifyStoredSourcePreview(upload.versionId, upload.sourcePreview);
     }
@@ -217,7 +207,7 @@ export class AssetUploadService {
     return this.requireAssetView(upload.assetId);
   }
 
-  /** Idempotent: aborting an unknown (well-formed) or already aborted upload succeeds. */
+  /** Idempotent: aborting an unknown or already aborted upload succeeds. */
   async abort(versionId: string): Promise<void> {
     this.assertVersionId(versionId);
     const upload = await this.assetVersionsRepository.findUploadById(versionId);
@@ -257,7 +247,6 @@ export class AssetUploadService {
     const ttlSeconds = this.config.urlTtlSeconds;
     const expiresAt = Date.now() + ttlSeconds * 1000;
 
-    // Signing is local HMAC work (no network), so signing all parts at once is fine.
     return Promise.all(
       partNumbers.map(async (partNumber) => ({
         partNumber,
@@ -267,7 +256,6 @@ export class AssetUploadService {
     );
   }
 
-  /** The image URL lives as long as the part URLs: one small PUT right after InitiateUpload. */
   private async signSourcePreview(sourcePreview: StoredObject): Promise<PresignedUrl> {
     const ttlSeconds = this.config.urlTtlSeconds;
 
@@ -297,7 +285,6 @@ export class AssetUploadService {
     }
   }
 
-  /** The assembled object must match what the client declared before uploading. */
   private async verifyStoredOriginal(upload: VersionUpload): Promise<void> {
     const stored = await this.storage.headObject(upload.originalKey);
 
@@ -373,7 +360,6 @@ export class AssetUploadService {
     }
   }
 
-  /** A malformed id can't name a version; rejecting it here keeps it away from the uuid column. */
   private assertVersionId(versionId: string): void {
     if (!isUuid(versionId)) {
       throw new InvalidAssetVersionIdException(`Asset version id ${versionId} is not a UUID`);
@@ -412,11 +398,7 @@ export class AssetUploadService {
     return this.catalogService.getAsset(assetId);
   }
 
-  /**
-   * Turns user input into canonical tag names: trimmed, lower-case, inner whitespace
-   * as single dashes ("Wooden  Chair" -> "wooden-chair"), duplicates removed, input
-   * order kept. The `tags_name_normalized` check constraint enforces the same rule.
-   */
+  /** "Wooden  Chair" -> "wooden-chair"; the `tags_name_normalized` check enforces the same rule. */
   private normalizeTagNames(rawNames: string[]): string[] {
     const names: string[] = [];
 
@@ -445,12 +427,10 @@ export class AssetUploadService {
     return names;
   }
 
-  /** Every part has `partSizeBytes` except the (smaller) last one. */
   private countParts(sizeBytes: number, partSizeBytes: number): number {
     return Math.ceil(sizeBytes / partSizeBytes);
   }
 
-  /** The version id keeps versions of one asset apart. */
   private originalObjectKey(assetId: string, versionId: string): string {
     return `originals/${assetId}/${versionId}.glb`;
   }
@@ -460,10 +440,7 @@ export class AssetUploadService {
     return `public/previews/${assetId}/${versionId}.${SOURCE_PREVIEW_EXTENSIONS[contentType] ?? 'bin'}`;
   }
 
-  /**
-   * Checks that the client reports every part exactly once and returns them sorted,
-   * as CompleteMultipartUpload requires ascending part numbers.
-   */
+  /** CompleteMultipartUpload requires every part once, in ascending order. */
   private validateCompletedParts(parts: UploadedPart[], partCount: number): UploadedPart[] {
     const sorted = [...parts].sort((left, right) => left.partNumber - right.partNumber);
     const complete =
@@ -479,7 +456,6 @@ export class AssetUploadService {
     return sorted;
   }
 
-  /** Validates requested part numbers; an empty list means "all parts". */
   private resolvePartNumbers(requested: number[], partCount: number): number[] {
     if (requested.length === 0) {
       return Array.from({ length: partCount }, (_, index) => index + 1);

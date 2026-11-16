@@ -4,22 +4,12 @@ import { AssetServiceEnv } from './asset-service.env';
 
 let validatedEnv: AssetServiceEnv | undefined;
 
-/**
- * Validates `process.env` on first use and caches the result, so all namespaces
- * (and `main.ts`, which needs the gRPC URL before Nest starts) share one validation
- * pass. Throws `ConfigValidationException` listing every problem.
- */
+/** Validated once and cached; `main.ts` needs the gRPC URL before Nest starts. */
 function assetServiceEnv(): AssetServiceEnv {
   validatedEnv ??= validateConfig(AssetServiceEnv, process.env);
 
   return validatedEnv;
 }
-
-/**
- * Config split into namespaces: a module injects only its slice with
- * `@Inject(databaseConfig.KEY) config: ConfigType<typeof databaseConfig>`,
- * which is typed and easy to fake in unit tests.
- */
 
 export const grpcConfig = registerAs('grpc', () => ({
   url: assetServiceEnv().GRPC_URL,

@@ -23,10 +23,8 @@ import { S3ObjectStorage } from './infrastructure/s3-object-storage';
               accessKeyId: config.accessKeyId,
               secretAccessKey: config.secretAccessKey,
             },
-            // Recent SDK versions add CRC32 checksums to every request by default, and
-            // presigned part URLs then expect the browser to send a matching checksum
-            // header. Checksums only "when required" keep presigned uploads plain and
-            // compatible with non-AWS S3 implementations such as SeaweedFS.
+            // Default CRC32 checksums would make presigned part URLs expect a checksum header from the
+            // browser, and break SeaweedFS.
             requestChecksumCalculation: 'WHEN_REQUIRED',
             responseChecksumValidation: 'WHEN_REQUIRED',
           }),

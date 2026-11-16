@@ -11,7 +11,7 @@ import { InvalidCatalogRequestException } from './exceptions/invalid-catalog-req
 import { AssetListRepository } from './infrastructure/asset-list.repository';
 import { AssetViewsRepository } from './infrastructure/asset-views.repository';
 
-/** Read side of the asset catalog. Any module may read; writes live in `assets` (ADR 005). */
+/** Any module may read; writes live in `assets` (ADR 005). */
 @Injectable()
 export class CatalogService {
   constructor(
@@ -40,11 +40,7 @@ export class CatalogService {
     return version;
   }
 
-  /**
-   * Many assets in one call, in the order asked for (search ranking). Missing ids are
-   * reported, not treated as an error: another service may still know an asset that
-   * was deleted here (eventual consistency).
-   */
+  /** Missing ids aren't an error: another service may still know a deleted asset. */
   async batchGet(requestedIds: string[]): Promise<BatchGetResult> {
     const ids = [...new Set(requestedIds)];
 
@@ -96,10 +92,7 @@ export class CatalogService {
     };
   }
 
-  /**
-   * Malformed ids can't name an asset. They are rejected before the query, where Postgres
-   * would fail on the uuid column (22P02) and turn a caller's mistake into INTERNAL.
-   */
+  /** Rejected before the query, where Postgres would fail on the uuid column and give INTERNAL. */
   private assertAssetIds(ids: string[]): void {
     const malformed = ids.filter((id) => !isUuid(id));
 

@@ -19,7 +19,6 @@ function loadLocalEnvFile(): void {
 async function bootstrap(): Promise<void> {
   loadLocalEnvFile();
 
-  // Validates the whole environment before Nest starts: a misconfigured pod fails fast.
   const { url } = grpcConfig();
 
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
@@ -29,9 +28,7 @@ async function bootstrap(): Promise<void> {
       url,
       package: MESHDEX_ASSET_V1_PACKAGE_NAME,
       protoPath: require.resolve('@meshdex/proto/proto/meshdex/asset/v1/asset.proto'),
-      // Must match how ts-proto generated the types (buf.gen.yaml): camelCase fields,
-      // int64 as number, default values filled in. A mismatch compiles fine and
-      // breaks at runtime (e.g. `sizeBytes` arriving as `size_bytes` or as a string).
+      // Must match ts-proto's options (buf.gen.yaml): a mismatch compiles and breaks at runtime.
       loader: {
         keepCase: false,
         longs: Number,

@@ -2,7 +2,6 @@ import { bigint, index, pgTable, primaryKey, uuid } from 'drizzle-orm/pg-core';
 import { assets } from './assets.table';
 import { tags } from './tags.table';
 
-/** Many-to-many link between assets and tags. */
 export const assetTags = pgTable(
   'asset_tags',
   {

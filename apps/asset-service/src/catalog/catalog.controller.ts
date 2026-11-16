@@ -20,7 +20,6 @@ import type { PageCursor } from './domain/page-cursor.interface';
 import { InvalidCatalogRequestException } from './exceptions/invalid-catalog-request.exception';
 import { AssetNotFoundException } from './exceptions/asset-not-found.exception';
 
-/** Read RPCs of `meshdex.asset.v1.AssetService`. */
 @Controller()
 export class CatalogController implements Pick<
   AssetServiceController,
@@ -79,10 +78,8 @@ export class CatalogController implements Pick<
   }
 
   /**
-   * Page tokens are opaque to clients (base64url of a small JSON), so the encoding can
-   * change without breaking the contract — which is why it lives here, in the transport
-   * layer, and the service works with positions. Tokens are not secret: a forged one
-   * only moves the caller to another position of a listing it may read anyway.
+   * Opaque to clients, so the encoding can change; that is why it lives in the transport layer.
+   * Not secret: a forged token only moves the caller within a listing it may read anyway.
    */
   private encodePageToken(cursor: PageCursor): string {
     return Buffer.from(
@@ -93,10 +90,7 @@ export class CatalogController implements Pick<
     ).toString('base64url');
   }
 
-  /**
-   * Empty token means the first page; anything malformed is the caller's error. The id is
-   * checked too: a forged token must not reach the keyset query's uuid comparison.
-   */
+  /** The id is checked too: a forged token must not reach the keyset query's uuid comparison. */
   private decodePageToken(token: string): PageCursor | null {
     if (token === '') {
       return null;
@@ -121,17 +115,13 @@ export class CatalogController implements Pick<
         };
       }
     } catch {
-      // Not base64url JSON: falls through to the error below.
+      // Not base64url JSON: the same error as any other malformed token.
     }
 
     throw new InvalidCatalogRequestException('Invalid page token');
   }
 
-  /**
-   * Maps the domain exceptions of the read RPCs to gRPC status codes (services never
-   * throw transport errors). Unknown errors pass through and end up as INTERNAL,
-   * without leaking their message to the caller.
-   */
+  /** Unknown errors pass through as INTERNAL without leaking their message. */
   private toRpcException(error: unknown): unknown {
     if (error instanceof InvalidCatalogRequestException) {
       return new RpcException({
@@ -150,7 +140,7 @@ export class CatalogController implements Pick<
     return error;
   }
 
-  /** Rejects UNSPECIFIED and values this service doesn't know (e.g. from a newer client). */
+  /** Also rejects values from a newer client. */
   private fromProtoStatus(status: ProtoAssetVersionStatus): AssetVersionStatus {
     switch (status) {
       case ProtoAssetVersionStatus.ASSET_VERSION_STATUS_UPLOADING:

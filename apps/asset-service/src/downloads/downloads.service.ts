@@ -9,10 +9,7 @@ import type { OriginalDownloadUrl } from './domain/original-download-url.interfa
 import { InvalidDownloadRequestException } from './exceptions/invalid-download-request.exception';
 import { StoredOriginalsRepository } from './infrastructure/stored-originals.repository';
 
-/**
- * Short-lived read access to original uploads (ADR 010). The bucket stays private; a URL
- * grants access to one object until it expires, and is handed out only on request.
- */
+/** The bucket stays private; a URL grants one object until it expires (ADR 010). */
 @Injectable()
 export class DownloadsService {
   constructor(
@@ -21,10 +18,7 @@ export class DownloadsService {
     @Inject(downloadConfig.KEY) private readonly config: ConfigType<typeof downloadConfig>,
   ) {}
 
-  /**
-   * URLs in request order (duplicates collapsed). Versions without a complete original are
-   * left out rather than failing the batch: one pending upload must not hide the rest.
-   */
+  /** Versions without a complete original are left out: one pending upload mustn't hide the rest. */
   async getOriginalDownloadUrls(requestedIds: string[]): Promise<OriginalDownloadUrl[]> {
     const ids = [...new Set(requestedIds)];
 

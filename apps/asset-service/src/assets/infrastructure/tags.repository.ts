@@ -5,11 +5,7 @@ import { assetTags, tags } from '../../database/schema';
 
 @Injectable()
 export class TagsRepository {
-  /**
-   * Links already-normalized tag names to an asset, creating missing tags. Three
-   * statements regardless of the number of tags (no per-tag round trips); concurrent
-   * uploads with the same new tag are safe thanks to ON CONFLICT DO NOTHING.
-   */
+  /** Three statements for any number of tags; ON CONFLICT DO NOTHING makes concurrent uploads safe. */
   async linkToAsset(assetId: string, names: string[], tx: DbExecutor): Promise<void> {
     if (names.length === 0) {
       return;
