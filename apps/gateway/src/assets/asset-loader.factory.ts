@@ -6,14 +6,9 @@ import type { Asset } from '../clients/asset-service/domain/asset.interface';
 import type { AssetServicePort } from '../clients/asset-service/domain/asset-service-port.interface';
 
 /**
- * Creates the per-request asset DataLoader. Every `load(id)` made while one GraphQL
- * request resolves a level of the query is collected and sent as one BatchGetAssets
- * call, and repeated ids are served from the loader's cache: N fields → 1 RPC, not N.
- *
- * A new loader per request (not a singleton) because the cache must not outlive the
- * request: it would serve stale data and, once auth exists, data across users.
- * Created from the GraphQL context factory instead of a REQUEST-scoped provider, which
- * would make every resolver depending on it request-scoped too.
+ * Loads of one query level become one BatchGetAssets call. One loader per request so its cache
+ * can't serve stale data or other users' data; built in the GraphQL context, because a
+ * REQUEST-scoped provider would make every dependent resolver request-scoped too.
  */
 @Injectable()
 export class AssetLoaderFactory {
@@ -25,7 +20,7 @@ export class AssetLoaderFactory {
     });
   }
 
-  /** DataLoader's contract: one result per key, in key order; missing ids become `null`. */
+  /** DataLoader's contract: one result per key, in key order. */
   private async loadBatch(ids: readonly string[]): Promise<(Asset | null)[]> {
     const assets = await this.assetService.batchGetAssets(ids);
     const byId = new Map(assets.map((asset) => [asset.id, asset]));

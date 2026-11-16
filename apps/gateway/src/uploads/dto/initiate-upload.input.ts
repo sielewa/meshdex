@@ -1,11 +1,7 @@
 import { Field, Float, InputType } from '@nestjs/graphql';
 import { ArrayMaxSize, IsInt, IsString, Min } from 'class-validator';
 
-/**
- * Only shape is checked here. Title/tag rules, the accepted content type and the size
- * limit belong to asset-service (it owns them and reports violations as BAD_USER_INPUT),
- * so they can't drift between two copies.
- */
+/** Only shape: asset-service owns the rules, so they can't drift between two copies. */
 @InputType()
 export class InitiateUploadInput {
   @Field()

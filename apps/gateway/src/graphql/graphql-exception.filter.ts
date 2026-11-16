@@ -2,12 +2,8 @@ import { Catch } from '@nestjs/common';
 import type { GqlExceptionFilter } from '@nestjs/graphql';
 
 /**
- * Hands every resolver error to Apollo unchanged (graphql-js treats a returned `Error` as a
- * field error). Without it, NestJS's default handler logs every `GraphQLError` at `error`
- * level — including expected client errors such as BAD_USER_INPUT — and unexpected errors
- * would be logged twice. Logging happens once, in `GraphqlOptionsFactory.formatError`.
- * Applied per resolver with `@UseFilters`, because a global filter would also catch the
- * HTTP health endpoints, where returning the error sends no response.
+ * Without it NestJS logs every `GraphQLError`, client errors included; logging happens once, in
+ * `formatError`. Per resolver: a global filter would also swallow the HTTP health endpoints.
  */
 @Catch()
 export class GraphqlExceptionFilter implements GqlExceptionFilter {

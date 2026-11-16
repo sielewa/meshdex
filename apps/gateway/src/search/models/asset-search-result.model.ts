@@ -1,10 +1,7 @@
 import { Field, ObjectType } from '@nestjs/graphql';
 import { AssetSearchHitModel } from './asset-search-hit.model';
 
-/**
- * A ranked top-k list, not a connection (ADR 020): nearest-neighbour search has no stable
- * cursor, and the score belongs to each hit.
- */
+/** Not a connection (ADR 020): nearest-neighbour search has no stable cursor. */
 @ObjectType('AssetSearchResult')
 export class AssetSearchResultModel {
   @Field(() => [AssetSearchHitModel], { description: 'Best match first.' })

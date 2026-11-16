@@ -2,10 +2,7 @@ import { Field, ObjectType } from '@nestjs/graphql';
 import { AssetModel } from './asset.model';
 import { PageInfoModel } from './page-info.model';
 
-/**
- * Connection without `edges` (ADR 009): asset-service pages with one cursor per page, not
- * per item. `edges { cursor node }` can be added later without breaking clients.
- */
+/** No `edges` (ADR 009): asset-service has one cursor per page; they can be added later. */
 @ObjectType('AssetConnection')
 export class AssetConnectionModel {
   @Field(() => [AssetModel])

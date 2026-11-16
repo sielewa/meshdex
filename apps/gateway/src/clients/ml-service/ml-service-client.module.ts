@@ -4,10 +4,6 @@ import { MlServiceClientOptionsFactory } from './infrastructure/ml-service-clien
 import { GrpcMlServiceAdapter } from './infrastructure/grpc-ml-service.adapter';
 import { ML_SERVICE, ML_SERVICE_GRPC_CLIENT } from './ml-service.tokens';
 
-/**
- * Client of the separate ml-service microservice: only the gRPC connection and the
- * translation of its contract. Exports only the `ML_SERVICE` port.
- */
 @Module({
   imports: [
     ClientsModule.registerAsync([

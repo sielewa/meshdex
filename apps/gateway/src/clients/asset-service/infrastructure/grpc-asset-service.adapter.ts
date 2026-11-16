@@ -30,19 +30,13 @@ import { AssetStateConflictException } from '../exceptions/asset-state-conflict.
 import { InvalidAssetRequestException } from '../exceptions/invalid-asset-request.exception';
 import { ResourceNotFoundException } from '../exceptions/resource-not-found.exception';
 
-/**
- * `AssetServicePort` over gRPC. Generated proto types stop here: responses are mapped to
- * domain interfaces (string statuses, epoch milliseconds, `null` for empty fields) and gRPC
- * status codes to domain exceptions. Deadlines and retries come from the channel's service
- * config (`AssetServiceClientOptionsFactory`), so every call here has one.
- */
+/** Generated proto types stop here. */
 @Injectable()
 export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
   private client!: AssetServiceClient;
 
   constructor(@Inject(ASSET_SERVICE_GRPC_CLIENT) private readonly grpc: ClientGrpc) {}
 
-  /** The proto is loaded when the module initialises; the TCP connection opens on the first call. */
   onModuleInit(): void {
     this.client = this.grpc.getService<AssetServiceClient>(ASSET_SERVICE_NAME);
   }
@@ -123,10 +117,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     }));
   }
 
-  /**
-   * NestJS returns a cold Observable: the RPC starts on subscription (`lastValueFrom`), and
-   * unsubscribing cancels it. Every call goes through here so error mapping can't be skipped.
-   */
+  /** The Observable is cold: the RPC starts on subscription. */
   private async call<T>(response$: Observable<T>): Promise<T> {
     try {
       return await lastValueFrom(response$);
@@ -136,10 +127,8 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
   }
 
   /**
-   * gRPC status → domain exception. asset-service writes client-safe messages for the
-   * codes it returns on purpose, so `details` is passed on; for transport failures it is
-   * not (it may name hosts and ports). Other codes (INTERNAL, UNKNOWN…) are bugs, not
-   * client errors: they are rethrown unchanged and masked by the GraphQL error formatter.
+   * `details` of transport failures may name hosts and ports, so only service errors pass it on.
+   * Other codes are bugs: rethrown and masked by the GraphQL error formatter.
    */
   private toDomainException(error: unknown): unknown {
     if (!this.isServiceError(error)) {
@@ -166,7 +155,6 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     }
   }
 
-  /** Errors from a gRPC call carry the status `code` and the server's `details` message. */
   private isServiceError(error: unknown): error is ServiceError {
     return (
       error instanceof Error &&
@@ -238,10 +226,7 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     return fromProtoTimestamp(this.required(timestamp, field));
   }
 
-  /**
-   * Message fields are optional in proto3, but asset-service always sets these. A missing
-   * one means a broken contract, which must fail loudly rather than become a fake default.
-   */
+  /** A missing field means a broken contract: fail loudly rather than invent a default. */
   private required<T>(value: T | undefined, field: string): T {
     if (value === undefined) {
       throw new Error(`asset-service response is missing ${field}`);
@@ -250,7 +235,6 @@ export class GrpcAssetServiceAdapter implements AssetServicePort, OnModuleInit {
     return value;
   }
 
-  /** UNSPECIFIED or a value from a newer contract: not something the gateway can show. */
   private fromProtoStatus(protoStatus: ProtoAssetVersionStatus): AssetStatus {
     switch (protoStatus) {
       case ProtoAssetVersionStatus.ASSET_VERSION_STATUS_UPLOADING:

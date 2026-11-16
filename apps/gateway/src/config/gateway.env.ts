@@ -1,11 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsIn, IsInt, IsString, IsUrl, Max, Min } from 'class-validator';
 
-/**
- * Every environment variable the gateway reads, validated once at startup (ADR 007).
- * Modules never touch `process.env`; they inject their config namespace instead.
- * Booleans accept only the literal strings "true"/"false"; anything else fails `@IsBoolean`.
- */
+/** Validated once at startup (ADR 007). */
 export class GatewayEnv {
   @Type(() => Number)
   @IsInt()
@@ -13,7 +9,7 @@ export class GatewayEnv {
   @Max(65535)
   HTTP_PORT!: number;
 
-  /** Comma-separated browser origins allowed to call the API (the web app). */
+  /** Comma-separated. */
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.split(',').map((origin) => origin.trim()) : value,
   )
@@ -27,49 +23,39 @@ export class GatewayEnv {
   )
   CORS_ORIGINS!: string[];
 
-  /** Schema introspection: on locally (tooling, codegen), off in public deployments. */
+  /** Off in public deployments. */
   @Transform(({ value }: { value: unknown }) =>
     value === 'true' ? true : value === 'false' ? false : value,
   )
   @IsBoolean()
   GRAPHQL_INTROSPECTION!: boolean;
 
-  /** host:port of asset-service's gRPC server. */
   @IsString()
   ASSET_SERVICE_URL!: string;
 
-  /** Deadline for read RPCs (GetAsset, BatchGetAssets, ListAssets, GetUploadPartUrls). */
   @Type(() => Number)
   @IsInt()
   @Min(50)
   @Max(60_000)
   ASSET_SERVICE_READ_TIMEOUT_MS!: number;
 
-  /** Deadline for RPCs that change state and talk to object storage (Initiate/Complete/AbortUpload). */
   @Type(() => Number)
   @IsInt()
   @Min(50)
   @Max(120_000)
   ASSET_SERVICE_WRITE_TIMEOUT_MS!: number;
 
-  /** host:port of ml-service's gRPC server. */
   @IsString()
   ML_SERVICE_URL!: string;
 
-  /**
-   * Deadline of SearchAssets, retries included: one CLIP text embedding (~15 ms warm on a
-   * GPU, more on CPU) plus an HNSW query.
-   */
+  /** One CLIP text embedding (~15 ms warm on a GPU) plus an HNSW query, retries included. */
   @Type(() => Number)
   @IsInt()
   @Min(50)
   @Max(60_000)
   ML_SERVICE_SEARCH_TIMEOUT_MS!: number;
 
-  /**
-   * Base URL of public files (ADR 010, 017): CloudFront in the cloud, the S3 emulator's bucket
-   * path locally. A file's URL is this plus its key, so a missing trailing slash is added.
-   */
+  /** CloudFront in the cloud, the S3 emulator's bucket path locally (ADR 010). */
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' && !value.endsWith('/') ? `${value}/` : value,
   )

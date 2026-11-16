@@ -13,7 +13,6 @@ import { SearchAssetsArgs } from './dto/search-assets.args';
 import type { AssetSearchHitModel } from './models/asset-search-hit.model';
 import { AssetSearchResultModel } from './models/asset-search-result.model';
 
-/** Text search: ml-service ranks asset ids, asset-service supplies the assets. */
 @Resolver(() => AssetSearchResultModel)
 @UseFilters(GraphqlExceptionFilter)
 export class SearchResolver {

@@ -6,7 +6,6 @@ import { AssetsResolver } from './assets.resolver';
 import { OriginalDownloadUrlLoaderFactory } from './original-download-url-loader.factory';
 import { StoredFileResolver } from './stored-file.resolver';
 
-/** Asset queries; exports the DataLoader factories for the per-request GraphQL context. */
 @Module({
   imports: [
     AssetServiceClientModule,

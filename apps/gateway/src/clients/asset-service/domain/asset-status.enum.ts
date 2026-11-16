@@ -1,4 +1,4 @@
-/** Status of an asset version as the gateway sees it (proto's UNSPECIFIED never reaches here). */
+/** Proto's UNSPECIFIED never reaches here. */
 export enum AssetStatus {
   UPLOADING = 'uploading',
   UPLOADED = 'uploaded',

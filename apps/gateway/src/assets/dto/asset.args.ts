@@ -3,10 +3,7 @@ import { IsUUID } from 'class-validator';
 
 @ArgsType()
 export class AssetArgs {
-  /**
-   * Checked here because asset-service's ids are UUIDs: one malformed id would otherwise
-   * fail the whole BatchGetAssets call that DataLoader shares between fields.
-   */
+  /** One malformed id would fail the whole BatchGetAssets call that DataLoader shares. */
   @Field(() => ID)
   @IsUUID()
   id!: string;

@@ -1,8 +1,4 @@
-/**
- * Values of `extensions.code` in GraphQL errors — a public contract clients branch on.
- * Values are UPPER_CASE (unlike other enums) because that is the wire format Apollo and
- * GraphQL clients use (`BAD_USER_INPUT`, `INTERNAL_SERVER_ERROR`).
- */
+/** A public contract. UPPER_CASE values, unlike other enums: Apollo's wire format. */
 export enum GraphqlErrorCode {
   BAD_USER_INPUT = 'BAD_USER_INPUT',
   NOT_FOUND = 'NOT_FOUND',

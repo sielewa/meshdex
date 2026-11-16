@@ -9,10 +9,6 @@ import { InvalidSearchRequestException } from '../exceptions/invalid-search-requ
 import { MlServiceUnavailableException } from '../exceptions/ml-service-unavailable.exception';
 import { ML_SERVICE_GRPC_CLIENT } from '../ml-service.tokens';
 
-/**
- * `MlServicePort` over gRPC: maps responses to domain interfaces and gRPC status codes to
- * domain exceptions. Deadline and retries come from the channel's service config.
- */
 @Injectable()
 export class GrpcMlServiceAdapter implements MlServicePort, OnModuleInit {
   private client!: EmbeddingServiceClient;
@@ -43,11 +39,7 @@ export class GrpcMlServiceAdapter implements MlServicePort, OnModuleInit {
     }
   }
 
-  /**
-   * Status codes the gateway can explain to a client; anything else (UNIMPLEMENTED,
-   * INTERNAL…) is a bug or a misconfiguration, rethrown unchanged and masked by the
-   * GraphQL error formatter.
-   */
+  /** Anything else is a bug, rethrown and masked by the GraphQL error formatter. */
   private toDomainException(error: unknown): unknown {
     if (!this.isServiceError(error)) {
       return error;
@@ -56,7 +48,7 @@ export class GrpcMlServiceAdapter implements MlServicePort, OnModuleInit {
     switch (error.code) {
       case status.INVALID_ARGUMENT:
         return new InvalidSearchRequestException(error.details);
-      // RESOURCE_EXHAUSTED: over ml-service's concurrency limit (ADR 019), busy; try later.
+      // Over ml-service's concurrency limit (ADR 019).
       case status.UNAVAILABLE:
       case status.DEADLINE_EXCEEDED:
       case status.RESOURCE_EXHAUSTED:

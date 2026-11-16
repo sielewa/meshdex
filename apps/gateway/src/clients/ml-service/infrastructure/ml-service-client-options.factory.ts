@@ -14,10 +14,7 @@ import {
   RETRY_MAX_BACKOFF,
 } from '../ml-service.constants';
 
-/**
- * gRPC client options for ml-service with a service config: the per-method deadline and
- * retry policy grpc-js enforces on every call (same scheme as `AssetServiceClientOptionsFactory`).
- */
+/** Same scheme as `AssetServiceClientOptionsFactory`. */
 @Injectable()
 export class MlServiceClientOptionsFactory implements ClientsModuleOptionsFactory {
   constructor(
@@ -46,12 +43,7 @@ export class MlServiceClientOptionsFactory implements ClientsModuleOptionsFactor
     };
   }
 
-  /**
-   * SearchAssets only reads, so it is safe to retry, but only on UNAVAILABLE (the request
-   * never reached a healthy server). RESOURCE_EXHAUSTED (ml-service over its concurrency
-   * limit, ADR 019) is not retried: hitting a busy replica again at once adds load where there
-   * is too much already. `timeout` is the deadline of the whole call, retries included.
-   */
+  /** RESOURCE_EXHAUSTED isn't retried: hitting a busy replica again adds load (ADR 019). */
   private serviceConfig(): object {
     return {
       methodConfig: [

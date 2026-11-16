@@ -6,11 +6,7 @@ import {
 } from '../../clients/ml-service/ml-service.constants';
 import { DEFAULT_SEARCH_SIZE } from '../search.constants';
 
-/**
- * Shape and cost bounds only (ADR 009): the length cap keeps an oversized query from reaching
- * ml-service at all; what counts as a usable query (e.g. not blank) is ml-service's rule and
- * comes back as BAD_USER_INPUT.
- */
+/** Shape and cost bounds only (ADR 009); what is a usable query is ml-service's rule. */
 @ArgsType()
 export class SearchAssetsArgs {
   @Field({ description: 'e.g. "rusty industrial barrel"; 1–500 characters.' })

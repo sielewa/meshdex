@@ -16,7 +16,6 @@ function loadLocalEnvFile(): void {
 async function bootstrap(): Promise<void> {
   loadLocalEnvFile();
 
-  // Validates the whole environment before Nest starts: a misconfigured pod fails fast.
   const { port, corsOrigins } = httpConfig();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });

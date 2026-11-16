@@ -1,2 +1,2 @@
-/** S3's limit on parts per multipart upload; a request with more can never be valid. */
+/** S3's limit per multipart upload. */
 export const MAX_UPLOAD_PARTS = 10_000;

@@ -14,12 +14,7 @@ import {
   RETRY_MAX_BACKOFF,
 } from '../asset-service.constants';
 
-/**
- * Builds the gRPC client options for asset-service, including a gRPC **service config**:
- * per-method deadlines and retry policies that grpc-js enforces for every call. Keeping
- * them here (declarative, one place) means no call site can forget a deadline, and the
- * retry rules sit next to the reason a method may or may not be retried.
- */
+/** Deadlines and retries live in the service config, so no call site can forget them. */
 @Injectable()
 export class AssetServiceClientOptionsFactory implements ClientsModuleOptionsFactory {
   /** Only read (or only sign URLs): safe to repeat after a lost response. */
@@ -31,14 +26,10 @@ export class AssetServiceClientOptionsFactory implements ClientsModuleOptionsFac
     'GetOriginalDownloadUrls',
   ];
 
-  /**
-   * Change state but are idempotent in asset-service: repeating CompleteUpload returns the
-   * same asset, repeating AbortUpload succeeds. They talk to object storage, hence the
-   * longer write deadline.
-   */
+  /** Idempotent in asset-service; longer deadline because they talk to object storage. */
   private readonly idempotentWriteMethods = ['CompleteUpload', 'AbortUpload'];
 
-  /** Never retried: every call creates a new asset, so a retry after a lost response duplicates it. */
+  /** A retry after a lost response would create a second asset. */
   private readonly nonIdempotentWriteMethods = ['InitiateUpload'];
 
   constructor(
@@ -53,8 +44,7 @@ export class AssetServiceClientOptionsFactory implements ClientsModuleOptionsFac
         url: this.config.url,
         package: MESHDEX_ASSET_V1_PACKAGE_NAME,
         protoPath: require.resolve('@meshdex/proto/proto/meshdex/asset/v1/asset.proto'),
-        // Must match how ts-proto generated the types (buf.gen.yaml) and how asset-service
-        // loads the same file: camelCase fields, int64 as number, defaults filled in.
+        // Must match ts-proto's generation options (buf.gen.yaml).
         loader: {
           keepCase: false,
           longs: Number,
@@ -68,12 +58,7 @@ export class AssetServiceClientOptionsFactory implements ClientsModuleOptionsFac
     };
   }
 
-  /**
-   * `timeout` is the deadline of the whole call, retries included, and is sent to the
-   * server as `grpc-timeout`, so asset-service can stop work nobody waits for anymore.
-   * Retries happen only on UNAVAILABLE (the request never reached a healthy server);
-   * grpc-js randomises each backoff (jitter), so many gateway pods don't retry in sync.
-   */
+  /** `timeout` covers retries too; only UNAVAILABLE is retried. */
   private serviceConfig(): object {
     return {
       methodConfig: [
@@ -114,10 +99,7 @@ export class AssetServiceClientOptionsFactory implements ClientsModuleOptionsFac
     };
   }
 
-  /**
-   * Object form on purpose: grpc-js parses the string form ("2.5s") digit by digit and
-   * would read the fraction as 5 nanoseconds instead of half a second.
-   */
+  /** grpc-js would read the string form "2.5s" as 2 s + 5 ns. */
   private toDuration(ms: number): { seconds: number; nanos: number } {
     return {
       seconds: Math.floor(ms / 1000),

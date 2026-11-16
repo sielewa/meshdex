@@ -6,11 +6,6 @@ import {
 } from './infrastructure/asset-service-client-options.factory';
 import { GrpcAssetServiceAdapter } from './infrastructure/grpc-asset-service.adapter';
 
-/**
- * Client of the separate asset-service microservice: no data and no business rules live
- * here, only the gRPC connection and the translation of its contract. Exports only the
- * `ASSET_SERVICE` port.
- */
 @Module({
   imports: [
     ClientsModule.registerAsync([

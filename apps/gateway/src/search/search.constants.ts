@@ -1,2 +1,2 @@
-/** Same default as SearchAssets in ml.proto ("Default 20, maximum 100"). */
+/** As in ml.proto. */
 export const DEFAULT_SEARCH_SIZE = 20;
