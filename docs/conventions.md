@@ -59,7 +59,7 @@ apps/<service>/src/
 - **Reads anywhere, aggregate writes in one place** (ADR 005): any module may read a table through its own repository, but writes that change an aggregate's state (e.g. asset version status transitions) go through the module responsible for that lifecycle.
 - **Repositories** only touch the DB and return domain interfaces; "not found" is `null` (`?? null`), never an exception. Method names: `findById`, `findAllByX`, `existsX`, `create`, `updateX`, `markX`, `deleteByX`. Writes that are part of a transaction take the transaction as the last parameter (`tx`).
 - **Background handlers** (listeners, jobs) never crash the process: `try/catch` + structured log with the relevant ids. **Kafka consumers are the exception:** they must not swallow errors — a failure goes through retry/backoff and then the DLQ, otherwise the offset is committed and the event is lost.
-- Event classes document their delivery guarantee in JSDoc (at-least-once ⇒ handlers are idempotent).
+- Event classes state their delivery guarantee in one comment line (at-least-once ⇒ handlers are idempotent).
 
 ## Configuration (per service)
 
@@ -113,7 +113,7 @@ apps/<service>/src/
 - TypeScript strict: no `any` (use `unknown` + narrowing), `null` spelled out in types.
 - Enums: `UPPER_CASE = 'lower_case'` string values.
 - Imports: absolute `src/...` between modules, relative within a module; workspace packages by their package name.
-- Comments: `/** ... */` above classes, methods and fields explaining **why** (invariants, ordering, idempotency, trade-offs), not what. Magic numbers become named `private readonly` fields or live in `<feature>.constants.ts`.
+- **Comments only where the code can't speak for itself:** a non-obvious why (a trade-off, an invariant, ordering, a workaround for a library or platform quirk), a unit or limit the name doesn't carry, or a link to the ADR that holds the reasoning. No comments that restate the name, the types or the next line; no doc comment on every class, method or field; no section banners. Prefer a better name over a comment, one line over a paragraph, and an ADR link over re-explaining it. The same holds for Python docstrings and for tests. Magic numbers become named `private readonly` fields or live in `<feature>.constants.ts`.
 - Time ([ADR 003](adr/003-identifiers-and-time-across-services.md)): compute on ms timestamps (`number`), convert only at boundaries — `google.protobuf.Timestamp` in proto (shared helper), `timestamptz` (UTC) in the DB. Date columns end with `At` (`createdAt`, `processedAt`).
 - Ids ([ADR 003](adr/003-identifiers-and-time-across-services.md)): UUIDv7 generated in the app when the id leaves the service or is needed before INSERT; natural keys where the data has one; `bigint` identity for ids that never leave the service — including surrogate keys referenced only by the service's own tables, where a compact key keeps large join tables small (e.g. `tags.id` in `asset_tags`; the API uses tag names). Random tokens: `crypto.randomInt()` / `crypto.randomBytes()`.
 
