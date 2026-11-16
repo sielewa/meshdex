@@ -3,12 +3,8 @@ import { validateSync, type ValidationError } from 'class-validator';
 import { ConfigValidationException } from './config-validation.exception';
 
 /**
- * Validates raw environment variables against a class-validator schema and returns
- * a typed instance (ADR 007). Meant for `ConfigModule.forRoot({ validate })`, so a
- * misconfigured service fails at boot with **every** problem listed at once.
- *
- * Messages name the variable and the rule, never the value — values may be secrets.
- * Conversion from env strings is explicit in the schema (`@Type(() => Number)`), not implicit.
+ * Lists every problem at once (ADR 007). Messages name the variable and the rule, never the
+ * value: values may be secrets.
  */
 export function validateConfig<T extends object>(
   schema: ClassConstructor<T>,
