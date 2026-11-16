@@ -1,0 +1,11 @@
+# Contracts between services. Lint enforces naming and versioning rules;
+# breaking-change detection runs in CI against the master branch.
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

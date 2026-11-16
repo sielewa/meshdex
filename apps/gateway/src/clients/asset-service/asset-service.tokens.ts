@@ -1,0 +1,2 @@
+export const ASSET_SERVICE = Symbol('ASSET_SERVICE');
+export const ASSET_SERVICE_GRPC_CLIENT = Symbol('ASSET_SERVICE_GRPC_CLIENT');

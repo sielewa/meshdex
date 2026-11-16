@@ -1,0 +1,31 @@
+{
+  "name": "@meshdex/proto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "exports": {
+    "./asset/v1": {
+      "types": "./dist/meshdex/asset/v1/asset.d.ts",
+      "default": "./dist/meshdex/asset/v1/asset.js"
+    },
+    "./ml/v1": {
+      "types": "./dist/meshdex/ml/v1/ml.d.ts",
+      "default": "./dist/meshdex/ml/v1/ml.js"
+    },
+    "./proto/*": "./proto/*"
+  },
+  "scripts": {
+    "generate": "buf generate",
+    "build": "buf generate && tsc -p tsconfig.json",
+    "lint": "buf lint && buf format --diff --exit-code"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "1.75.0",
+    "@grpc/grpc-js": "1.14.7",
+    "@nestjs/common": "12.3.3",
+    "@nestjs/microservices": "12.3.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "ts-proto": "2.18.4"
+  }
+}

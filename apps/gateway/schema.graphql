@@ -1,0 +1,220 @@
+# Generated from the gateway's code-first schema (ADR 011). Do not edit by hand.
+# Regenerate: UPDATE_SCHEMA=true pnpm --filter @meshdex/gateway test -- graphql-api
+
+type Asset {
+  createdAt: DateTime!
+
+  """The version shown to users."""
+  currentVersion: AssetVersion!
+  id: ID!
+
+  """Status of the current version."""
+  status: AssetStatus!
+  tags: [String!]!
+  title: String!
+  updatedAt: DateTime!
+}
+
+type AssetConnection {
+  nodes: [Asset!]!
+  pageInfo: PageInfo!
+}
+
+type AssetSearchHit {
+  asset: Asset!
+
+  """
+  Cosine similarity in [-1, 1], higher is closer; comparable only within one model.
+  """
+  score: Float!
+}
+
+type AssetSearchResult {
+  """Best match first."""
+  hits: [AssetSearchHit!]!
+
+  """Model that ranked the hits, e.g. "ViT-B-32/laion2b_s34b_b79k"."""
+  model: String!
+}
+
+"""
+Lifecycle of an asset version: UPLOADING → UPLOADED → PROCESSING → READY | FAILED.
+"""
+enum AssetStatus {
+  FAILED
+  PROCESSING
+  READY
+  UPLOADED
+  UPLOADING
+}
+
+type AssetVersion {
+  createdAt: DateTime!
+
+  """Set when FAILED; safe to show."""
+  failureReason: String
+  id: ID!
+
+  """1, 2, 3… per asset."""
+  number: Int!
+
+  """Set when READY."""
+  optimized: StoredFile
+
+  """The file as uploaded."""
+  original: StoredFile!
+
+  """
+  Short-lived link to the uploaded file; null until the upload is complete.
+  """
+  originalDownloadUrl: SignedUrl
+
+  """Set when READY or FAILED."""
+  processedAt: DateTime
+
+  """
+  Image supplied with the upload (e.g. the source's render). Shown until thumbnails exist; null when the upload had none.
+  """
+  sourcePreview: StoredFile
+
+  """Set when READY."""
+  stats: ModelStats
+  status: AssetStatus!
+
+  """Empty until READY."""
+  thumbnails: [Thumbnail!]!
+}
+
+input CompleteUploadInput {
+  assetVersionId: ID!
+
+  """One entry per uploaded part, any order."""
+  parts: [CompletedPartInput!]!
+}
+
+input CompletedPartInput {
+  """ETag response header of the part upload."""
+  etag: String!
+  partNumber: Int!
+}
+
+"""UTC date-time in ISO 8601, e.g. 2026-11-12T09:54:33.123Z."""
+scalar DateTime
+
+input InitiateUploadInput {
+  """Only "model/gltf-binary" (.glb) is accepted."""
+  contentType: String!
+  fileName: String!
+
+  """Exact file size in bytes."""
+  sizeBytes: Float!
+  tags: [String!]! = []
+  title: String!
+}
+
+type ModelStats {
+  meshCount: Int!
+  textureCount: Int!
+  triangleCount: Int!
+  vertexCount: Int!
+}
+
+type Mutation {
+  """Cancels an unfinished upload and frees stored parts."""
+  abortUpload(assetVersionId: ID!): Boolean!
+
+  """Assembles the uploaded parts; the version moves to UPLOADED."""
+  completeUpload(input: CompleteUploadInput!): Asset!
+
+  """
+  Creates an asset in UPLOADING state and returns presigned URLs for every part.
+  """
+  initiateUpload(input: InitiateUploadInput!): UploadSession!
+
+  """Fresh presigned URLs to resume an upload or replace expired ones."""
+  renewUploadPartUrls(
+    assetVersionId: ID!
+
+    """Parts to re-sign; null or empty means all."""
+    partNumbers: [Int!]
+  ): [UploadPartUrl!]!
+}
+
+type PageInfo {
+  """Opaque cursor; null on the last page."""
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type Query {
+  """An asset by id; null when it does not exist."""
+  asset(id: ID!): Asset
+
+  """Assets, newest first."""
+  assets(
+    """`pageInfo.endCursor` of the previous page."""
+    after: String
+    first: Int! = 20
+
+    """Empty or null means all."""
+    statuses: [AssetStatus!]
+    tag: String
+  ): AssetConnection!
+
+  """
+  Assets ranked by how well their images match a natural-language query (CLIP), best first.
+  """
+  searchAssets(
+    """1–100."""
+    first: Int! = 20
+
+    """e.g. "rusty industrial barrel"; 1–500 characters."""
+    query: String!
+  ): AssetSearchResult!
+}
+
+type SignedUrl {
+  """Ask again for a fresh URL after this instant."""
+  expiresAt: DateTime!
+  url: String!
+}
+
+type StoredFile {
+  contentType: String!
+
+  """Size in bytes (an integer; Float only to exceed 2^31)."""
+  sizeBytes: Float!
+
+  """Public URL (CDN); null for private files such as the original upload."""
+  url: String
+}
+
+type Thumbnail {
+  file: StoredFile!
+  height: Int!
+
+  """Camera preset of the render, e.g. "front", "three-quarter"."""
+  view: String!
+  width: Int!
+}
+
+type UploadPartUrl {
+  expiresAt: DateTime!
+
+  """1-based, as in S3."""
+  partNumber: Int!
+
+  """
+  Presigned PUT URL for this part; send the ETag header back on completion.
+  """
+  url: String!
+}
+
+type UploadSession {
+  assetId: ID!
+  assetVersionId: ID!
+
+  """Every part except the last has exactly this size (bytes)."""
+  partSizeBytes: Float!
+  parts: [UploadPartUrl!]!
+}

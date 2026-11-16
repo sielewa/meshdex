@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // CommonJS output ("type": "commonjs" in package.json) — ADR 004.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    // NestJS DI and class-validator rely on legacy decorators with emitted type metadata.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
